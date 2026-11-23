@@ -854,7 +854,7 @@
       auth.onAuthStateChanged(CLOUD.fb.A, u => {
         CLOUD.user = u || null; CLOUD.status = u ? 'Signed in' : '';
         CLOUD_DIRTY = u ? CLOUD.soon : null;
-        if (u) CLOUD.sync();
+        if (u) CLOUD.begin(); else CLOUD.end();
       });
     } catch (e) { CLOUD.status = navigator.onLine ? 'Cloud unavailable' : 'Offline'; }
     CLOUD.loading = false;
@@ -862,8 +862,55 @@
   // upload a few seconds after progress (batched, so a burst of saves is one upload)
   CLOUD.soon = () => { if (!CLOUD.timer) CLOUD.timer = setTimeout(() => { CLOUD.timer = 0; CLOUD.sync(); }, 6000); };
   CLOUD.retry = () => { if (!CLOUD.retryT) CLOUD.retryT = setTimeout(() => { CLOUD.retryT = 0; CLOUD.sync(); }, 30000); };
+  // ---- one device at a time ----
+  // Whoever opens the game while signed in becomes "the" playing device (its random session id is written to the cloud save).
+  // Every other signed-in device sees that change at once, freezes behind a screen and stops uploading, so two devices can
+  // never overwrite each other's progress. A web page can't close itself, so the frozen device offers "Play on this device".
+  CLOUD.sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  CLOUD.locked = false; CLOUD.claimed = false;
+  const deviceName = () => { const u = navigator.userAgent; return /iPhone|iPad|iPod/.test(u) ? 'an iPhone or iPad' : /Android/.test(u) ? 'an Android device' : /Windows/.test(u) ? 'a Windows computer' : /Mac/.test(u) ? 'a Mac' : 'another device'; };
+  CLOUD.ref = () => CLOUD.fb.fs.doc(CLOUD.fb.D, 'saves', CLOUD.user.uid);
+  CLOUD.claim = async () => { await CLOUD.fb.fs.setDoc(CLOUD.ref(), { session: CLOUD.sid, sessionAt: Date.now(), device: deviceName() }, { merge: true }); CLOUD.claimed = true; };
+  CLOUD.watch = () => {
+    if (CLOUD.unsub) return;
+    CLOUD.unsub = CLOUD.fb.fs.onSnapshot(CLOUD.ref(), snap => {
+      const r = snap.exists() ? snap.data() : null;
+      if (CLOUD.claimed && r && r.session && r.session !== CLOUD.sid) CLOUD.lock(r.device);
+    }, () => { /* offline: it re-checks when the connection is back */ });
+  };
+  // after sign-in / launch: pull the newest save first, then take over as the playing device
+  CLOUD.begin = async () => {
+    if (!CLOUD.user || CLOUD.beginning || CLOUD.claimed) return;
+    CLOUD.beginning = true;
+    try { await CLOUD.sync(); await CLOUD.claim(); CLOUD.watch(); } catch (e) { CLOUD.status = navigator.onLine ? 'Cloud unavailable' : 'Offline, will sync later'; }
+    CLOUD.beginning = false;
+  };
+  CLOUD.end = () => {   // signed out
+    if (CLOUD.unsub) { try { CLOUD.unsub(); } catch (e) { /* ignore */ } CLOUD.unsub = null; }
+    CLOUD.claimed = false; CLOUD.locked = false; CLOUD.hideLock();
+  };
+  CLOUD.hideLock = () => { const o = document.getElementById('ccdup'); if (o) o.remove(); };
+  CLOUD.lock = device => {
+    if (CLOUD.locked) return;
+    CLOUD.locked = true; if (G.screen === 'battle' && !G.result) G.paused = true;
+    if (CLOUD.timer) { clearTimeout(CLOUD.timer); CLOUD.timer = 0; }
+    CLOUD.hideLock();
+    const o = document.createElement('div'); o.id = 'ccdup';
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(20,12,6,.96);display:flex;align-items:center;justify-content:center;z-index:200;font:16px sans-serif;color:#fff3d6;text-align:center;padding:16px';
+    o.innerHTML = '<div style="max-width:460px"><div style="font-size:26px;font-weight:bold;margin-bottom:12px">Crumb Crusade is open on ' + (device || 'another device') + '</div>'
+      + '<div style="margin-bottom:18px;opacity:.9">To keep your save safe, this device is paused. Close this window, or play here instead (the other device will pause).</div>'
+      + '<button id="ccduph" style="font-size:20px;padding:12px 22px;font-weight:bold">Play on this device</button><div id="ccdupm" style="margin-top:12px;color:#ffb36b"></div></div>';
+    document.body.appendChild(o);
+    o.querySelector('#ccduph').onclick = CLOUD.takeover;
+  };
+  CLOUD.takeover = async () => {
+    const m = document.getElementById('ccdupm'); if (m) m.textContent = 'Loading...';
+    CLOUD.locked = false;
+    try { await CLOUD.sync(); await CLOUD.claim(); CLOUD.hideLock(); toast('You are playing on this device.'); }
+    catch (e) { CLOUD.locked = true; const m2 = document.getElementById('ccdupm'); if (m2) m2.textContent = 'Could not reach the cloud. Check your internet and try again.'; }
+  };
   CLOUD.sync = async () => {
-    if (!CLOUD.on || !CLOUD.user) return;
+    if (!CLOUD.on || !CLOUD.user || CLOUD.locked) return;
     if (CLOUD.busy) { CLOUD.again = true; return; }
     CLOUD.busy = true; CLOUD.status = 'Syncing...';
     const { fs, D } = CLOUD.fb, uid = CLOUD.user.uid, ref = fs.doc(D, 'saves', uid);
@@ -885,7 +932,7 @@
         setSyncMeta({ uid, at: r.savedAt, h: saveHash(S) }); toast('Loaded your cloud save.');
       } else if (localChanged || !remote) {
         const at = S.savedAt || Date.now();
-        await fs.setDoc(ref, { save: makeCode(S), savedAt: at, cleared: S.cleared || 0, updated: fs.serverTimestamp() });
+        await fs.setDoc(ref, { save: makeCode(S), savedAt: at, cleared: S.cleared || 0, updated: fs.serverTimestamp() }, { merge: true });   // merge keeps the session marker
         setSyncMeta({ uid, at, h: saveHash(S) });
       }
       CLOUD.status = 'Synced';
@@ -913,9 +960,10 @@
   };
   CLOUD.label = () => !CLOUD.user ? '☁ Sign in to sync' : '☁ ' + (CLOUD.status === 'Synced' ? 'Synced ✓' : CLOUD.status || 'Signed in');
   if (HAS_DOM) {
-    window.addEventListener('online', () => { if (!CLOUD.on) CLOUD.init(); else CLOUD.sync(); });
+    const resync = () => { if (CLOUD.user) { if (CLOUD.claimed) CLOUD.sync(); else CLOUD.begin(); } };
+    window.addEventListener('online', () => { if (!CLOUD.on) CLOUD.init(); else resync(); });
     // upload when leaving, pull the newest when coming back (e.g. after playing on the other device)
-    document.addEventListener('visibilitychange', () => { if (CLOUD.user) CLOUD.sync(); });
+    document.addEventListener('visibilitychange', resync);
     CLOUD.init();
   }
 
@@ -2194,6 +2242,7 @@
   // Going to a screen already in the history cuts the loop off, so it never grows forever.
   const HIST = [];
   function pushHist(from) { if (from && from !== 'battle' && from !== 'title' && from !== 'info') HIST.push(from); }
+  const inTutorial = idx => idx === 0 && !(S.cleared > 0);   // the very first stage of a new game: no retreating until it is won
   function go(screen, isBack) {
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
@@ -2633,14 +2682,19 @@
       const nextIdx = !r.win || isSpecial(B.idx) ? -1 : !lastOfSec ? B.idx + 1 : nextSec < SECTIONS.length && secOpen(S, nextSec) ? encIdx(nextSec, 0) : -1;
       const hasNext = nextIdx >= 0;
       const backSp = isSpecial(B.idx);                                    // legend stages return to the Legend Stages list
-      btn(c, p.x + 40, yy + 16, 150, 60, backSp ? 'Legend' : 'Map', () => { go(backSp ? 'legendmap' : 'map'); }, { color: '#f3d49a', size: backSp ? 20 : undefined });
-      btn(c, p.x + 205, yy + 16, 150, 60, 'Bakery', () => go('shop'), { color: '#8fc0a9' });
-      btn(c, p.x + 370, yy + 16, 150, 60, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
+      if (inTutorial(B.idx)) {   // first stage not won yet: no way out except trying again
+        btn(c, p.x + 150, yy + 16, 260, 60, 'Retry', () => startBattle(B.idx));
+      } else {
+        btn(c, p.x + 40, yy + 16, 150, 60, backSp ? 'Legend' : 'Map', () => { go(backSp ? 'legendmap' : 'map'); }, { color: '#f3d49a', size: backSp ? 20 : undefined });
+        btn(c, p.x + 205, yy + 16, 150, 60, 'Bakery', () => go('shop'), { color: '#8fc0a9' });
+        btn(c, p.x + 370, yy + 16, 150, 60, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
+      }
     } else if (G.paused) {
       const p = overlayPanel(c, 420, 300);
       text(c, 'PAUSED', 640, p.y + 60, 46, OUT, 'center', null, HEAD);
       btn(c, p.x + 60, p.y + 110, 300, 64, 'Resume', () => { G.paused = false; sfx('click'); });
-      btn(c, p.x + 60, p.y + 196, 300, 64, isSpecial(G.battle.idx) ? 'Retreat' : 'Retreat to map', () => go(isSpecial(G.battle.idx) ? 'special' : 'map'), { color: '#f3d49a' });
+      if (inTutorial(G.battle.idx)) text(c, 'Win this first stage to continue!', 640, p.y + 228, 20, '#7c5432', 'center');
+      else btn(c, p.x + 60, p.y + 196, 300, 64, isSpecial(G.battle.idx) ? 'Retreat' : 'Retreat to map', () => go(isSpecial(G.battle.idx) ? 'special' : 'map'), { color: '#f3d49a' });
     }
   }
 
@@ -3814,7 +3868,7 @@
     ],
     daily: [
       { id: 'd1', text: 'Win 3 battles', goal: 3, val: s => missDaily(s).wins, rw: { tickets: 1 } },
-      { id: 'd2', text: 'Win a Legend stage', goal: 1, val: s => missDaily(s).legend, rw: { sugar: 10 } },
+      { id: 'd2', text: 'Win 8 battles', goal: 8, val: s => missDaily(s).wins, rw: { sugar: 10 } },
       { id: 'd3', text: 'Upgrade 5 times', goal: 5, val: s => missDaily(s).ups, rw: { crumbs: 1500 } },
       { id: 'd4', text: 'Collect an Expedition', goal: 1, val: s => missDaily(s).expo, rw: { crumbs: 500 } },
       { id: 'd5', text: 'Win 5 battles', goal: 5, val: s => missDaily(s).wins, rw: { nt: 5 } },
