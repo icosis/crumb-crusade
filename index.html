@@ -13,6 +13,14 @@
   canvas { display: block; touch-action: none; user-select: none; -webkit-user-select: none;
            box-shadow: 0 10px 50px rgba(0,0,0,.6); border-radius: 6px; cursor: default; }
   #out { position: fixed; left: 0; top: 0; color: #fff; font: 12px monospace; white-space: pre; }
+  /* "turn your phone sideways": only on a narrow screen held upright; "Play anyway" hides it */
+  #rot { display: none; position: fixed; inset: 0; z-index: 300; background: #1b1410; color: #fff3d6; font: 20px sans-serif; text-align: center;
+         flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+  #rot .ph { width: 64px; height: 108px; border: 6px solid #f6b93b; border-radius: 14px; margin-bottom: 26px; animation: rotphone 2.4s ease-in-out infinite; }
+  #rot button { margin-top: 26px; font: bold 17px sans-serif; padding: 12px 22px; border-radius: 12px; border: 0; background: #f6b93b; color: #3a2416; }
+  @keyframes rotphone { 0%, 25% { transform: rotate(0deg); } 65%, 100% { transform: rotate(-90deg); } }
+  @media (orientation: portrait) and (max-width: 900px) { #rot { display: flex; } }
+  html.rotok #rot { display: none !important; }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -24,6 +32,12 @@
 <body>
 <canvas id="game" width="1280" height="720"></canvas>
 <pre id="out"></pre>
+<div id="rot"><div class="ph"></div><div>Turn your phone sideways to play</div><button id="rotok" type="button">Play anyway</button></div>
+<script>
+document.getElementById('rotok').onclick = function () { document.documentElement.className += ' rotok'; };
+// in the installed app, ask the phone to stay sideways (only works in fullscreen; harmless elsewhere)
+document.addEventListener('pointerdown', function () { try { screen.orientation.lock('landscape').catch(function () {}); } catch (e) {} }, { once: true });
+</script>
 <script>
 /* Crumb Crusade — an original bakery lane-battler. No external assets; everything is drawn in code. */
 'use strict';
@@ -70,7 +84,7 @@
   };
   const UNIT_ORDER = Object.keys(UNITS);
   const isOwned = (save, id) => (UNITS[id].special ? !!(save.awakened && save.awakened[id]) : UNITS[id].gacha ? !!(save.owned && save.owned[id]) : UNITS[id].unlock <= save.cleared);
-  const stageLabel = i => { if (isSpecial(i)) return 'SP'; const sec = secOf(i), b = baseOf(i), m = MAPS.findIndex(mp => b >= mp.first && b <= mp.last); return (sec ? 'S' + (sec + 1) + ' ' : '') + (m + 1) + '-' + (b - MAPS[m].first + 1); };
+  const stageLabel = i => { if (isSpecial(i)) return i >= TOWER_BASE ? 'Floor ' + (i - TOWER_BASE) : 'SP'; const sec = secOf(i), b = baseOf(i), m = MAPS.findIndex(mp => b >= mp.first && b <= mp.last); return (sec ? 'S' + (sec + 1) + ' ' : '') + (m + 1) + '-' + (b - MAPS[m].first + 1); };
   const lockText = d => (d.special ? 'Beat the Awakening stage (on the map) to unlock' : d.gacha ? 'Find in the Gacha' : 'Clear stage ' + stageLabel(d.unlock - 1) + ' to recruit');
   const RARITY = {
     R:  { name: 'Rare',        color: '#6fb7d9', light: '#cfe8f5', dark: '#0f2438', rate: .70 },
@@ -426,6 +440,8 @@
   const PUSH = { 10: 1.6, 20: 1.8 };                                       // from stage index onward
   STAGES.forEach((st, i) => { const p = i >= 20 ? PUSH[20] : i >= 10 ? PUSH[10] : 0; if (!p) return; st.push = p; for (const w of st.waves) if (w.e) w.e = Math.round(w.e * .85 * 100) / 100; });
   // Sugar Cubes: the premium currency (Battle Cats' Cat Food). Earned on first clears; spent on gacha pulls and in the Shop.
+  // gentle bad-luck protection on top of the Battle Cats rates: this many draws in a row without a Super Rare (or better) / Uber Rare (or better) guarantees one
+  const PITY_SR = 12, PITY_UR = 60;
   const SUGAR_FIRST = [30, 50, 80], SUGAR_SPECIAL = 50, SUGAR_PULL = 150;            // per first clear (by section) / legend stage / per gacha draw
   const SHOP_ITEMS = {
     radar: { name: 'Treasure Radar', price: 300, desc: 'Your next win on a stage finds its treasure at Superior.' },
@@ -454,7 +470,49 @@
       { u: 'goldbug', t: 3, e: 4.5 }, { u: 'roach', t: 6, e: 10 }, { u: 'beetle', t: 12, e: 14 }, { u: 'mouse', t: 24, e: 30 }, { u: 'goldbug', hp: .5, t: 0, e: 1.2, n: 6 }] },
     { key: 'crumb4', kind: 'crumb', name: 'Crumb Rush', diff: 'Legend', theme: 'night', len: 2400, hp: 40000, mag: 4.2, need: 20, reward: 100000, waves: [
       { u: 'goldbug', t: 2, e: 3.5 }, { u: 'wasp', t: 6, e: 8 }, { u: 'beetle', t: 10, e: 11 }, { u: 'mouse', t: 18, e: 20 }, { u: 'ratking', hp: .7, t: 0 }, { u: 'goldbug', hp: .4, t: 0, e: 1, n: 8 }] },
+    // Daily Twist: rebuilt every day by applyDaily() from one of the main stages plus a twist (the numbers below are only a placeholder)
+    { key: 'daily', kind: 'daily', name: 'Daily Twist', diff: 'Today', theme: 'kitchen', len: 2200, hp: 10000, mag: 3, need: 10, reward: 6000, waves: [{ u: 'ant', t: 2, e: 3 }] },
+    // Trials: only a few bakers may fight (you pick them before the battle)
+    // (the trials reuse the pest line-ups of main stages, so they stay properly designed; "N bakers" limits which TYPES may fight, not how many you send)
+    { key: 'trio1', kind: 'trial', name: 'Trio Trial', diff: '3 bakers', theme: 'pantry', len: 2200, hp: 25500, mag: 3.4, need: 15, reward: 12000, limit: 3, waves: STAGES[11].waves },
+    { key: 'trio2', kind: 'trial', name: 'Trio Trial', diff: '2 bakers', theme: 'cellar', len: 2300, hp: 34500, mag: 4.6, need: 20, reward: 24000, limit: 2, waves: STAGES[14].waves },
+    { key: 'trio3', kind: 'trial', name: 'Trio Trial', diff: '1 baker', theme: 'night', len: 2400, hp: 22500, mag: 3.0, need: 25, reward: 50000, limit: 1, waves: STAGES[17].waves },
+    // Heavenly Tower: endless floors, built by towerStage() (the numbers below are only a placeholder)
+    { key: 'tower', kind: 'tower', name: 'Heavenly Tower', diff: 'Endless', theme: 'roof', len: 2200, hp: 8000, mag: 2.2, need: 25, reward: 0, waves: [{ u: 'ant', t: 2, e: 3 }] },
   ];
+  // Battle indexes: normal stages 0-24, Legend stages SP_BASE + k, Heavenly Tower floor f = TOWER_BASE + f, Section 2/3 stages from SEC_STRIDE
+  const TOWER_BASE = 500, TOWER_MAX = 499;
+  const TOWER_BOSSES = ['ratking', 'queen', 'crow', 'crazed'], TOWER_THEMES = ['kitchen', 'pantry', 'sink', 'night', 'garden', 'cellar', 'roof'];
+  // Floor f borrows the (tested) pest line-up of main stage 3 + 0.7 f, capped at the last stage, and grows stronger every floor.
+  function towerStage(f) {
+    const t = Math.min(STAGES.length - 1, 3 + Math.floor(f * .7)), base = STAGES[t];
+    const waves = base.waves.map(w => (w.e ? Object.assign({}, w, { e: Math.round(w.e * Math.max(.6, 1 - f * .008) * 100) / 100 }) : Object.assign({}, w)));
+    if (f % 5 === 0) waves.push({ u: TOWER_BOSSES[(f / 5 - 1) % TOWER_BOSSES.length], hp: .55, t: 0 });   // a boss joins every 5th floor
+    // strength rises evenly (it does NOT depend on the borrowed stage, whose own strength is hand-tuned): pests x1.8 at floor 1, +9% of that per floor
+    return { key: 'tower' + f, kind: 'tower', name: 'Heavenly Tower', diff: 'Floor ' + f, theme: TOWER_THEMES[(f - 1) % TOWER_THEMES.length], len: base.len,
+      hp: 9000 + f * 2500, mag: Math.round(TOWER_MAG0 * (1 + (f - 1) * TOWER_GROW) * 100) / 100, need: 0, reward: Math.round((3000 + f * 1500) / 10) * 10, waves, push: 1 + Math.min(.8, f * .02) };
+  }
+  const TOWER_MAG0 = 1.8, TOWER_GROW = .09;
+  // Daily Twist: one main stage (changes with the date) with one twist (also changes with the date)
+  const DAILY_MODS = [
+    { id: 'rush', name: 'Rush Hour', desc: 'Pests arrive 50% faster.' },
+    { id: 'beefy', name: 'Beefy Pests', desc: 'Pests are 30% tougher, and the reward is 30% bigger.' },
+    { id: 'dry', name: 'Dry Oven', desc: 'Your dough comes 25% slower.' },
+    { id: 'frail', name: 'Frail Bakers', desc: 'Your bakers have 30% less health.' },
+    { id: 'thick', name: 'Thick Walls', desc: 'The pests\' bin has 60% more health.' },
+  ];
+  const dayKey = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+  function applyDaily() {
+    const sp = SPECIALS.find(x => x.kind === 'daily'), key = dayKey();
+    if (S && S.dailyKey !== key) { S.dailyKey = key; if (S.spDone) delete S.spDone.daily; persist(); }   // a new day: playable (and paying) again
+    if (sp.dayKey === key) return;
+    const mod = DAILY_MODS[key % DAILY_MODS.length], b = 4 + (key * 13) % 14, base = STAGES[b];   // one of main stages 5 to 18
+    sp.dayKey = key; sp.mod = mod; sp.baseIdx = b; sp.theme = base.theme; sp.len = base.len; sp.push = base.push;
+    sp.waves = base.waves.map(w => (mod.id === 'rush' && w.e ? Object.assign({}, w, { e: Math.round(w.e * 67) / 100 }) : Object.assign({}, w)));
+    sp.mag = mod.id === 'beefy' ? Math.round(base.mag * 130) / 100 : base.mag; sp.hp = Math.round(base.hp * (mod.id === 'thick' ? 1.6 : 1));
+    sp.incomeMul = mod.id === 'dry' ? .75 : 1; sp.unitHp = mod.id === 'frail' ? .7 : 1;
+    sp.reward = Math.round(baseReward(b) * 1.2 * (mod.id === 'beefy' ? 1.3 : 1) / 10) * 10;
+  }
   // Sections (Battle Cats chapters): the same 25 stages, replayed harder. A stage in section k has index k * SEC_STRIDE + i.
   // Section 2 opens when Section 1 is fully cleared, Section 3 after Section 2. Each section has its own treasures (they stack).
   const SECTIONS = [
@@ -474,7 +532,7 @@
   }
   const SP_STAGE = SPECIALS[0];
   const isSpecial = i => i >= SP_BASE && i < SEC_STRIDE;
-  const stageOf = i => (isSpecial(i) ? SPECIALS[i - SP_BASE] : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
+  const stageOf = i => (isSpecial(i) ? (i >= TOWER_BASE ? towerStage(i - TOWER_BASE) : SPECIALS[i - SP_BASE]) : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
   // Legend stages stay locked until the Crumb Rebellion (Section 2) is unlocked, i.e. every Section 1 stage is cleared;
   // after that each one also needs its own stage count, as before.
   const legendOpen = save => secOpen(save, 1);
@@ -615,13 +673,13 @@
   };
   const upCost = (base, lv) => Math.round(base * lv * (1 + lv * .25) / 5) * 5;
   const baseReward = i => (i < 10 ? Math.round((300 + 150 * i) * Math.pow(1.13, i) / 10) * 10 : Math.round(4960 * Math.pow(1.08, i - 9) / 10) * 10);   // maps 1-2: 300 ... 4960; maps 3-4 keep climbing ~8% per stage (x2 on first clear)
-  const stageReward = i => (isSpecial(i) ? SPECIALS[i - SP_BASE].reward : secOf(i) ? Math.round(baseReward(baseOf(i)) * SECTIONS[secOf(i)].reward / 10) * 10 : baseReward(i));
+  const stageReward = i => (isSpecial(i) ? stageOf(i).reward : secOf(i) ? Math.round(baseReward(baseOf(i)) * SECTIONS[secOf(i)].reward / 10) * 10 : baseReward(i));
 
   // =====================================================================
   // SAVE
   // =====================================================================
   const SAVE_KEY = 'crumb-crusade-save-v1';
-  function defaultSave() { return { crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
+  function defaultSave() { return { pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
   let NO_PERSIST = !HAS_DOM;
   // Storage layers, tried in order. Some editors (w3editor, sandboxed iframes) block or wipe
   // localStorage, so we also mirror to window.name, which survives a refresh in the same tab.
@@ -709,7 +767,9 @@
         if (j.base && j.base.charge == null) { s.base.charge = s.base.pin; s.base.range = MAX_LV; }
         for (const k of Object.keys(BASE_UP)) s.base[k] = clamp(Math.floor(+s.base[k] || 1), 1, baseNatMax(k));
         if (j.basePlus && typeof j.basePlus === 'object') { s.basePlus = {}; for (const k of Object.keys(BASE_UP)) { const n = Math.floor(+j.basePlus[k] || 0); if (n > 0) s.basePlus[k] = Math.min(basePlusMax(k), n); } }
-        s.muted = !!j.muted; s.noSaveTips = j.noSaveTips === true; Object.assign(s.seen, j.seen || {}); s.tickets = Math.max(0, Math.floor(+j.tickets || 0)); if (j.evolved && typeof j.evolved === 'object') for (const id of Object.keys(j.evolved)) if (UNITS[id]) s.evolved[id] = 1;
+        s.muted = !!j.muted; s.noSaveTips = j.noSaveTips === true;
+        s.tower = clamp(Math.floor(+j.tower || 0), 0, TOWER_MAX); s.dailyKey = Math.max(0, Math.floor(+j.dailyKey || 0));
+        if (j.pity && typeof j.pity === 'object') s.pity = { sr: clamp(Math.floor(+j.pity.sr || 0), 0, PITY_SR), ur: clamp(Math.floor(+j.pity.ur || 0), 0, PITY_UR) }; Object.assign(s.seen, j.seen || {}); s.tickets = Math.max(0, Math.floor(+j.tickets || 0)); if (j.evolved && typeof j.evolved === 'object') for (const id of Object.keys(j.evolved)) if (UNITS[id]) s.evolved[id] = 1;
         s.gfx = clamp(Math.floor(+j.gfx || 0), 0, 4); s.gfxAuto = j.gfxAuto === true;   // older saves: manual (whatever setting they have stays put)
         if (j.treasure && typeof j.treasure === 'object') for (const key of Object.keys(j.treasure)) { const k = +key, g = Math.floor(+j.treasure[key] || 0); if (g > 0 && TREASURES[k % SEC_STRIDE] && Math.floor(k / SEC_STRIDE) < SECTIONS.length) s.treasure[k] = clamp(g, 1, 3); }
         // treasures already looked at (for the hub badge). Older saves: treat everything found so far as seen.
@@ -1044,21 +1104,49 @@
     const l = pad(save.lineup.slice(0, LINEUP)).map((id, i, a) => (id && owned.includes(id) && a.indexOf(id) === i ? id : null));
     return l; // may be empty after Clear
   }
-  function newBattle(idx, save) {
+  // ---- Bakery Combos (like Battle Cats' Cat Combos): equip every baker of a combo together for a bonus in battle ----
+  const COMBOS = [
+    { id: 'rush', name: 'Morning Rush', units: ['bun', 'cookie'], eff: { cd: .10 } },
+    { id: 'club', name: 'Breakfast Club', units: ['bun', 'loaf'], eff: { income: .08 } },
+    { id: 'butter', name: 'Bread & Butter', units: ['baguette', 'croissant'], eff: { start: 150 } },
+    { id: 'berry', name: 'Berry Good', units: ['muffin', 'cupcake'], eff: { atk: .10 } },
+    { id: 'carnival', name: 'Churro Carnival', units: ['churro', 'scone'], eff: { cd: .10 } },
+    { id: 'knight', name: 'Knight Shift', units: ['waffle', 'pie'], eff: { hp: .10 } },
+    { id: 'spice', name: 'Spice Cabinet', units: ['cinnabun', 'macaron'], eff: { pin: .20 } },
+    { id: 'banquet', name: 'Royal Banquet', units: ['tart', 'cake'], eff: { oven: .20 } },
+    { id: 'golden', name: 'Golden Hour', units: ['phoenix', 'tart'], eff: { income: .15 } },
+    { id: 'dragon', name: 'Dragon Bakery', units: ['dragon', 'gingerbread'], eff: { atk: .08, hp: .08 } },
+    { id: 'sweet', name: 'Sweet Tooth', units: ['cookie', 'cupcake', 'donut'], eff: { atk: .12 } },
+    { id: 'crust', name: 'Iron Crust', units: ['loaf', 'pie', 'strudel'], eff: { hp: .15 } },
+    { id: 'parade', name: 'Pastry Parade', units: ['pretzel', 'croissant', 'donut'], eff: { cd: .08 } },
+    { id: 'dream', name: 'Dough Dream', units: ['pancake', 'waffle', 'macaron'], eff: { start: 300, cap: .10 } },
+  ];
+  const pct = v => Math.round(v * 100) + '%';
+  const COMBO_FX = { atk: v => '+' + pct(v) + ' attack', hp: v => '+' + pct(v) + ' health', cd: v => '-' + pct(v) + ' recharge time', income: v => '+' + pct(v) + ' dough income',
+    start: v => '+' + v + ' starting dough', oven: v => '+' + pct(v) + ' oven health', pin: v => 'Rolling Pin charges ' + pct(v) + ' sooner', cap: v => '+' + pct(v) + ' wallet size' };
+  const comboText = eff => Object.keys(eff).map(k => COMBO_FX[k](eff[k])).join('  ·  ');
+  const comboActive = (cb, roster) => cb.units.every(u => roster.includes(u));
+  function comboTotals(roster) {
+    const t = { atk: 0, hp: 0, cd: 0, income: 0, start: 0, oven: 0, pin: 0, cap: 0, list: [] };
+    for (const cb of COMBOS) if (comboActive(cb, roster)) { t.list.push(cb); for (const k of Object.keys(cb.eff)) t[k] += cb.eff[k]; }
+    return t;
+  }
+  function newBattle(idx, save, rosterOverride) {
     const st = stageOf(idx), len = Math.round(st.len * .7);
-    const roster = lineupOf(save);
-    const pstats = {}; for (const id of roster) if (id) pstats[id] = unitStats(id, save);
+    const roster = rosterOverride || lineupOf(save);
+    const cmb = comboTotals(roster);
+    const pstats = {}; for (const id of roster) if (id) { const p = unitStats(id, save), tw = st.unitHp || 1; pstats[id] = Object.assign({}, p, { hp: Math.max(1, Math.round(p.hp * (1 + cmb.hp) * tw)), dmg: Math.round(p.dmg * (1 + cmb.atk)) }); }
     const defs = {}; for (const id of roster) if (id) defs[id] = talentDef(save, id, defFor(save, id));
     const talents = {}; for (const id of roster) if (id && UNITS[id].talent) talents[id] = talentLv(save, id);
     const orbs = {}; for (const id of roster) if (id && orbOk(save, id) && save.orbEq && save.orbEq[id]) orbs[id] = orbParse(save.orbEq[id]);
-    const bl = k => baseLv(save, k), php = 1000 + 500 * (bl('oven') - 1);
+    const bl = k => baseLv(save, k), php = Math.round((1000 + 500 * (bl('oven') - 1)) * (1 + cmb.oven));
     return {
-      idx, st, len, diffMul: 1, pEdge: 190, eEdge: len - 190, time: 0,
+      idx, st, len, diffMul: 1, pEdge: 190, eEdge: len - 190, time: 0, combos: cmb.list,
       units: [], parts: [], nums: [], projs: [], rings: [], booms: [], ripples: [], surges: [],
-      money: 80, wallet: 1, incomeMul: 1 + .12 * softLv(bl('wallet')) + treasureBonus(save, 'dough'), cdMul: (1 - treasureBonus(save, 'cd')) * (1 - .02 * softLv(bl('research'))),
-      capMul: 1 + .05 * (bl('tin') - 1), bountyMul: 1 + .1 * softLv(bl('accounting')), orbs, roster, pstats, talents, defs, recharge: {},
+      money: 80 + cmb.start, wallet: 1, incomeMul: (1 + .12 * softLv(bl('wallet')) + treasureBonus(save, 'dough') + cmb.income) * (st.incomeMul || 1), cdMul: (1 - treasureBonus(save, 'cd')) * (1 - .02 * softLv(bl('research'))) * (1 - cmb.cd),
+      capMul: 1 + .05 * (bl('tin') - 1) + cmb.cap, bountyMul: 1 + .1 * softLv(bl('accounting')), orbs, roster, pstats, talents, defs, recharge: {},
       pbase: { hp: php, maxHp: php, shake: 0 }, ebase: { hp: st.hp, maxHp: st.hp, shake: 0 },
-      pinMax: pinCharge(bl('charge')), pinCharge: 0, pinDmg: pinDmgAt(bl('pin')), pinReach: pinReach(bl('range')), pin: null,
+      pinMax: pinCharge(bl('charge')) * (1 - cmb.pin), pinCharge: 0, pinDmg: pinDmgAt(bl('pin')), pinReach: pinReach(bl('range')), pin: null,
       waves: st.waves.map(w => Object.assign({}, w, { active: w.hp == null, timer: w.t || 0, left: w.n != null ? w.n : (w.e ? Infinity : 1) })),
       over: null, overT: 0, shake: 0, banner: null, kills: 0,
     };
@@ -1424,10 +1512,11 @@
     if (slot >= 0 && !k.includes(id)) { k[slot] = id; save.lineup = k; }
   }
   // ---- gacha (Battle Cats rates): rare 70% / super rare 25% / uber rare 4.7% / legend rare 0.3%; an 11-draw costs 10 tickets, no guarantee ----
-  function rollGacha(rnd, minSR) {
+  function rollGacha(rnd, minSR, minUR) {
     const x = rnd(), L = RARITY.LR.rate, U = L + RARITY.UR.rate, Sr = U + RARITY.SR.rate;
     let r = x < L ? 'LR' : x < U ? 'UR' : x < Sr ? 'SR' : 'R';
     if (minSR && r === 'R') r = 'SR';
+    if (minUR && (r === 'R' || r === 'SR')) r = 'UR';
     const pool = UNIT_ORDER.filter(id => UNITS[id].rarity === r);
     return pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))];
   }
@@ -1440,8 +1529,11 @@
     if (!save.owned) save.owned = {};
     if (!Array.isArray(save.capsule)) save.capsule = [];
     const res = [];
+    if (!save.pity) save.pity = { sr: 0, ur: 0 };
+    const pity = save.pity;
     for (let i = 0; i < draws; i++) {
-      const id = rollGacha(rnd), rarity = UNITS[id].rarity, out = { id, rarity };
+      const id = rollGacha(rnd, pity.sr >= PITY_SR - 1, pity.ur >= PITY_UR - 1), rarity = UNITS[id].rarity, out = { id, rarity };
+      pity.sr = rarity === 'R' ? pity.sr + 1 : 0; pity.ur = rarity === 'UR' || rarity === 'LR' ? 0 : pity.ur + 1;   // bad-luck counters
       out.isNew = !save.owned[id] && !save.capsule.includes(id);   // first copy ever: shown as NEW
       save.capsule.push(id);                                          // every pull goes into the Capsule; the player decides what to do with it
       res.push(out);
@@ -1522,7 +1614,7 @@
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2288,9 +2380,12 @@
     G.sec = S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : null; G.map = null; go('map', true);
   }
   function goBack(fallback) { const to = HIST.pop() || fallback || 'prep'; if (to === 'special') scReset(); go(to, true); }
-  function startBattle(i) {
+  function startBattle(i, picked) {
     if (!lineupOf(S).some(Boolean)) { sfx('deny'); toast('Equip at least one unit first!'); return; }
-    G.auto = !!S.cpu; G.battle = newBattle(i, S); G.cam = 0;
+    if (isSpecial(i) && i < TOWER_BASE && stageOf(i).kind === 'daily') applyDaily();
+    const lim = stageOf(i).limit;
+    if (lim && !picked) { G.pick = { idx: i, n: lim, sel: lineupOf(S).filter(Boolean).slice(0, lim) }; sfx('click'); return; }   // trials: choose which bakers fight first
+    G.auto = !!S.cpu; G.battle = newBattle(i, S, picked ? lineupOf(S).map(id => (id && picked.includes(id) ? id : null)) : null); G.cam = 0;
     if (S.items && S.items.rich > 0) { S.items.rich--; G.battle.money = Math.min(G.battle.money + 1500, 99999); persist(); toast('Rich Bun used: +1500 dough!'); } G.zoom = 1; if (G.screen !== 'battle') { const j = HIST.lastIndexOf(G.screen); if (j >= 0) HIST.length = j; pushHist(G.screen); } G.screen = 'battle'; G.paused = false; G.result = null; G.acc = 0; sfx('up');
   }
   // Rare Tickets from a win. They are rare on purpose (steady sources: Missions, the daily mission, User Rank and Expeditions):
@@ -2298,6 +2393,7 @@
   //   the Awakening stage's first clear: 1 ticket.
   const TICKET_FIRST_CHANCE = .15, TICKET_REPEAT_CHANCE = .05;
   function rollTickets(i, first) {
+    if (isSpecial(i) && i >= TOWER_BASE) return first && (i - TOWER_BASE) % 10 === 0 ? 1 : 0;   // the Heavenly Tower: a ticket for every 10th floor, first time only
     if (isSpecial(i)) return first ? 1 : Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
     if (first) return MAPS.some(m => m.last === baseOf(i)) ? 1 + secOf(i) : Math.random() < TICKET_FIRST_CHANCE ? 1 : 0;
     return Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
@@ -2311,6 +2407,8 @@
         const sp = stageOf(i);
         if (sp.kind === 'grain') { grain = sp.grain; S.grain = (S.grain || 0) + grain; }
         if (sp.kind === 'awaken' && !(S.awakened && S.awakened.bakemut)) { first = true; crumbs *= 2; S.awakened = S.awakened || {}; S.awakened.bakemut = 1; S.levels.bakemut = Math.max(S.levels.bakemut || 1, 10); unlocked = ['bakemut']; autoEquip(S, 'bakemut'); }
+        if (sp.kind === 'tower') { const fl = i - TOWER_BASE; if (fl > (S.tower || 0)) { first = true; crumbs *= 2; S.tower = fl; } else crumbs = Math.round(crumbs * .25 / 10) * 10; }   // a floor pays double the first time, a quarter when replayed
+        if ((sp.kind === 'daily' || sp.kind === 'trial') && !S.spDone[sp.key]) { first = true; crumbs *= 2; }
       } else if (secOf(i)) {
         const sc = secOf(i), b = baseOf(i); S.secCleared = S.secCleared || {};
         if ((S.secCleared[sc] || 0) <= b) { first = true; crumbs *= 2; S.secCleared[sc] = b + 1; }
@@ -2327,10 +2425,14 @@
       const tr = []; for (const w of stageOf(i).waves) for (const t of FOES[w.u].traits || []) if (ORB_TRAITS.includes(t) && !tr.includes(t)) tr.push(t);
       orb = rollOrb(tr); S.orbs = S.orbs || {}; S.orbs[orb] = (S.orbs[orb] || 0) + 1;
     }
-    let sugar = 0;
-    if (win && isSpecial(i)) { const sp = stageOf(i); if (!S.spDone[sp.key]) { S.spDone[sp.key] = 1; sugar = SUGAR_SPECIAL; } }
+    let sugar = 0, np = 0;
+    if (win && isSpecial(i)) {
+      const sp = stageOf(i);
+      if (sp.kind === 'tower') { const fl = i - TOWER_BASE; S.spDone.tower = 1; if (first) { if (fl % 5 === 0) sugar = 10 + fl; if (fl % 10 === 0) np = 10 + fl * 2; } }   // milestone floors pay Sugar Cubes and NP
+      else if (!S.spDone[sp.key]) { S.spDone[sp.key] = 1; sugar = sp.kind === 'daily' ? 30 : SUGAR_SPECIAL; }
+    }
     else if (win && first) sugar = SUGAR_FIRST[secOf(i)] || 30;
-    S.sugar = (S.sugar || 0) + sugar;
+    S.sugar = (S.sugar || 0) + sugar; S.np = (S.np || 0) + np;
     if (win) { missStats(S).wins++; const dd = missDaily(S); dd.wins++; if (isSpecial(i)) dd.legend++; }
     const tickets = win ? rollTickets(i, first) : 0; S.tickets = (S.tickets || 0) + tickets;
     const nt = win ? (first ? 2 : 1) : 0; S.ntickets = (S.ntickets || 0) + nt; S.crumbs += crumbs; persist(); if (win) markDirty();
@@ -2338,7 +2440,34 @@
     const newSec = win && first && !isSpecial(i) && baseOf(i) === STAGES.length - 1 && secOf(i) + 1 < SECTIONS.length ? secOf(i) + 1 : -1;   // just opened the next section?
     if (newMap >= 0) G.map = newMap;
     if (newSec >= 0) { G.sec = newSec; G.map = null; }
-    G.result = { win, crumbs, first, unlocked, tickets, treasure, newMap, grain, newSec, sugar, orb, nt };
+    G.result = { win, crumbs, first, unlocked, tickets, treasure, newMap, grain, newSec, sugar, orb, nt, np };
+  }
+  // Trials: pick the few bakers that may fight (the rest stay home)
+  function drawPick(c) {
+    const P = G.pick; if (!P) return;
+    c.fillStyle = 'rgba(0,0,0,.66)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
+    const x = 190, y = 100, w = 900, h = 520, L = lineupOf(S);
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#3f5a5c', '#111', 5);
+    const hg = c.createLinearGradient(0, y, 0, y + 84); hg.addColorStop(0, '#c98d4e'); hg.addColorStop(1, '#7d5129'); rr(c, x + 5, y + 5, w - 10, 80, 20, hg, null);
+    text(c, 'Pick ' + (P.n === 1 ? 'your baker' : 'up to ' + P.n + ' bakers'), x + 36, y + 38, 32, '#fff', 'left', '#2b1a0e', HEAD);
+    text(c, 'Only the bakers you pick can fight in ' + stageOf(P.idx).name + '.   Chosen: ' + P.sel.length + ' / ' + P.n, x + 36, y + 68, 16, '#fff3d6', 'left');
+    for (let i = 0; i < LINEUP; i++) {
+      const id = L[i], cx = x + 30 + (i % 5) * 172, cy = y + 100 + Math.floor(i / 5) * 162, cw = 160, ch = 152;
+      if (!id) { rr(c, cx, cy, cw, ch, 12, 'rgba(0,0,0,.25)', null); text(c, 'Empty', cx + cw / 2, cy + ch / 2, 16, '#8a9a98', 'center'); continue; }
+      const on = P.sel.includes(id), d = UNITS[id];
+      rr(c, cx, cy, cw, ch, 12, on ? '#fff3d6' : '#c9ddd6', on ? '#ffd23a' : '#2c7a72', on ? 5 : 3);
+      c.save(); c.beginPath(); c.rect(cx + 6, cy + 6, cw - 12, 90); c.clip(); c.fillStyle = on ? '#bfe6df' : '#a8b8b2'; c.fillRect(cx, cy, cw, 100); portrait(c, id, cx + cw / 2, cy + 94, 82, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore();
+      fitLine(c, nameOf(S, id), cx + cw / 2, cy + 114, cw - 14, 17, OUT, 'center'); text(c, 'Lv ' + unitLv(S, id) + '   cost ' + d.cost, cx + cw / 2, cy + 136, 14, '#23403c', 'center');
+      if (on) { dot(c, cx + 22, cy + 22, 16, '#ffd23a'); text(c, String(P.sel.indexOf(id) + 1), cx + 22, cy + 23, 20, OUT, 'center', null, HEAD); }
+      hit(cx, cy, cw, ch, () => {
+        if (on) P.sel = P.sel.filter(q => q !== id);
+        else if (P.sel.length >= P.n) { sfx('deny'); toast('Only ' + P.n + ' baker' + (P.n > 1 ? 's' : '') + ' allowed. Tap one to take it out first.'); return; }
+        else P.sel = P.sel.concat(id);
+        sfx('click');
+      });
+    }
+    baseBtn(c, x + 30, y + h - 74, 200, 56, 'Cancel', () => { G.pick = null; sfx('click'); }, { size: 26 });
+    baseBtn(c, x + w - 270, y + h - 74, 240, 56, 'Start!', () => { if (!P.sel.length) { sfx('deny'); toast('Pick at least one baker.'); return; } const sel = P.sel.slice(), idx = P.idx; G.pick = null; startBattle(idx, sel); }, { size: 30, disabled: !P.sel.length });
   }
   function tryDeploy(id) { if (!deploy(G.battle, id)) sfx('deny'); }
   function tryWallet() { if (!upgradeWallet(G.battle)) sfx('deny'); }
@@ -2669,6 +2798,27 @@
     fitText(c, t.sub, 640, 120, 700, 16, '#f3d49a', 'center');
     if (t.ring) { const p = Math.sin(G.time * 6), e = 4 + p * 2; c.globalAlpha = .75 + .25 * p; rr(c, t.ring[0] - e, t.ring[1] - e, t.ring[2] + e * 2, t.ring[3] + e * 2, 14, null, '#ffd24a', 5); c.globalAlpha = 1; }
   }
+  // Tactics tips for stages 1-2 to 1-5 (first time only): one short lesson at a time, like a coach.
+  const STAGE_TIPS = {
+    1: [{ at: 2, msg: 'Meatshield first!', sub: 'Send a sturdy baker like Stout Loaf out first. It soaks up the hits while your other bakers attack from behind.' },
+        { at: 18, msg: 'Mind the range', sub: 'Some bakers hit from far away. Keep them behind your front line so they stay safe.' }],
+    2: [{ at: 2, msg: 'Knockback', sub: 'Hits push targets back. Keep sending reinforcements while pests are shoved away from your oven.' },
+        { at: 18, msg: 'Lure them in', sub: 'Let the pests walk into your army instead of sending bakers out alone. Bakers fight best in a group.' }],
+    3: [{ at: 2, msg: 'Save up for big bakers', sub: 'Don\'t spend all your dough on cheap ones. A big baker like Lancette can clear a whole crowd.' },
+        { at: 20, msg: 'Area attacks', sub: 'Bakers marked Area hit every pest in range at once. They are great against crowds.' }],
+    4: [{ at: 2, msg: 'Boss ahead!', sub: 'Bosses are tough and hit hard. Keep a meatshield up front and save the Rolling Pin for the boss.' },
+        { at: 22, msg: 'Heat up the oven', sub: 'Upgrading Oven Heat makes dough faster, so you can keep sending bakers all battle long.' }],
+  };
+  const stageTip = B => { if (!STAGE_TIPS[B.idx] || S.cleared > B.idx) return null; return STAGE_TIPS[B.idx].find(t => B.time >= t.at && B.time < t.at + 8) || null; };
+  function drawStageTips(c, B) {
+    const t = stageTip(B); if (!t) return;
+    c.globalAlpha = clamp(Math.min((B.time - t.at) * 3, (t.at + 8 - B.time) * 3), 0, 1);
+    rr(c, 270, 62, 740, 76, 16, 'rgba(30,20,12,.88)', '#9be37a', 3);
+    text(c, 'TIP', 300, 82, 13, '#9be37a', 'left', null, HEAD);
+    text(c, t.msg, 640, 88, 24, '#fff3d6', 'center');
+    fitText(c, t.sub, 640, 118, 700, 15, '#f3d49a', 'center');
+    c.globalAlpha = 1;
+  }
   function drawBattle(c) {
     const B = G.battle, th = THEMES[B.st.theme];
     c.save();
@@ -2697,6 +2847,12 @@
     }
     drawHud(c, B); drawPanel(c, B);
     if (inTutorial(B.idx) && !B.over && !G.result && !G.paused) drawTutorial(c, B);
+    else if (!B.over && !G.result && !G.paused) drawStageTips(c, B);
+    if (B.combos && B.combos.length && B.time < 7 && !B.over && !G.result && !G.paused) {   // which Bakery Combos are working this battle
+      const txt = 'Combo' + (B.combos.length > 1 ? 's' : '') + ': ' + B.combos.map(cb => cb.name + ' (' + comboText(cb.eff) + ')').join('   ·   ');
+      c.globalAlpha = clamp((7 - B.time) * 2, 0, 1); c.font = 'bold 15px ' + FONT; const cw = Math.min(1180, c.measureText(txt).width + 40);
+      rr(c, 640 - cw / 2, 146, cw, 30, 15, 'rgba(30,20,12,.82)', null); fitText(c, txt, 640, 162, cw - 30, 15, '#ffd24a', 'center'); c.globalAlpha = 1;
+    }
     if (!G.result && !G.paused) {
       btn(c, 1226, 64, 44, 34, '+', () => setZoom(G.zoom * 1.2), { r: 9, size: 24, color: 'rgba(243,212,154,.92)' });
       btn(c, 1226, 106, 44, 34, '−', () => setZoom(G.zoom / 1.2), { r: 9, size: 24, color: 'rgba(243,212,154,.92)' });
@@ -2710,7 +2866,7 @@
       if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
       else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
       crumbIcon(c, 578, p.y + 168, 17); text(c, '+' + r.crumbs + ' crumbs', 604, p.y + 170, 32, OUT);
-      if (r.tickets || r.grain || r.sugar || r.nt) text(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.grain ? '+' + r.grain + ' Golden Grain' : ''].filter(Boolean).join('   ·   '), 640, p.y + 212, 22, '#7a3fa0', 'center');
+      if (r.tickets || r.grain || r.sugar || r.nt || r.np) fitText(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.np ? '+' + r.np + ' NP' : '', r.grain ? '+' + r.grain + ' Golden Grain' : ''].filter(Boolean).join('   ·   '), 640, p.y + 212, 520, 22, '#7a3fa0', 'center');
       let yy = p.y + 245;
       if (r.treasure) {
         const t = TREASURES[baseOf(r.treasure.i)], g = TREASURE_GRADES[r.treasure.grade];
@@ -2735,7 +2891,8 @@
       }
       // Next: the following stage, or (after a section's last stage) the next section's first stage once it is open
       const lastOfSec = !isSpecial(B.idx) && baseOf(B.idx) === STAGES.length - 1, nextSec = secOf(B.idx) + 1;
-      const nextIdx = !r.win || isSpecial(B.idx) ? -1 : !lastOfSec ? B.idx + 1 : nextSec < SECTIONS.length && secOpen(S, nextSec) ? encIdx(nextSec, 0) : -1;
+      const towerNext = r.win && isSpecial(B.idx) && B.idx >= TOWER_BASE && B.idx - TOWER_BASE < TOWER_MAX ? B.idx + 1 : -1;   // the Heavenly Tower: straight on to the next floor
+      const nextIdx = towerNext >= 0 ? towerNext : !r.win || isSpecial(B.idx) ? -1 : !lastOfSec ? B.idx + 1 : nextSec < SECTIONS.length && secOpen(S, nextSec) ? encIdx(nextSec, 0) : -1;
       const hasNext = nextIdx >= 0;
       const backSp = isSpecial(B.idx);                                    // legend stages return to the Legend Stages list
       if (inTutorial(B.idx)) {   // first stage not won yet: no way out except trying again
@@ -2806,7 +2963,11 @@
     awaken: { label: 'Awakening', color: '#a98bff', tint: 'rgba(110,70,200,.16)', blurb: 'A corrupted Bakemut guards the old oven. Beat it to free Bakemut!' },
     grain: { label: 'True Form stages', color: '#f6c343', tint: 'rgba(214,150,60,.15)', blurb: 'Golden wheat grows here. Win to harvest Golden Grain for True Forms!' },
     crumb: { label: 'Crumb Farm', color: '#9be37a', tint: 'rgba(110,180,90,.15)', blurb: 'Gilded beetles everywhere. Farm a huge crumb payout!' },
+    daily: { label: 'Daily Twist', color: '#6fd3ff', tint: 'rgba(80,160,220,.15)', get blurb() { applyDaily(); const m = SPECIALS.find(x => x.kind === 'daily').mod; return 'Today\'s twist: ' + m.name + '. ' + m.desc + ' Your first win each day pays a Rare Ticket!'; } },
+    trial: { label: 'Trial', color: '#ff9d5c', tint: 'rgba(230,140,80,.15)', blurb: 'Only a few bakers may fight. Pick your best and beat the pests!' },
+    tower: { label: 'Endless Tower', color: '#c9b6ff', tint: 'rgba(160,130,230,.16)', blurb: 'The Heavenly Tower never ends, and every floor is tougher than the last. How high can you climb?' },
   };
+  const LEGEND_FIXED = SPECIALS.filter(x => x.kind !== 'daily' && x.kind !== 'tower');   // the stages that count for "clear every Legend stage"
   const lgOpen = e => spOpen(S, e.ks[0]);
   function openLegendEvent(ei) {
     const e = LG_EVENTS[ei]; if (!lgOpen(e)) { sfx('deny'); toast(!legendOpen(S) ? 'Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).' : 'Clear stage ' + stageLabel(SPECIALS[e.ks[0]].need - 1) + ' to open ' + e.name + '.'); return; }
@@ -2815,9 +2976,18 @@
   function drawLegendMap(c) {
     const e = LG_EVENTS[G.lgEvent || 0], info = LG_INFO[e.kind];
     if (!e.ks.includes(G.spSel)) G.spSel = e.ks[0];
-    const stages = e.ks.map(q => { const x = SPECIALS[q]; return { name: e.ks.length > 1 ? x.diff : x.name, open: spOpen(S, q), done: !!S.spDone[x.key], boss: x.waves.some(w => FOES[w.u].boss), grade: null, mag: x.mag, hp: x.hp,
-      reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.kind === 'awaken' && !isOwned(S, 'bakemut') ? '  + Bakemut' : ''), first: !S.spDone[x.key], attack: x.kind === 'awaken' ? 'Details' : null,
-      go: () => (x.kind === 'awaken' ? go('awaken') : startBattle(SP_BASE + q)), pests: [...new Set(x.waves.map(w => w.u))] }; });
+    const stages = e.ks.map(q => {
+      let x = SPECIALS[q];
+      if (x.kind === 'daily') applyDaily();
+      if (x.kind === 'tower') {   // always the next floor up
+        const fl = Math.min(TOWER_MAX, (S.tower || 0) + 1), t = towerStage(fl);
+        return { name: 'Floor ' + fl, open: spOpen(S, q), done: false, boss: fl % 5 === 0, grade: null, mag: t.mag, hp: t.hp, reward: t.reward + '  ·  best floor ' + (S.tower || 0), first: true, attack: null,
+          go: () => startBattle(TOWER_BASE + fl), pests: [...new Set(t.waves.map(w => w.u))] };
+      }
+      return { name: x.kind === 'daily' ? 'Daily: ' + x.mod.name : e.ks.length > 1 ? x.diff : x.name, open: spOpen(S, q), done: !!S.spDone[x.key], boss: x.waves.some(w => FOES[w.u].boss), grade: null, mag: x.mag, hp: x.hp,
+        reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && !isOwned(S, 'bakemut') ? '  + Bakemut' : ''), first: !S.spDone[x.key], attack: x.kind === 'awaken' ? 'Details' : null,
+        go: () => (x.kind === 'awaken' ? go('awaken') : startBattle(SP_BASE + q)), pests: [...new Set(x.waves.map(w => w.u))] };
+    });
     drawStageSelect(c, { key: 'lg:' + (G.lgEvent || 0), stages, sel: e.ks.indexOf(G.spSel), setSel: k => { G.spSel = e.ks[k]; }, back: () => goBack(),
       title: 'Legend Stages  ·  ' + e.name, sub: info.label });
   }
@@ -2865,7 +3035,7 @@
     { const g = c.createLinearGradient(0, 76, 0, 128); g.addColorStop(0, '#c98d4e'); g.addColorStop(1, '#7d5129');
       rr(c, -30, 78, 420, 50, 25, g, '#2b1a0e', 4); dot(c, 30, 103, 17, '#e2483a'); text(c, '★', 30, 104, 20, '#fff', 'center', '#2b1a0e');
       text(c, 'Legend Stages', 58, 104, 26, '#fff', 'left', '#2b1a0e', HEAD);
-      const got = SPECIALS.filter(x => S.spDone[x.key]).length; rr(c, 410, 82, 120, 40, 20, '#2b1a0e', '#e0b060', 3); text(c, '★ ' + got + '/' + SPECIALS.length, 470, 103, 18, '#ffd24a', 'center', null, HEAD); }
+      const got = LEGEND_FIXED.filter(x => S.spDone[x.key]).length; rr(c, 410, 82, 120, 40, 20, '#2b1a0e', '#e0b060', 3); text(c, '★ ' + got + '/' + LEGEND_FIXED.length, 470, 103, 18, '#ffd24a', 'center', null, HEAD); }
     baseTopBar(c);
     baseBottom(c, () => goBack());
   }
@@ -3787,6 +3957,7 @@
     // bottom wood bar: back · Shop · Sugar Cubes
     baseBottom(c, () => go('title'));
     if (G.menuOpen) drawMenuPopup(c);
+    if (G.goalsOpen) drawGoalsPopup(c);
     if (G.rankOpen) drawRankPopup(c);
   }
 
@@ -3814,11 +3985,61 @@
   }
   const bangBadge = (c, x, y) => { rr(c, x - 13, y - 14, 26, 28, 6, '#e2483a', '#fff', 2); text(c, '!', x, y + 1, 20, '#fff', 'center', null, HEAD); };
 
+  // ---- Next Goals: what to chase next, with progress, worked out from the save ----
+  function goalsList() {
+    const g = [], rk = userRank(S), N = STAGES.length;
+    // the main line
+    if (S.cleared < N) g.push({ label: 'Clear every Section 1 stage', hint: 'Opens the Crumb Rebellion and all Legend Stages', cur: S.cleared, max: N, go: () => go('chapters') });
+    else if (secCleared(S, 1) < N) g.push({ label: 'Clear every Rebellion stage (Section 2)', hint: 'Harder pests, bigger rewards, higher level cap', cur: secCleared(S, 1), max: N, go: () => go('chapters') });
+    else if (secCleared(S, 2) < N) g.push({ label: 'Clear every World\'s End stage (Section 3)', hint: 'The final section', cur: secCleared(S, 2), max: N, go: () => go('chapters') });
+    // the True Form path: level 20, then Golden Grain, then the button
+    const cand = UNIT_ORDER.filter(id => isOwned(S, id) && !isNormalU(id) && !isEvolved(S, id) && EVO_NAMES[id]).sort((a, b) => unitLv(S, b) - unitLv(S, a))[0];
+    if (!cand) { if (!UNIT_ORDER.some(id => isOwned(S, id) && !isNormalU(id))) g.push({ label: 'Recruit a baker from the Gacha', hint: 'Rare tickets come from Missions and Expeditions', cur: Math.min(1, S.tickets || 0), max: 1, go: () => go('gacha') }); }
+    else if (unitLv(S, cand) < TF_LV) g.push({ label: 'Raise ' + nameOf(S, cand) + ' to Lv ' + TF_LV, hint: 'Then it can reach its True Form' + (unitLv(S, cand) >= lvCap(S) ? '  (clear more stages to raise the level cap)' : ''), cur: unitLv(S, cand), max: TF_LV, go: () => { UPSEL = cand; go('shop'); } });
+    else if ((S.grain || 0) < grainCost(cand)) g.push({ label: 'Collect Golden Grain for ' + nameOf(S, cand), hint: 'Win the Golden Field Legend stages', cur: S.grain || 0, max: grainCost(cand), go: () => go(legendOpen(S) ? 'special' : 'chapters') });
+    else g.push({ label: nameOf(S, cand) + ' is ready for its True Form!', hint: 'Open Upgrade and press True Form', cur: 1, max: 1, ready: true, go: () => { UPSEL = cand; go('shop'); } });
+    // rewards waiting
+    if (missReady()) g.push({ label: 'Claim your mission rewards', hint: 'Open Missions', cur: 1, max: 1, ready: true, go: () => { scReset(); go('missions'); } });
+    if (expoReady()) g.push({ label: 'Collect your Expedition loot', hint: 'Your scout is back', cur: 1, max: 1, ready: true, go: () => go('expo') });
+    if (rankReady()) g.push({ label: 'Claim a User Rank reward', hint: 'Tap the rank counter at the top left', cur: 1, max: 1, ready: true, go: () => { G.rankOpen = true; G.rankScroll = null; } });
+    if ((S.tickets || 0) > 0) g.push({ label: 'You have ' + S.tickets + ' Rare Ticket' + (S.tickets > 1 ? 's' : ''), hint: 'Try the Rare Capsule to recruit bakers', cur: 1, max: 1, ready: true, go: () => { G.gachaTab = 'rare'; go('gacha'); } });
+    // long-term
+    if (legendOpen(S) && !S.spDone.daily) g.push({ label: 'Play today\'s Daily Twist', hint: 'A Legend stage with a twist. The first win each day pays a Rare Ticket', cur: 0, max: 1, go: () => go('special') });
+    if (legendOpen(S)) g.push({ label: 'Climb the Heavenly Tower  (floor ' + ((S.tower || 0) + 1) + ')', hint: 'Endless floors in the Legend Stages. Best so far: ' + (S.tower || 0), cur: S.tower || 0, max: Math.max(10, Math.ceil(((S.tower || 0) + 1) / 10) * 10), go: () => go('special') });
+    const nextRank = RANK_REWARDS[rankClaimed(S)];
+    if (nextRank && rk.total < nextRank.rank) g.push({ label: 'Reach User Rank ' + nextRank.rank, hint: 'Reward: ' + rankRwText(nextRank.rw) + '  ·  level up bakers and Power Ups', cur: rk.total, max: nextRank.rank, go: () => go('shop') });
+    const tr = Object.keys(S.treasure || {}).filter(k => S.treasure[k] > 0).length, trMax = TREASURES.length * SECTIONS.length;
+    if (tr < trMax) g.push({ label: 'Collect treasures', hint: 'Win stages to find them. They give permanent bonuses', cur: tr, max: trMax, go: () => go('treasure') });
+    return g;
+  }
+  function drawGoalsPopup(c) {
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
+    const x = 250, y = 52, w = 780, h = 616, goals = goalsList().slice(0, 6);
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#3f5a5c', '#111', 5);
+    const hg = c.createLinearGradient(0, y, 0, y + 80); hg.addColorStop(0, '#c98d4e'); hg.addColorStop(1, '#7d5129'); rr(c, x + 5, y + 5, w - 10, 76, 20, hg, null);
+    text(c, 'Next Goals', x + 36, y + 36, 34, '#fff', 'left', '#2b1a0e', HEAD); text(c, 'What to chase next. Tap one to go there.', x + 36, y + 64, 16, '#fff3d6', 'left');
+    const close = () => { G.goalsOpen = false; sfx('click'); };
+    dot(c, x + w - 10, y + 6, 30, '#111'); dot(c, x + w - 10, y + 6, 26, '#ffd23a'); text(c, '✕', x + w - 10, y + 7, 30, '#fff', 'center', '#4a2f12', HEAD); hit(x + w - 40, y - 24, 60, 60, close);
+    if (!goals.length) text(c, 'You have done everything. Amazing!', x + w / 2, y + h / 2, 24, '#fff', 'center');
+    goals.forEach((gl, i) => {
+      const ry = y + 96 + i * 84, bw = 230;
+      rr(c, x + 20, ry, w - 40, 76, 14, gl.ready ? '#fff3d6' : 'rgba(255,255,255,.16)', gl.ready ? '#ffd23a' : null, 3);
+      fitLine(c, gl.label, x + 40, ry + 26, w - 40 - bw - 80, 20, gl.ready ? OUT : '#fff', 'left');
+      fitLine(c, gl.hint, x + 40, ry + 54, w - 40 - bw - 80, 14, gl.ready ? '#7c5432' : '#b9d4cf', 'left');
+      if (gl.ready) { rr(c, x + w - 40 - bw + 20, ry + 20, bw - 40, 36, 18, '#ffd23a', '#4a2f12', 3); text(c, 'Ready!  Go ▶', x + w - 40 - bw / 2, ry + 38, 18, OUT, 'center', null, HEAD); }
+      else {
+        const f = clamp(gl.cur / gl.max, 0, 1), bx = x + w - 40 - bw + 4;
+        rr(c, bx, ry + 24, bw - 8, 22, 11, '#10201e', null); if (f > .01) rr(c, bx + 2, ry + 26, Math.max(14, (bw - 12) * f), 18, 9, '#9be37a', null);
+        text(c, gl.cur + ' / ' + gl.max, bx + (bw - 8) / 2, ry + 36, 14, '#fff', 'center', '#10201e');
+      }
+      hit(x + 20, ry, w - 40, 76, () => { G.goalsOpen = false; sfx('click'); gl.go(); });
+    });
+  }
   // ---- Menu popup (on the Bakery Base): guides, treasure, save, help ----
   function drawMenuPopup(c) {
     c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH);
     hit(0, 0, VW, VH, () => {});                                        // swallow clicks on the base behind
-    const x = 330, y = 110, w = 620, h = 500;
+    const x = 330, y = 70, w = 620, h = 580;
     rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#8f8f8f', '#111', 5);
     const hg = c.createLinearGradient(0, y, 0, y + 90); hg.addColorStop(0, '#ffffff'); hg.addColorStop(1, '#d9d9d9');
     rr(c, x + 5, y + 5, w - 10, 84, 20, hg, null); text(c, 'Menu', x + w / 2, y + 48, 44, '#fff', 'center', '#111', HEAD);
@@ -3833,6 +4054,7 @@
     }
     const tNew = Object.keys(S.treasure || {}).filter(k => (S.treasure[k] || 0) > ((S.tSeen && S.tSeen[k]) || 0)).length;
     const items = [
+      ['Next Goals', (cc, ix, iy) => { dot(cc, ix, iy, 26, '#2c7a72'); dot(cc, ix, iy, 20, '#fff'); dot(cc, ix, iy, 13, '#e2483a'); dot(cc, ix, iy, 6, '#fff'); }, () => { G.goalsOpen = true; }, goalsList().some(gl => gl.ready) ? 1 : 0],
       ['Baker Guide', (cc, ix, iy) => bookIcon(cc, ix, iy), () => go('units'), 0],
       ['Pest Guide', (cc, ix, iy) => bugIcon(cc, ix, iy), () => { G.indexFrom = 'prep'; go('index'); }, 0],
       ['Treasure', (cc, ix, iy) => chestIcon(cc, ix, iy + 6, .9), () => go('treasure'), tNew],
@@ -3937,7 +4159,7 @@
       { id: 'm8', text: 'Win 50 battles', goal: 50, val: s => missStats(s).wins, rw: { tickets: 2 } },
       { id: 'm9', text: 'Win 200 battles', goal: 200, val: s => missStats(s).wins, rw: { tickets: 5 } },
       { id: 'm10', text: 'Clear a Legend stage', goal: 1, val: s => Object.keys(s.spDone || {}).length, rw: { sugar: 20 } },
-      { id: 'm11', text: 'Clear every Legend stage', goal: SPECIALS.length, val: s => Object.keys(s.spDone || {}).length, rw: { sugar: 100 } },
+      { id: 'm11', text: 'Clear every Legend stage', goal: LEGEND_FIXED.length, val: s => LEGEND_FIXED.filter(x => (s.spDone || {})[x.key]).length, rw: { sugar: 100 } },
       { id: 'm12', text: 'Raise any baker to Lv10', goal: 10, val: maxUnitLv, rw: { tickets: 1 } },
       { id: 'm13', text: 'Raise any baker to Lv20', goal: 20, val: maxUnitLv, rw: { tickets: 2 } },
       { id: 'm14', text: 'Unlock a True Form', goal: 1, val: s => Object.keys(s.evolved || {}).length, rw: { sugar: 30 } },
@@ -4076,6 +4298,7 @@
       text(c, 'BANNER', x + w / 2 + 6, y + 118, 70, '#ffd24a', 'left', '#3a2416', HEAD);
       rr(c, x + w / 2 - 170, y + h - 62, 340, 44, 22, 'rgba(255,255,255,.85)', '#3b5bd8', 3); text(c, 'Rate UP for Legend Rares!', x + w / 2, y + h - 40, 20, '#3b5bd8', 'center', null, HEAD);
       text(c, 'Rare 70%  ·  Super Rare 25%  ·  Uber Rare 4.7%  ·  Legend Rare 0.3%', 640, 462, 20, '#ff9ff0', 'center', '#3a1a4a', HEAD);
+      { const p = S.pity || { sr: 0, ur: 0 }; text(c, 'Bad-luck protection:  Super Rare+ within ' + (PITY_SR - p.sr) + ' draws  ·  Uber Rare+ within ' + (PITY_UR - p.ur), 640, 488, 15, '#ffd6f6', 'center', '#3a1a4a'); }
     }
     // Storage (bottom left)
     { const capN = (S.capsule || []).length; iconBtn(c, 170, 536, 'Storage', boxIcon, () => { scReset(); go('capsule'); }, capN); }
@@ -4589,7 +4812,9 @@
     }
     text(c, 'Lineup  ' + L.filter(Boolean).length + '/' + LINEUP, 160, 90, 20, '#7c5432', 'center', null, HEAD);
     baseBtn(c, 70, 112, 180, 46, 'Clear', () => { setLineup(new Array(LINEUP).fill(null)); toast('Lineup cleared.'); }, { size: 22, disabled: !L.some(Boolean) });
-    ['Drag a card up into a slot', 'Drag slots to swap them', 'Drag a slot down to remove'].forEach((t, i) => text(c, t, 1122, 96 + i * 26, 15, '#7c5432', 'center'));
+    ['Drag a card up into a slot', 'Drag slots to swap them', 'Drag a slot down to remove'].forEach((t, i) => text(c, t, 1122, 92 + i * 24, 15, '#7c5432', 'center'));
+    { const nAct = comboTotals(L.filter(Boolean)).list.length;
+      btn(c, 1010, 170, 224, 42, 'Combos' + (nAct ? '  ★ ' + nAct + ' active' : ''), () => { G.comboOpen = true; sfx('click'); }, { size: 20, r: 21, color: nAct ? '#ffd24a' : '#f3d49a' }); }
     // ---- carousel (same as Upgrade: rarity folders, then normal bakers) ----
     if (G.eqSel) { const id = G.eqSel; G.eqSel = null; EQSEL = id; EQCAT = rarityOf(id) === 'B' ? 'main' : rarityOf(id); }   // tapped a slot: show that baker
     const items = eqList(EQCAT), key = 'eq:' + EQCAT, car = carousel(key, items.length);
@@ -4640,6 +4865,39 @@
     baseTop(c, 'Equip');
     baseBottom(c, eqBack);
     if (dragging) { c.save(); c.globalAlpha = .9; portrait(c, G.dnd.id, G.mx, G.my + 30, 64, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); }
+    if (G.comboOpen) drawComboPopup(c);
+  }
+  // Combos: tap one you own every baker of to put them all in your lineup
+  function equipCombo(cb) {
+    const L2 = lineupOf(S).slice(), need = cb.units.filter(u => !L2.includes(u)), free = L2.filter(v => !v).length;
+    if (need.length > free) { sfx('deny'); toast('Not enough free slots: take ' + (need.length - free) + ' baker' + (need.length - free > 1 ? 's' : '') + ' out of your lineup first.'); return; }
+    for (const u of need) L2[L2.indexOf(null)] = u;
+    setLineup(L2); sfx('up'); toast(cb.name + ' combo equipped!');
+  }
+  function drawComboPopup(c) {
+    c.fillStyle = 'rgba(0,0,0,.62)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
+    const x = 130, y = 40, w = 1020, h = 640, L = lineupOf(S).filter(Boolean), nAct = comboTotals(L).list.length;
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#3f5a5c', '#111', 5);
+    const hg = c.createLinearGradient(0, y, 0, y + 80); hg.addColorStop(0, '#c98d4e'); hg.addColorStop(1, '#7d5129'); rr(c, x + 5, y + 5, w - 10, 76, 20, hg, null);
+    text(c, 'Bakery Combos', x + 36, y + 34, 32, '#fff', 'left', '#2b1a0e', HEAD);
+    fitLine(c, 'Equip every baker of a combo together to get its bonus in battle.   Active now: ' + nAct, x + 36, y + 62, 760, 16, '#fff3d6', 'left');
+    const close = () => { G.comboOpen = false; sfx('click'); };
+    dot(c, x + w - 10, y + 6, 30, '#111'); dot(c, x + w - 10, y + 6, 26, '#ffd23a'); text(c, '✕', x + w - 10, y + 7, 30, '#fff', 'center', '#4a2f12', HEAD); hit(x + w - 40, y - 24, 60, 60, close);
+    const cw = 474, ch = 68;
+    COMBOS.forEach((cb, i) => {
+      const cx = x + 24 + (i % 2) * (cw + 24), cy = y + 96 + Math.floor(i / 2) * (ch + 6);
+      const have = cb.units.every(u => isOwned(S, u)), act = comboActive(cb, L);
+      rr(c, cx, cy, cw, ch, 12, act ? '#fff3d6' : have ? '#c9ddd6' : 'rgba(255,255,255,.14)', act ? '#ffd23a' : have ? '#2c7a72' : null, act ? 4 : 3);
+      fitLine(c, cb.name, cx + 14, cy + 21, 240, 20, act ? OUT : have ? '#23403c' : '#d8d0c0', 'left');
+      fitLine(c, comboText(cb.eff), cx + 14, cy + 46, 250, 14, act ? '#7c5432' : have ? '#2d5a54' : '#b9b0a0', 'left');
+      cb.units.forEach((u, j) => {
+        const px = cx + cw - 36 - (cb.units.length - 1 - j) * 56, owned = isOwned(S, u), eq = L.includes(u);
+        c.globalAlpha = eq ? 1 : owned ? .6 : .28; rr(c, px - 25, cy + 6, 50, 56, 8, eq ? '#bfe6df' : '#9aa3a0', '#111', 2);
+        c.save(); c.beginPath(); c.rect(px - 23, cy + 8, 46, 52); c.clip(); portrait(c, u, px, cy + 56, 44, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); c.globalAlpha = 1;
+      });
+      if (act || have) text(c, act ? 'ACTIVE ✓' : 'Tap to equip', cx + cw - 36 - (cb.units.length - 1) * 56 - 40, cy + 34, 14, '#2c7a72', 'right', null, HEAD);   // (greyed bakers already say "you are missing some")
+      hit(cx, cy, cw, ch, act ? () => {} : have ? () => equipCombo(cb) : () => { sfx('deny'); toast('You still need: ' + cb.units.filter(u => !isOwned(S, u)).map(u => UNITS[u].name).join(', ')); });
+    });
   }
 
   // ---------------- treasures ----------------
@@ -4765,6 +5023,7 @@
     const c = ctx; c.setTransform(scale, 0, 0, scale, 0, 0); c.globalAlpha = 1;
     UI.btns.length = 0;
     if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
+    if (G.pick) drawPick(c);
     if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
       c.globalAlpha = a; c.font = 'bold 18px ' + FONT; const w = c.measureText(G.toast.msg).width + 48;
@@ -4934,9 +5193,9 @@
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-1341';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-1440';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets };
+  if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
