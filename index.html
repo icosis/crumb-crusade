@@ -873,7 +873,7 @@
       CLOUD.on = true; CLOUD.status = '';
       auth.getRedirectResult(CLOUD.fb.A).catch(() => {});
       auth.onAuthStateChanged(CLOUD.fb.A, u => {
-        CLOUD.user = u || null; CLOUD.status = u ? 'Signed in' : '';
+        CLOUD.authSeen = true; CLOUD.user = u || null; CLOUD.status = u ? 'Signed in' : '';
         CLOUD_DIRTY = u ? CLOUD.soon : null;
         if (u) CLOUD.begin(); else CLOUD.end();
       });
@@ -3674,17 +3674,35 @@
     fitLine(c, 'Baker levels ' + rk.units + '  +  plus levels ' + rk.plus + '  +  Power Ups ' + rk.base, x + 290, y + 72, 440, 15, '#fff3d6', 'left');
     const close = () => { G.rankOpen = false; sfx('click'); };
     dot(c, x + w - 10, y + 6, 30, '#111'); dot(c, x + w - 10, y + 6, 26, '#ffd23a'); text(c, '✕', x + w - 10, y + 7, 30, '#fff', 'center', '#4a2f12', HEAD); hit(x + w - 40, y - 24, 60, 60, close);
-    // rows: the next unclaimed reward first, a couple of claimed ones above it
-    const start = clamp(k0 - 2, 0, Math.max(0, RANK_REWARDS.length - 7));
-    for (let r = 0; r < 7; r++) {
-      const i = start + r, R = RANK_REWARDS[i]; if (!R) break;
-      const ry = y + 112 + r * 50, claimed = i < k0, ready = !claimed && i === k0 && rk.total >= R.rank, reached = rk.total >= R.rank;
-      rr(c, x + 24, ry, w - 48, 44, 10, claimed ? 'rgba(255,255,255,.12)' : ready ? '#fff3d6' : 'rgba(255,255,255,.22)', ready ? '#ffd23a' : null, 3);
+    // rows: a scrollable list (mouse wheel, drag the list, or use the bar), opening on the next unclaimed reward.
+    // Every reached reward has a Claim button. Rewards are handed out in order, so pressing Claim on a later row also pays the ones before it.
+    const RH = 50, VIEW = 7, listTop = y + 108, listH = VIEW * RH, N = RANK_REWARDS.length, maxS = Math.max(0, N - VIEW), rowW = w - 68;
+    if (G.rankScroll == null) G.rankScroll = clamp(k0 - 2, 0, maxS);
+    G.rankScroll = clamp(G.rankScroll, 0, maxS);
+    const sc = G.rankScroll;
+    const claimUpTo = i => {
+      const got = []; while (rankClaimed(S) <= i && rankReady()) got.push(claimRank());
+      if (got.length) { persist(); markDirty(); sfx('up'); toast(got.length === 1 ? 'Got ' + rankRwText(got[0].rw) + '!' : 'Claimed ' + got.length + ' rank rewards!'); } else sfx('deny');
+    };
+    hit(x + 24, listTop, rowW, listH, () => { G.rdrag = { y: G.my, s: G.rankScroll, moved: false, bar: false }; });   // drag the list
+    c.save(); c.beginPath(); c.rect(x + 20, listTop, rowW + 8, listH); c.clip();
+    for (let i = Math.max(0, Math.floor(sc)); i < Math.min(N, Math.floor(sc) + VIEW + 2); i++) {
+      const R = RANK_REWARDS[i], ry = listTop + 4 + (i - sc) * RH, claimed = i < k0, reached = rk.total >= R.rank, ready = !claimed && reached;
+      rr(c, x + 24, ry, rowW, 44, 10, claimed ? 'rgba(255,255,255,.12)' : ready ? '#fff3d6' : 'rgba(255,255,255,.22)', ready && i === k0 ? '#ffd23a' : null, 3);
       text(c, 'Rank ' + R.rank, x + 44, ry + 23, 20, claimed ? '#b9d4cf' : ready ? OUT : '#fff', 'left', null, HEAD);
-      fitLine(c, rankRwText(R.rw), x + 220, ry + 23, 380, 18, claimed ? '#b9d4cf' : ready ? '#7c5432' : '#ffe9a8', 'left');
-      const lbl = claimed ? 'Claimed ✓' : ready ? 'Claim!' : reached ? 'Ready!' : (R.rank - rk.total) + ' to go';
-      text(c, lbl, x + w - 44, ry + 23, 17, claimed ? '#9be37a' : ready || (reached && !claimed) ? '#2c7a72' : '#d8d0c0', 'right', null, HEAD);
+      fitLine(c, rankRwText(R.rw), x + 220, ry + 23, 330, 18, claimed ? '#b9d4cf' : ready ? '#7c5432' : '#ffe9a8', 'left');
+      if (ready) {
+        const bx = x + 24 + rowW - 124;
+        rr(c, bx, ry + 6, 112, 32, 16, i === k0 ? '#ffd23a' : '#9fe0bd', '#4a2f12', 3); text(c, 'Claim', bx + 56, ry + 23, 18, OUT, 'center', null, HEAD);
+        if (ry >= listTop - 2 && ry + 44 <= listTop + listH + 2) hit(bx, ry + 6, 112, 32, () => claimUpTo(i));   // only rows fully inside the list take taps
+      } else text(c, claimed ? 'Claimed ✓' : (R.rank - rk.total) + ' to go', x + 24 + rowW - 16, ry + 23, 17, claimed ? '#9be37a' : '#d8d0c0', 'right', null, HEAD);
     }
+    c.restore();
+    // scroll bar
+    { const bx = x + w - 36, th = Math.max(34, listH * VIEW / N), ty = listTop + (listH - th) * (maxS ? sc / maxS : 0);
+      rr(c, bx, listTop, 12, listH, 6, 'rgba(0,0,0,.35)', null); rr(c, bx + 1, ty, 10, th, 5, maxS ? '#e8e1d0' : 'rgba(232,225,208,.35)', null);
+      G.rkGeom = { top: listTop, h: listH, th, maxS, rh: RH };
+      if (maxS) hit(bx - 8, listTop, 28, listH, () => { G.rdrag = { bar: true }; G.rankScroll = clamp((G.my - listTop - th / 2) / (listH - th) * maxS, 0, maxS); }); }
     const n = (() => { let q = 0; for (let i = k0; i < RANK_REWARDS.length && rk.total >= RANK_REWARDS[i].rank; i++) q++; return q; })();
     baseBtn(c, x + w / 2 - 150, y + h - 80, 300, 62, n ? 'Claim All  (' + n + ')' : 'Nothing to claim', () => {
       const got = []; let r; while ((r = claimRank())) got.push(r);
@@ -3738,7 +3756,7 @@
       rr(c, -30, 76, 330, 58, 29, g, '#2b1a0e', 4); dot(c, 34, 105, 21, '#2b1a0e'); dot(c, 34, 105, 18, '#e8d9b8'); text(c, 'i', 34, 106, 24, '#2b1a0e', 'center', null, HEAD);
       rr(c, 64, 84, 222, 42, 21, '#0e0e0e', null);
       const rk = userRank(S); text(c, String(rk.total), 175, 106, 32, '#ffd24a', 'center', null, HEAD);
-      hit(-30, 76, 330, 58, () => { G.rankOpen = true; sfx('click'); });
+      hit(-30, 76, 330, 58, () => { G.rankOpen = true; G.rankScroll = null; sfx('click'); });
       if (rankReady()) { const fl = .6 + Math.sin(G.time * 8) * .4; c.globalAlpha = fl; rr(c, 250, 64, 70, 30, 10, '#e2483a', '#fff', 3); text(c, 'Pts!', 285, 80, 17, '#fff', 'center', null, HEAD); c.globalAlpha = 1; }
     }
     // big buttons
@@ -4816,12 +4834,18 @@
     }
     if (G.hdrag) { const h = G.hdrag, s = CAR[h.key], dx = G.mx - h.x; if (Math.abs(dx) > 10) h.moved = true; if (h.moved && s) s.pos = clamp(h.p - dx / h.pitch, -.3, s.n - .7); }
     if (G.sdrag) { const dy = G.my - G.sdrag.y; if (Math.abs(dy) > 8) G.sdrag.moved = true; if (G.sdrag.moved) SC.target = SC.y = clamp(G.sdrag.s - dy, 0, SC.max); }
+    if (G.rdrag && G.rankOpen && G.rkGeom) {   // User Rank list: drag the list or the scroll bar
+      const d = G.rdrag, r = G.rkGeom;
+      if (d.bar) G.rankScroll = clamp((G.my - r.top - r.th / 2) / (r.h - r.th) * r.maxS, 0, r.maxS);
+      else { if (!d.moved && Math.abs(G.my - d.y) > 6) d.moved = true; if (d.moved) G.rankScroll = clamp(d.s - (G.my - d.y) / r.rh, 0, r.maxS); }
+    }
     if (G.drag && G.battle) {
       if (G.drag.mini) G.cam = (G.mx - 470) / (420 / G.battle.len) - VW / G.zoom / 2; else G.cam = G.drag.cam - (G.mx - G.drag.x) / G.zoom;
       G.cam = clamp(G.cam, 0, maxCam());
     }
   });
   const release = e => {
+    G.rdrag = null;
     if (G.stDrag) { const d = G.stDrag; G.stDrag = null; if (!d.moved && e.type === 'pointerup') { G.stSel = d.k; G.stAll = false; sfx('click'); } }
     if (G.hdrag) {   // carousel: a drag snaps to the nearest card, a tap presses whatever is under the finger
       const h = G.hdrag, s = CAR[h.key]; G.hdrag = null;
@@ -4834,6 +4858,7 @@
   window.addEventListener('pointerup', () => { if (INSTALL.want) { INSTALL.want = false; INSTALL.run(); } if (CLOUD.want) { CLOUD.want = false; CLOUD.click(); } }, true);
   canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('wheel', e => {
+    if (G.rankOpen && G.rkGeom) { G.rankScroll = clamp((G.rankScroll || 0) + (e.deltaMode === 1 ? e.deltaY : e.deltaY / 80), 0, G.rkGeom.maxS); e.preventDefault(); return; }   // User Rank list
     if (G.screen === 'units' || G.screen === 'capsule' || G.screen === 'special' || G.screen === 'missions') { SC.target = clamp(SC.target + e.deltaY * (e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1), 0, SC.max); e.preventDefault(); return; }
     { const ck = carKeyOf(G.screen); if (ck) { const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (d && G.time - (G.wheelT || 0) > .15) { carStep(ck, Math.sign(d)); G.wheelT = G.time; } e.preventDefault(); return; } }
     if (LSC[G.screen]) { const L = LSC[G.screen]; L.target = clamp(L.target + e.deltaY * (e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1), 0, L.max); e.preventDefault(); return; }
@@ -4909,7 +4934,7 @@
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-1313';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-1341';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets };
   resize(); draw(); requestAnimationFrame(frame);
