@@ -638,15 +638,45 @@
     STORE_MODE = ls ? 'browser' : wn ? 'tab' : 'none';
   }
   // Portable save code (copy/paste) so progress can be kept outside the browser.
-  const CODE_TAG = 'CC1.';
-  function exportCode() { try { return CODE_TAG + btoa(unescape(encodeURIComponent(JSON.stringify(S)))); } catch (e) { return ''; } }
-  function importCode(str) {
+  // CC2 codes are scrambled (not readable after a plain base64 decode) and carry a salted checksum, so a code
+  // edited by hand is rejected. Old readable CC1 codes are no longer accepted (they were trivially editable).
+  const CODE_TAG = 'CC2.';
+  const CODE_SALT = 'oven-mitts&sprinkles#4417';
+  // cyrb53: small, fast 53-bit string hash
+  function codeHash(str) {
+    let h1 = 0xdeadbeef ^ 41, h2 = 0x41c6ce57 ^ 41;
+    for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  // XOR the text bytes with a keystream seeded by a random nonce (so two codes for the same save look different)
+  function codeScramble(bin, nonce) {
+    let x = (nonce ^ 0x9e3779b9) >>> 0 || 1, out = '';
+    for (let i = 0; i < bin.length; i++) { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; out += String.fromCharCode(bin.charCodeAt(i) ^ (x & 255)); }
+    return out;
+  }
+  function makeCode(obj) {
+    const json = JSON.stringify(obj), body = codeHash(CODE_SALT + json) + '|' + json;
+    const nonce = (Math.random() * 4294967296) >>> 0;
+    const bin = codeScramble(unescape(encodeURIComponent(body)), nonce);
+    return CODE_TAG + ('0000000' + nonce.toString(16)).slice(-8) + btoa(bin).replace(/=+$/, '');
+  }
+  // the save object inside a code, or null if the code is invalid or was edited
+  function readCode(str) {
     try {
-      str = String(str || '').trim(); if (str.indexOf(CODE_TAG) !== 0) return false;
-      const j = JSON.parse(decodeURIComponent(escape(atob(str.slice(CODE_TAG.length)))));
-      if (!j || typeof j !== 'object') return false;
-      S = loadSave(j); persist(); return true;
-    } catch (e) { return false; }
+      str = String(str || '').replace(/\s+/g, ''); if (str.indexOf(CODE_TAG) !== 0) return null;
+      const nonce = parseInt(str.slice(4, 12), 16); if (!(nonce >= 0)) return null;
+      const body = decodeURIComponent(escape(codeScramble(atob(str.slice(12)), nonce)));
+      const bar = body.indexOf('|'); if (bar < 1) return null;
+      const json = body.slice(bar + 1); if (codeHash(CODE_SALT + json) !== body.slice(0, bar)) return null;
+      const j = JSON.parse(json); return j && typeof j === 'object' ? j : null;
+    } catch (e) { return null; }
+  }
+  function exportCode() { try { return makeCode(S); } catch (e) { return ''; } }
+  function importCode(str) {
+    const j = readCode(str); if (!j) return false;
+    try { S = loadSave(j); persist(); return true; } catch (e) { return false; }
   }
   function loadSave(src) {
     const s = defaultSave();
@@ -748,7 +778,7 @@
     };
     d.querySelector('#ccload').onclick = () => {
       // warn before an OLDER code replaces newer progress on this device
-      let codeAt = 0; try { codeAt = +JSON.parse(decodeURIComponent(escape(atob(ta.value.trim().slice(CODE_TAG.length))))).savedAt || 0; } catch (e) { /* bad code: importCode reports it */ }
+      const cj = readCode(ta.value), codeAt = cj ? +cj.savedAt || 0 : 0;   // bad code: importCode reports it
       if (codeAt && S.savedAt && codeAt < S.savedAt - 1000 && !window.confirm('This code is OLDER than the progress on this device. Load it anyway?')) return;
       if (importCode(ta.value)) { d.remove(); toast('Progress loaded.'); } else msg.textContent = 'Invalid code.'; };
     d.addEventListener('keydown', e => e.stopPropagation());
@@ -4629,7 +4659,7 @@
   }
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
-  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox };
+  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
