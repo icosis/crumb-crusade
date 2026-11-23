@@ -801,8 +801,11 @@
     };
     d.querySelector('#ccload').onclick = () => {
       // warn before an OLDER code replaces newer progress on this device
+      // warn only when the code really has LESS progress than this device (a timestamp alone is not enough: any device that autosaved
+      // after the code was made looks "newer" even when the code has far more progress)
       const cj = readCode(ta.value), codeAt = cj ? +cj.savedAt || 0 : 0;   // bad code: importCode reports it
-      if (codeAt && S.savedAt && codeAt < S.savedAt - 1000 && !window.confirm('This code is OLDER than the progress on this device. Load it anyway?')) return;
+      const prog = s => (s.cleared || 0) + Object.values(s.secCleared || {}).reduce((a, b) => a + (+b || 0), 0) + Object.keys(s.owned || {}).length;
+      if (cj && codeAt && S.savedAt && codeAt < S.savedAt - 1000 && prog(S) > prog(cj) && !window.confirm('This code has LESS progress than this device (' + prog(cj) + ' vs ' + prog(S) + ' stages and bakers). Load it anyway and lose the newer progress?')) return;
       if (importCode(ta.value)) { d.remove(); toast('Progress loaded.'); } else msg.textContent = 'Invalid code.'; };
     d.addEventListener('keydown', e => e.stopPropagation());
   }
@@ -2764,6 +2767,7 @@
     const ownedNow = UNIT_ORDER.filter(id => isOwned(S, id)), shown = ownedNow.length < 3 ? UNIT_ORDER.slice(0, 3) : ownedNow.slice(0, 8);
     shown.forEach((id, i) => { c.save(); c.translate(90 + i * 95, 600 + (i % 2) * 14); c.scale(UNITS[id].s || 1, UNITS[id].s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
     ['ant', 'fly', 'beetle', 'mouse'].forEach((id, i) => { const d = FOES[id]; c.save(); c.translate(1220 - i * 100, 606 + (i % 2) * 12 - (d.hover ? d.hover + Math.sin(G.time * 5) * 4 : 0)); c.scale(-(d.s || 1), d.s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
+    text(c, 'version ' + BUILD_ID, VW - 14, VH - 12, 13, '#9a7a4c', 'right');   // so you can tell which build a device is running
     // A brand-new game jumps straight into the first stage (the tutorial); once it is cleared the player finds their way around the bakery.
     btn(c, 510, 410, 260, 84, 'PLAY', () => { if (!(S.cleared > 0)) { S.lastArea = 'map'; S.lastSec = 0; G.sec = 0; G.map = null; go('prep'); startBattle(0); } else go('chapters'); }, { size: 40, r: 22 });
     if (CLOUD.enabled()) btn(c, 530, 20, 220, 36, CLOUD.label(), () => { CLOUD.want = true; }, { size: 15, r: 10, color: CLOUD.user ? '#b9f09a' : 'rgba(255,247,234,.8)' });
@@ -4905,6 +4909,7 @@
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
+  const BUILD_ID = '1123-1313';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets };
   resize(); draw(); requestAnimationFrame(frame);
