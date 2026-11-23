@@ -2290,6 +2290,15 @@
     G.auto = !!S.cpu; G.battle = newBattle(i, S); G.cam = 0;
     if (S.items && S.items.rich > 0) { S.items.rich--; G.battle.money = Math.min(G.battle.money + 1500, 99999); persist(); toast('Rich Bun used: +1500 dough!'); } G.zoom = 1; if (G.screen !== 'battle') { const j = HIST.lastIndexOf(G.screen); if (j >= 0) HIST.length = j; pushHist(G.screen); } G.screen = 'battle'; G.paused = false; G.result = null; G.acc = 0; sfx('up');
   }
+  // Rare Tickets from a win. They are rare on purpose (steady sources: Missions, the daily mission, User Rank and Expeditions):
+  //   first clear of a map's last stage: 1 ticket (+1 per section);  any other first clear: 15% for 1;  a repeat win: 5% for 1;
+  //   the Awakening stage's first clear: 1 ticket.
+  const TICKET_FIRST_CHANCE = .15, TICKET_REPEAT_CHANCE = .05;
+  function rollTickets(i, first) {
+    if (isSpecial(i)) return first ? 1 : Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
+    if (first) return MAPS.some(m => m.last === baseOf(i)) ? 1 + secOf(i) : Math.random() < TICKET_FIRST_CHANCE ? 1 : 0;
+    return Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
+  }
   function finishBattle() {
     const B = G.battle, i = B.idx, win = B.over === 'win';
     let crumbs, first = false, unlocked = [], grain = 0;
@@ -2320,7 +2329,7 @@
     else if (win && first) sugar = SUGAR_FIRST[secOf(i)] || 30;
     S.sugar = (S.sugar || 0) + sugar;
     if (win) { missStats(S).wins++; const dd = missDaily(S); dd.wins++; if (isSpecial(i)) dd.legend++; }
-    const tickets = win ? (first ? 3 : 1) : 0; S.tickets = (S.tickets || 0) + tickets;
+    const tickets = win ? rollTickets(i, first) : 0; S.tickets = (S.tickets || 0) + tickets;
     const nt = win ? (first ? 2 : 1) : 0; S.ntickets = (S.ntickets || 0) + nt; S.crumbs += crumbs; persist(); if (win) markDirty();
     const newMap = win && first && !isSpecial(i) ? MAPS.findIndex(m => m.first === baseOf(i) + 1) : -1;          // just opened the next map?
     const newSec = win && first && !isSpecial(i) && baseOf(i) === STAGES.length - 1 && secOf(i) + 1 < SECTIONS.length ? secOf(i) + 1 : -1;   // just opened the next section?
@@ -3700,7 +3709,7 @@
       : newSec ? 'Section ' + (newSec + 1) + ' is open: ' + SECTIONS[newSec].name + '! Pick it on the Stage Select screen.'
       : tk ? 'You have ' + tk + ' Rare Ticket' + (tk === 1 ? '' : 's') + '. Try the Rare Capsule to recruit new bakers!'
       : newSpecial ? 'A new legend stage is open: ' + newSpecial.name + ' (' + newSpecial.diff + '). Tap the Legend Stages banner!'
-      : S.cleared < STAGES.length ? 'Win battles to earn crumbs and tickets, then upgrade your bakers!'
+      : S.cleared < STAGES.length ? 'Win battles to earn crumbs, then upgrade your bakers! Rare Tickets come from Missions, Expeditions and the odd lucky win.'
       : secCleared(S, 2) < STAGES.length ? 'Keep going! Every section you clear raises the level cap.' : 'Crumb World is saved! Farm Crumb Rush and max out your team.';
     { const lines = wrapLines(c, msg, 470, 30), bw = 540, bh = Math.max(268, 60 + lines.length * 42), bx = 712, by = 132;
       rr(c, bx, by + 6, bw, bh, 30, 'rgba(0,0,0,.3)', null); rr(c, bx, by, bw, bh, 30, '#41585a', '#f2f2ea', 5);
@@ -4894,7 +4903,7 @@
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy };
+  if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
