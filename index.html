@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Crumb Crusade</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #1b1410; overflow: hidden; }
+  /* no blue tap flash / text selection / long-press menu on phones */
+  * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  textarea { -webkit-user-select: text; user-select: text; }   /* the save-code box still needs to be selectable */
+  html, body { margin: 0; height: 100%; background: #1b1410; overflow: hidden; overscroll-behavior: none; }
   body { display: flex; align-items: center; justify-content: center; }
   canvas { display: block; touch-action: none; user-select: none; -webkit-user-select: none;
            box-shadow: 0 10px 50px rgba(0,0,0,.6); border-radius: 6px; cursor: default; }
@@ -472,7 +475,10 @@
   const SP_STAGE = SPECIALS[0];
   const isSpecial = i => i >= SP_BASE && i < SEC_STRIDE;
   const stageOf = i => (isSpecial(i) ? SPECIALS[i - SP_BASE] : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
-  const spOpen = (save, k) => save.cleared >= SPECIALS[k || 0].need;
+  // Legend stages stay locked until the Crumb Rebellion (Section 2) is unlocked, i.e. every Section 1 stage is cleared;
+  // after that each one also needs its own stage count, as before.
+  const legendOpen = save => secOpen(save, 1);
+  const spOpen = (save, k) => legendOpen(save) && save.cleared >= SPECIALS[k || 0].need;
   // Maps group the stages into chapters of rising difficulty. Progress is still one line through all stages:
   // a map opens once every stage of the previous map is cleared.
   const MAPS = [
@@ -2168,10 +2174,11 @@
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
   // the main stages of your last section, or Legend Stages. Back from there goes to Stage Select.
   function noteStages(area) { const sec = area === 'map' ? G.sec || 0 : S.lastSec; if (S.lastArea !== area || S.lastSec !== sec) { S.lastArea = area; S.lastSec = sec; persist(); } }
-  const baseName = () => (S.lastArea === 'special' ? 'Legend Stages' : SECTIONS[S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : 0].name);
+  const inLegend = () => S.lastArea === 'special' && legendOpen(S);   // (a save from before the lock may still say 'special')
+  const baseName = () => (inLegend() ? 'Legend Stages' : SECTIONS[S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : 0].name);
   function resumeStages() {
     HIST.length = 0; HIST.push('prep');
-    if (S.lastArea === 'special') { scReset(); go('special', true); return; }
+    if (inLegend()) { scReset(); go('special', true); return; }
     G.sec = S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : null; G.map = null; go('map', true);
   }
   function goBack(fallback) { const to = HIST.pop() || fallback || 'prep'; if (to === 'special') scReset(); go(to, true); }
@@ -2620,7 +2627,8 @@
     const ownedNow = UNIT_ORDER.filter(id => isOwned(S, id)), shown = ownedNow.length < 3 ? UNIT_ORDER.slice(0, 3) : ownedNow.slice(0, 8);
     shown.forEach((id, i) => { c.save(); c.translate(90 + i * 95, 600 + (i % 2) * 14); c.scale(UNITS[id].s || 1, UNITS[id].s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
     ['ant', 'fly', 'beetle', 'mouse'].forEach((id, i) => { const d = FOES[id]; c.save(); c.translate(1220 - i * 100, 606 + (i % 2) * 12 - (d.hover ? d.hover + Math.sin(G.time * 5) * 4 : 0)); c.scale(-(d.s || 1), d.s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
-    btn(c, 510, 410, 260, 84, 'PLAY', () => go('chapters'), { size: 40, r: 22 });
+    // A brand-new game jumps straight into the first stage (the tutorial); once it is cleared the player finds their way around the bakery.
+    btn(c, 510, 410, 260, 84, 'PLAY', () => { if (!(S.cleared > 0)) { S.lastArea = 'map'; S.lastSec = 0; G.sec = 0; G.map = null; go('prep'); startBattle(0); } else go('chapters'); }, { size: 40, r: 22 });
     if (CLOUD.enabled()) btn(c, 530, 20, 220, 36, CLOUD.label(), () => { CLOUD.want = true; }, { size: 15, r: 10, color: CLOUD.user ? '#b9f09a' : 'rgba(255,247,234,.8)' });
     if (INSTALL.show()) btn(c, 540, 508, 200, 42, '⬇  Install app', () => { INSTALL.want = true; }, { size: 17, r: 12, color: '#9be37a' });
     const armed = G.time < G.resetArm;
@@ -2663,7 +2671,7 @@
   };
   const lgOpen = e => spOpen(S, e.ks[0]);
   function openLegendEvent(ei) {
-    const e = LG_EVENTS[ei]; if (!lgOpen(e)) { sfx('deny'); toast('Clear stage ' + stageLabel(SPECIALS[e.ks[0]].need - 1) + ' to open ' + e.name + '.'); return; }
+    const e = LG_EVENTS[ei]; if (!lgOpen(e)) { sfx('deny'); toast(!legendOpen(S) ? 'Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).' : 'Clear stage ' + stageLabel(SPECIALS[e.ks[0]].need - 1) + ' to open ' + e.name + '.'); return; }
     G.lgEvent = ei; const k = e.ks.find(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key]); G.spSel = k != null ? k : e.ks.filter(q => spOpen(S, q)).pop(); go('legendmap');
   }
   function drawLegendMap(c) {
@@ -2688,7 +2696,7 @@
       lines.forEach((ln, i) => text(c, ln, cx, B.by + 90 + i * 34, 26, '#fff', 'center'));
       text(c, ev.ks.length + ' stage' + (ev.ks.length > 1 ? 's' : '') + '  ·  ' + got + ' cleared  ·  ' + ev.ks.map(q => SPECIALS[q].diff).join(' / '), B.bx + 34, B.by + 112 + lines.length * 34, 16, '#b9d4cf');
       if (lgOpen(ev)) baseBtn(c, B.bx + B.bw - 224, B.by + B.bh - 78, 200, 62, 'Enter', () => openLegendEvent(G.lgSel), { size: 32 });
-      else text(c, '🔒 Clear stage ' + stageLabel(SPECIALS[ev.ks[0]].need - 1) + ' to open', B.bx + 34, B.by + B.bh - 44, 18, '#ff8a7a'); }
+      else text(c, !legendOpen(S) ? '🔒 Unlock the ' + SECTIONS[1].name + ' first' : '🔒 Clear stage ' + stageLabel(SPECIALS[ev.ks[0]].need - 1) + ' to open', B.bx + 34, B.by + B.bh - 44, 18, '#ff8a7a'); }
     // ---- left: scrolling list of orange event buttons ----
     const TOP = 138, BOT = 646, LX = 26, LW = 446, view = BOT - TOP, rowH = 104;
     SC.max = Math.max(0, LG_EVENTS.length * rowH + 20 - view);
@@ -2707,7 +2715,7 @@
       c.font = 'bold 30px ' + HEAD; let fs = 30; while (fs > 16 && c.measureText(e.name).width > LW - 120) { fs--; c.font = 'bold ' + fs + 'px ' + HEAD; }
       text(c, e.name, LX + LW / 2, y + 30, fs, o ? '#fff' : '#b0a698', 'center', '#2b1a0e', HEAD);
       if (done) { rr(c, LX + 10, y + 38, 78, 18, 4, '#c8102e', null); text(c, 'COMPLETE!', LX + 49, y + 47, 11, '#fff', 'center'); }
-      if (!o) text(c, '🔒 Clear ' + stageLabel(SPECIALS[e.ks[0]].need - 1), LX + LW - 12, y + 48, 13, '#ffe9a8', 'right', '#2b1a0e');
+      if (!o) text(c, !legendOpen(S) ? '🔒 Needs Rebellion' : '🔒 Clear ' + stageLabel(SPECIALS[e.ks[0]].need - 1), LX + LW - 12, y + 48, 13, '#ffe9a8', 'right', '#2b1a0e');
       e.ks.forEach((q, j) => text(c, '★', LX + 20 + j * 20, y + 74, 17, S.spDone[SPECIALS[q].key] ? '#ff7ad9' : '#c9c2b6', 'center', '#2b1a0e'));   // one star per stage, pink when cleared
       if (o && fresh) { c.save(); c.translate(LX + LW - 26, y + 58); c.rotate(-.1); rr(c, -34, -14, 70, 28, 6, '#e2483a', '#fff', 2); text(c, 'New!', 1, 1, 18, '#fff', 'center', null, HEAD); c.restore(); }
       ell(c, LX + LW + 40, y + 20, 22, 18, '#fff', '#2b1a0e', 2); poly(c, [LX + LW + 26, y + 32, LX + LW + 22, y + 42, LX + LW + 36, y + 35], '#fff', null); text(c, '•••', LX + LW + 40, y + 19, 12, '#6b6b6b', 'center');
@@ -2983,8 +2991,9 @@
     c.fillStyle = g; c.fillRect(0, 0, VW, VH);
     const cards = SECTIONS.map((s, k) => ({ sec: k })).concat([{ special: true }]);
     const car = carousel('ch', cards.length);
-    if (!car.init) { car.init = true; let k = 0; for (let j = SECTIONS.length - 1; j > 0; j--) if (secOpen(S, j)) { k = j; break; } car.target = car.pos = S.lastArea === 'special' ? SECTIONS.length : S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : k; }
+    if (!car.init) { car.init = true; let k = 0; for (let j = SECTIONS.length - 1; j > 0; j--) if (secOpen(S, j)) { k = j; break; } car.target = car.pos = inLegend() ? SECTIONS.length : S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : k; }
     const cur = Math.round(car.target), enter = cd => {
+      if (cd.special && !legendOpen(S)) { sfx('deny'); toast('Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).'); return; }
       if (cd.special) { S.lastArea = 'special'; persist(); go('prep'); toast('Press Start!! to play Legend Stages'); return; }
       if (!secOpen(S, cd.sec)) { sfx('deny'); toast('Clear every stage of Section ' + cd.sec + ' (' + SECTIONS[cd.sec - 1].name + ') first.'); return; }
       S.lastArea = 'map'; S.lastSec = cd.sec; G.sec = cd.sec; G.map = null; persist(); go('prep'); toast('Press Start!! to play ' + SECTIONS[cd.sec].name);
@@ -3014,7 +3023,7 @@
     baseBottom(c, () => goBack());
   }
   function chapterCard(c, cd, W, H, focus) {
-    const sp = !!cd.special, col = sp ? '#a98bff' : SECTIONS[cd.sec].color, open = sp || secOpen(S, cd.sec);
+    const sp = !!cd.special, col = sp ? '#a98bff' : SECTIONS[cd.sec].color, open = sp ? legendOpen(S) : secOpen(S, cd.sec);
     const cl = sp ? 0 : Math.min(secCleared(S, cd.sec), STAGES.length), done = !sp && cl >= STAGES.length;
     rr(c, -W / 2 - 6, -6, W + 12, H + 12, 10, focus ? col : '#111', null);
     c.save(); c.beginPath(); c.rect(-W / 2, 0, W, H); c.clip();
@@ -3047,7 +3056,7 @@
     if (!open) {
       rr(c, -W / 2, 0, W, H, 6, 'rgba(10,10,10,.68)', null);
       text(c, '🔒', 0, H / 2 - 30, 60, '#fff', 'center');
-      text(c, 'Clear Section ' + cd.sec + ' to open', 0, H / 2 + 34, 24, '#fff', 'center', '#000');
+      text(c, sp ? 'Unlock the ' + SECTIONS[1].short + ' first' : 'Clear Section ' + cd.sec + ' to open', 0, H / 2 + 34, 24, '#fff', 'center', '#000');
     }
   }
 
@@ -4758,7 +4767,7 @@
   }
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
-  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD };
+  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
