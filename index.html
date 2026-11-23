@@ -628,16 +628,28 @@
   const NAME_TAG = 'CCSAVE:';
   // Both layers are read and the NEWEST save wins (each save carries savedAt), so a stale copy in one layer
   // can never override newer progress in the other.
+  // The on-device save is signed too (same salted checksum as save codes), so editing it in the browser's storage viewer is rejected.
+  // Saves written before this update are unsigned: they are accepted until LEGACY_UNTIL and re-saved signed right away.
+  const LOCAL_TAG = 'CCL.', LEGACY_UNTIL = Date.parse('2026-12-14T00:00:00Z');
+  const packLocal = json => LOCAL_TAG + codeHash(CODE_SALT + json) + '.' + json;
+  function unpackLocal(raw) {
+    try {
+      if (typeof raw !== 'string' || !raw) return null;
+      if (raw.indexOf(LOCAL_TAG) === 0) { const dot = raw.indexOf('.', LOCAL_TAG.length), json = raw.slice(dot + 1); return dot > 0 && codeHash(CODE_SALT + json) === raw.slice(LOCAL_TAG.length, dot) ? JSON.parse(json) : null; }
+      return Date.now() < LEGACY_UNTIL ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
   function readStore() {
     const got = [];
-    try { const v = localStorage.getItem(SAVE_KEY); if (v) got.push(JSON.parse(v)); } catch (e) { /* blocked */ }
-    try { if (typeof window.name === 'string' && window.name.indexOf(NAME_TAG) === 0) got.push(JSON.parse(window.name.slice(NAME_TAG.length))); } catch (e) { /* ignore */ }
+    try { const v = unpackLocal(localStorage.getItem(SAVE_KEY)); if (v) got.push(v); } catch (e) { /* blocked */ }
+    try { if (typeof window.name === 'string' && window.name.indexOf(NAME_TAG) === 0) { const v = unpackLocal(window.name.slice(NAME_TAG.length)); if (v) got.push(v); } } catch (e) { /* ignore */ }
     got.sort((a, b) => (+(b && b.savedAt) || 0) - (+(a && a.savedAt) || 0));
     return got[0] || null;
   }
   // What survives a refresh here: 'browser' (localStorage works), 'tab' (only window.name: same tab only), 'none'.
   let STORE_MODE = 'none';
-  function writeStore(str) {
+  function writeStore(json) {
+    const str = packLocal(json);
     let ls = false, wn = false;
     try { localStorage.setItem(SAVE_KEY, str); ls = localStorage.getItem(SAVE_KEY) === str; } catch (e) { /* blocked */ }
     try { if (typeof window.name !== 'string' || !window.name || window.name.indexOf(NAME_TAG) === 0) { window.name = NAME_TAG + str; wn = window.name === NAME_TAG + str; } } catch (e) { /* ignore */ }
@@ -679,7 +691,8 @@
       const j = JSON.parse(json); return j && typeof j === 'object' ? j : null;
     } catch (e) { return null; }
   }
-  function exportCode() { try { return makeCode(S); } catch (e) { return ''; } }
+  // (no codes while a URL test option is active: that session may hold made-up progress, and the code would carry a valid signature)
+  function exportCode() { if (NO_PERSIST && HAS_DOM) return ''; try { return makeCode(S); } catch (e) { return ''; } }
   function importCode(str) {
     const j = readCode(str); if (!j) return false;
     try { S = loadSave(j); persist(); return true; } catch (e) { return false; }
@@ -816,7 +829,12 @@
     q('#ccrno').onclick = close;
     q('#ccrbak').onclick = () => { const code = exportCode(); try { navigator.clipboard.writeText(code).then(() => { msg.textContent = 'Copied! Keep it somewhere safe.'; }, () => { msg.textContent = 'Could not copy. Use Save code instead.'; }); } catch (e) { msg.textContent = 'Could not copy. Use Save code instead.'; } };
     inp.oninput = () => { const ok = inp.value.trim().toUpperCase() === 'RESET'; yes.disabled = !ok; yes.style.opacity = ok ? '1' : '.4'; };
-    yes.onclick = () => { if (inp.value.trim().toUpperCase() !== 'RESET') return; S = defaultSave(); persist(); G.sel = 0; close(); toast('Progress reset.'); };
+    yes.onclick = () => {
+      if (inp.value.trim().toUpperCase() !== 'RESET') return;
+      try { localStorage.setItem('crumb-crusade-wipe', '1'); } catch (e) { /* ignore */ }   // tells cloud sync this blank save is on purpose
+      S = defaultSave(); persist(); G.sel = 0; close(); toast('Progress reset.');
+      if (typeof CLOUD !== 'undefined' && CLOUD.user) CLOUD.sync();
+    };
     d.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') close(); else if (e.key === 'Enter' && !yes.disabled) yes.click(); });
     setTimeout(() => { try { inp.focus(); } catch (e) { /* ignore */ } }, 50);
   }
@@ -833,7 +851,7 @@
     apiKey: 'AIzaSyAWo71DncWZ7yyJTEN8eq0dv11jZsBlR9Y', authDomain: 'crumb-crusade.firebaseapp.com', projectId: 'crumb-crusade',
     storageBucket: 'crumb-crusade.firebasestorage.app', messagingSenderId: '255501793679', appId: '1:255501793679:web:1d7050a81508198f5af3fa',
   };
-  const FB_V = '10.12.2', SYNC_KEY = 'crumb-crusade-sync';
+  const FB_V = '10.12.2', SYNC_KEY = 'crumb-crusade-sync', WIPE_KEY = 'crumb-crusade-wipe';
   const CLOUD = { on: false, fb: null, user: null, status: '', busy: false, again: false, timer: 0, retryT: 0, want: false };
   // what this device last agreed with the cloud on: { uid, at: cloud savedAt, h: hash of the save at that moment }
   const saveHash = s => codeHash(JSON.stringify(Object.assign({}, s, { savedAt: 0 })));
@@ -906,6 +924,8 @@
   CLOUD.takeover = async () => {
     const m = document.getElementById('ccdupm'); if (m) m.textContent = 'Loading...';
     CLOUD.locked = false;
+    // always restart from the title screen: whatever was open (even a battle) is dropped, then the newest cloud save is loaded
+    G.paused = false; G.result = null; G.gacha = null; G.battle = null; G.dnd = null; HIST.length = 0; G.screen = 'title';
     try { await CLOUD.sync(); await CLOUD.claim(); CLOUD.hideLock(); toast('You are playing on this device.'); }
     catch (e) { CLOUD.locked = true; const m2 = document.getElementById('ccdupm'); if (m2) m2.textContent = 'Could not reach the cloud. Check your internet and try again.'; }
   };
@@ -920,7 +940,10 @@
       const m = syncMeta(), mine = m.uid === uid ? m : {};
       const localChanged = saveHash(S) !== mine.h, remoteChanged = !!remote && r.savedAt !== mine.at;
       let take = false;
-      if (remoteChanged && localChanged) {
+      const wipe = (() => { try { return localStorage.getItem(WIPE_KEY) === '1'; } catch (e) { return false; } })();   // set by Reset progress until the cloud copy is wiped too
+      if (wipe) take = false;
+      else if (remote && !(S.cleared > 0) && remote.cleared > 0) take = true;   // this device has nothing but the cloud has progress: never overwrite it
+      else if (remoteChanged && localChanged) {
         // both sides moved since the last sync (or this device never synced)
         if (!mine.at && !(S.cleared > 0)) take = true;   // brand-new device: just take the cloud save
         else if (G.screen === 'battle') { CLOUD.status = 'Will sync after this battle'; return; }
@@ -930,10 +953,11 @@
         if (G.screen === 'battle') { CLOUD.status = 'Will sync after this battle'; return; }
         S = loadSave(remote); S.savedAt = r.savedAt; writeStore(JSON.stringify(S));
         setSyncMeta({ uid, at: r.savedAt, h: saveHash(S) }); toast('Loaded your cloud save.');
-      } else if (localChanged || !remote) {
+      } else if (localChanged || !remote || wipe) {
         const at = S.savedAt || Date.now();
         await fs.setDoc(ref, { save: makeCode(S), savedAt: at, cleared: S.cleared || 0, updated: fs.serverTimestamp() }, { merge: true });   // merge keeps the session marker
         setSyncMeta({ uid, at, h: saveHash(S) });
+        try { localStorage.removeItem(WIPE_KEY); } catch (e) { /* ignore */ }
       }
       CLOUD.status = 'Synced';
     } catch (e) {
@@ -2614,6 +2638,25 @@
       c.globalAlpha = 1; rangeBar(c, x0, 1, d.range, GROUND_Y + 45, col, .95, nameOf(S, G.rangePreview) + ':  range ' + d.range + (d.area ? '  ·  Area' : '  ·  Single'), 7);
     }
   }
+  // First-stage coaching (new game only): one tip at a time, with a pulsing ring on the thing to press.
+  function tutorialTip(B) {
+    const y = PANEL_Y + 14, h = 138, mine = B.units.some(u => u.side > 0 && u.hp > 0);
+    const pick = B.roster.findIndex(id => id && B.money >= UNITS[id].cost && (B.recharge[id] || 0) <= 0);
+    if (B.pinCharge >= B.pinMax && !B.pin) return { msg: 'The ROLLING PIN is ready! Press it!', sub: 'It rolls across the field and flattens every pest in its path.', ring: [1082, y, 188, h] };
+    if (!mine) {
+      if (pick >= 0) return { msg: 'Tap a baker card to send it out!', sub: 'Bakers cost dough. You can also press the number keys 1 to 0.', ring: [190 + pick * 89, y, 84, h] };
+      return { msg: 'Dough is building up...', sub: 'Your dough is the number at the top right. A card lights up when you can afford it.', ring: [1000, 8, 270, 36] };
+    }
+    if (B.wallet === 1 && B.money >= walletCost(B)) return { msg: 'Upgrade your Oven Heat!', sub: 'A hotter oven makes dough faster, so you can send out more bakers.', ring: [10, y, 168, h] };
+    return { msg: 'Keep sending bakers!', sub: 'Smash the pests\' bin on the right to win. Don\'t let them reach your oven on the left.', ring: null };
+  }
+  function drawTutorial(c, B) {
+    const t = tutorialTip(B);
+    rr(c, 270, 62, 740, 76, 16, 'rgba(30,20,12,.88)', '#ffd24a', 3);
+    text(c, t.msg, 640, 90, 25, '#fff3d6', 'center');
+    fitText(c, t.sub, 640, 120, 700, 16, '#f3d49a', 'center');
+    if (t.ring) { const p = Math.sin(G.time * 6), e = 4 + p * 2; c.globalAlpha = .75 + .25 * p; rr(c, t.ring[0] - e, t.ring[1] - e, t.ring[2] + e * 2, t.ring[3] + e * 2, 14, null, '#ffd24a', 5); c.globalAlpha = 1; }
+  }
   function drawBattle(c) {
     const B = G.battle, th = THEMES[B.st.theme];
     c.save();
@@ -2628,7 +2671,7 @@
     drawWorldFx(c, B);
     c.restore();
     c.restore();
-    if (B.idx === 0 && B.time < 14 && !B.over) {
+    if (B.idx === 0 && B.time < 14 && !B.over && !inTutorial(B.idx)) {
       c.globalAlpha = clamp(14 - B.time, 0, 1);
       rr(c, 300, 76, 680, 62, 16, 'rgba(30,20,12,.78)', null);
       text(c, 'Click a baker below (or press 1-0) to send it marching!', 640, 96, 18, '#fff3d6', 'center');
@@ -2641,6 +2684,7 @@
       text(c, B.banner.text, 640 + (1 - a) * 80, 228, 40, '#fff', 'center', '#3a0c0c', HEAD); c.globalAlpha = 1;
     }
     drawHud(c, B); drawPanel(c, B);
+    if (inTutorial(B.idx) && !B.over && !G.result && !G.paused) drawTutorial(c, B);
     if (!G.result && !G.paused) {
       btn(c, 1226, 64, 44, 34, '+', () => setZoom(G.zoom * 1.2), { r: 9, size: 24, color: 'rgba(243,212,154,.92)' });
       btn(c, 1226, 106, 44, 34, '−', () => setZoom(G.zoom / 1.2), { r: 9, size: 24, color: 'rgba(243,212,154,.92)' });
@@ -4848,7 +4892,9 @@
   }
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
-  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave };
+  // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
+  const EXPOSE_HOOK = false;
+  if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
