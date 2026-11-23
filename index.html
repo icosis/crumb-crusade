@@ -727,7 +727,8 @@
     } catch (e) { /* storage unavailable: play without saving */ }
     return s;
   }
-  function persist() { if (NO_PERSIST) return; try { S.savedAt = Date.now(); writeStore(JSON.stringify(S)); } catch (e) { /* ignore */ } }
+  let CLOUD_DIRTY = null;   // set by cloud sync once signed in: schedules an upload after each save
+  function persist() { if (NO_PERSIST) return; try { S.savedAt = Date.now(); writeStore(JSON.stringify(S)); } catch (e) { /* ignore */ } if (CLOUD_DIRTY) CLOUD_DIRTY(); }
   // Unsaved-progress banner (top of the screen): shown after big events, hides itself after 8 seconds.
   function markDirty() {
     if (!HAS_DOM || document.getElementById('ccbanner') || document.getElementById('ccsave')) return;
@@ -784,6 +785,103 @@
     d.addEventListener('keydown', e => e.stopPropagation());
   }
   let S = loadSave();
+
+  // =====================================================================
+  // CLOUD SYNC (Firebase). Only on the hosted app page, only after the player signs in with Google.
+  // The game still saves on the device first (works offline); the cloud copy is uploaded a few seconds
+  // after progress and pulled when the game opens / comes back to the front.
+  // =====================================================================
+  // Web-app config from the Firebase console. These values are public identifiers, not secrets: the Firestore rules
+  // (each signed-in user can only read/write saves/<their own uid>) are what keep saves private.
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyAWo71DncWZ7yyJTEN8eq0dv11jZsBlR9Y', authDomain: 'crumb-crusade.firebaseapp.com', projectId: 'crumb-crusade',
+    storageBucket: 'crumb-crusade.firebasestorage.app', messagingSenderId: '255501793679', appId: '1:255501793679:web:1d7050a81508198f5af3fa',
+  };
+  const FB_V = '10.12.2', SYNC_KEY = 'crumb-crusade-sync';
+  const CLOUD = { on: false, fb: null, user: null, status: '', busy: false, again: false, timer: 0, retryT: 0, want: false };
+  // what this device last agreed with the cloud on: { uid, at: cloud savedAt, h: hash of the save at that moment }
+  const saveHash = s => codeHash(JSON.stringify(Object.assign({}, s, { savedAt: 0 })));
+  const syncMeta = () => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch (e) { return {}; } };
+  const setSyncMeta = m => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(m)); } catch (e) { /* ignore */ } };
+  const saveSummary = (s, at) => (s.cleared || 0) + ' stages cleared, ' + (s.crumbs || 0) + ' crumbs (saved ' + (at ? new Date(at).toLocaleString() : '?') + ')';
+  CLOUD.enabled = () => !!(FIREBASE_CONFIG && INSTALL.hosted && !NO_PERSIST);
+  CLOUD.init = async () => {
+    if (!CLOUD.enabled() || CLOUD.on || CLOUD.loading) return;
+    CLOUD.loading = true; CLOUD.status = 'Loading...';
+    try {
+      const base = 'https://www.gstatic.com/firebasejs/' + FB_V + '/';
+      const [app, auth, fs] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+      const a = app.initializeApp(FIREBASE_CONFIG);
+      CLOUD.fb = { auth, fs, A: auth.getAuth(a), D: fs.getFirestore(a) };
+      CLOUD.on = true; CLOUD.status = '';
+      auth.getRedirectResult(CLOUD.fb.A).catch(() => {});
+      auth.onAuthStateChanged(CLOUD.fb.A, u => {
+        CLOUD.user = u || null; CLOUD.status = u ? 'Signed in' : '';
+        CLOUD_DIRTY = u ? CLOUD.soon : null;
+        if (u) CLOUD.sync();
+      });
+    } catch (e) { CLOUD.status = navigator.onLine ? 'Cloud unavailable' : 'Offline'; }
+    CLOUD.loading = false;
+  };
+  // upload a few seconds after progress (batched, so a burst of saves is one upload)
+  CLOUD.soon = () => { if (!CLOUD.timer) CLOUD.timer = setTimeout(() => { CLOUD.timer = 0; CLOUD.sync(); }, 6000); };
+  CLOUD.retry = () => { if (!CLOUD.retryT) CLOUD.retryT = setTimeout(() => { CLOUD.retryT = 0; CLOUD.sync(); }, 30000); };
+  CLOUD.sync = async () => {
+    if (!CLOUD.on || !CLOUD.user) return;
+    if (CLOUD.busy) { CLOUD.again = true; return; }
+    CLOUD.busy = true; CLOUD.status = 'Syncing...';
+    const { fs, D } = CLOUD.fb, uid = CLOUD.user.uid, ref = fs.doc(D, 'saves', uid);
+    try {
+      const snap = await fs.getDoc(ref);
+      const r = snap.exists() ? snap.data() : null, remote = r ? readCode(r.save) : null;
+      const m = syncMeta(), mine = m.uid === uid ? m : {};
+      const localChanged = saveHash(S) !== mine.h, remoteChanged = !!remote && r.savedAt !== mine.at;
+      let take = false;
+      if (remoteChanged && localChanged) {
+        // both sides moved since the last sync (or this device never synced)
+        if (!mine.at && !(S.cleared > 0)) take = true;   // brand-new device: just take the cloud save
+        else if (G.screen === 'battle') { CLOUD.status = 'Will sync after this battle'; return; }
+        else take = window.confirm('Your saves are different on this device and in the cloud.\n\nCloud: ' + saveSummary(remote, r.savedAt) + '\nThis device: ' + saveSummary(S, S.savedAt) + '\n\nOK = use the CLOUD save\nCancel = keep THIS DEVICE\'s save');
+      } else if (remoteChanged) take = true;
+      if (take) {
+        if (G.screen === 'battle') { CLOUD.status = 'Will sync after this battle'; return; }
+        S = loadSave(remote); S.savedAt = r.savedAt; writeStore(JSON.stringify(S));
+        setSyncMeta({ uid, at: r.savedAt, h: saveHash(S) }); toast('Loaded your cloud save.');
+      } else if (localChanged || !remote) {
+        const at = S.savedAt || Date.now();
+        await fs.setDoc(ref, { save: makeCode(S), savedAt: at, cleared: S.cleared || 0, updated: fs.serverTimestamp() });
+        setSyncMeta({ uid, at, h: saveHash(S) });
+      }
+      CLOUD.status = 'Synced';
+    } catch (e) {
+      CLOUD.status = navigator.onLine ? 'Sync failed, retrying' : 'Offline, will sync later'; CLOUD.retry();
+    } finally {
+      CLOUD.busy = false; if (CLOUD.again) { CLOUD.again = false; CLOUD.soon(); }
+    }
+  };
+  // title-screen button (runs on finger-up so the sign-in popup is allowed)
+  CLOUD.click = () => {
+    if (CLOUD.user) {
+      if (window.confirm('Cloud save: ' + CLOUD.status + '\nSigned in as ' + (CLOUD.user.email || 'Google account') + '.\n\nSign out on this device?')) {
+        CLOUD.fb.auth.signOut(CLOUD.fb.A); setSyncMeta({}); toast('Signed out. This device keeps its own save.');
+      } else CLOUD.sync();
+      return;
+    }
+    if (!CLOUD.on) { toast(navigator.onLine ? 'Cloud save is still loading. Try again in a moment.' : 'Connect to the internet to sign in.'); CLOUD.init(); return; }
+    const { auth, A } = CLOUD.fb, p = new auth.GoogleAuthProvider();
+    auth.signInWithPopup(A, p).catch(e => {
+      const code = (e && e.code) || '';
+      if (/popup-blocked|operation-not-supported/.test(code)) auth.signInWithRedirect(A, p);
+      else if (!/popup-closed|cancelled-popup/.test(code)) toast('Sign-in failed: ' + (code || (e && e.message) || 'unknown error'));
+    });
+  };
+  CLOUD.label = () => !CLOUD.user ? '☁ Sign in to sync' : '☁ ' + (CLOUD.status === 'Synced' ? 'Synced ✓' : CLOUD.status || 'Signed in');
+  if (HAS_DOM) {
+    window.addEventListener('online', () => { if (!CLOUD.on) CLOUD.init(); else CLOUD.sync(); });
+    // upload when leaving, pull the newest when coming back (e.g. after playing on the other device)
+    document.addEventListener('visibilitychange', () => { if (CLOUD.user) CLOUD.sync(); });
+    CLOUD.init();
+  }
 
   // =====================================================================
   // AUDIO (tiny synth)
@@ -2523,6 +2621,7 @@
     shown.forEach((id, i) => { c.save(); c.translate(90 + i * 95, 600 + (i % 2) * 14); c.scale(UNITS[id].s || 1, UNITS[id].s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
     ['ant', 'fly', 'beetle', 'mouse'].forEach((id, i) => { const d = FOES[id]; c.save(); c.translate(1220 - i * 100, 606 + (i % 2) * 12 - (d.hover ? d.hover + Math.sin(G.time * 5) * 4 : 0)); c.scale(-(d.s || 1), d.s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
     btn(c, 510, 410, 260, 84, 'PLAY', () => go('chapters'), { size: 40, r: 22 });
+    if (CLOUD.enabled()) btn(c, 530, 20, 220, 36, CLOUD.label(), () => { CLOUD.want = true; }, { size: 15, r: 10, color: CLOUD.user ? '#b9f09a' : 'rgba(255,247,234,.8)' });
     if (INSTALL.show()) btn(c, 540, 508, 200, 42, '⬇  Install app', () => { INSTALL.want = true; }, { size: 17, r: 12, color: '#9be37a' });
     const armed = G.time < G.resetArm;
     btn(c, 20, 20, 190, 36, armed ? 'Click again to wipe' : 'Reset progress', () => {
@@ -4582,7 +4681,7 @@
     if (G.sdrag) { const s = G.sdrag; G.sdrag = null; if (!s.moved && s.fn && e.type === 'pointerup') s.fn(); } if (G.dnd) { pointerPos(e); if (e.type === 'pointerup') dropDnd(); G.dnd = null; } G.down = false; G.drag = null; if (e.pointerType && e.pointerType !== 'mouse') { G.mx = -1; G.my = -1; } };
   // Install button: browsers only allow the install popup from a "real" click, and on touch screens that means
   // finger-up, so the button just marks it and the popup opens here.
-  window.addEventListener('pointerup', () => { if (INSTALL.want) { INSTALL.want = false; INSTALL.run(); } }, true);
+  window.addEventListener('pointerup', () => { if (INSTALL.want) { INSTALL.want = false; INSTALL.run(); } if (CLOUD.want) { CLOUD.want = false; CLOUD.click(); } }, true);
   canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('wheel', e => {
     if (G.screen === 'units' || G.screen === 'capsule' || G.screen === 'special' || G.screen === 'missions') { SC.target = clamp(SC.target + e.deltaY * (e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1), 0, SC.max); e.preventDefault(); return; }
@@ -4659,7 +4758,7 @@
   }
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
-  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode };
+  window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
