@@ -3154,7 +3154,7 @@
     carArrow(c, 70, 400, -1, () => carStep('ch', -1), cur === 0);
     carArrow(c, VW - 70, 400, 1, () => carStep('ch', 1), cur === cards.length - 1);
     text(c, 'Tap the big card to pick it', 640, 606, 17, '#cfcfcf', 'center', '#000');
-    baseBottom(c, () => goBack());
+    baseBottom(c, () => goBack('title'));   // opened from PLAY there is no history, so Back returns to the title screen; from the base it returns to the base
   }
   function chapterCard(c, cd, W, H, focus) {
     const sp = !!cd.special, col = sp ? '#a98bff' : SECTIONS[cd.sec].color, open = sp ? legendOpen(S) : secOpen(S, cd.sec);
@@ -3266,6 +3266,9 @@
     { const f = formOf(S, id); if (f) text(c, f === 2 ? '★ True Form' : 'Evolved Form', x, H - 45, 15, f === 2 ? '#ffd24a' : '#c9e8ff'); }
   }
   function drawShop(c) {
+    STATIC_ART = true; try { drawShopInner(c); } finally { STATIC_ART = false; }   // Upgrade shows still pictures (no walking cards)
+  }
+  function drawShopInner(c) {
     if (UPSEL && !UPSEL.startsWith('f:') && upCatOf(UPSEL) !== UPCAT) UPCAT = upCatOf(UPSEL);   // e.g. coming back from the Orb screen
     const items = upList(UPCAT), key = 'up:' + UPCAT, car = carousel(key, items.length);
     // jump to UPSEL when it was changed from outside the carousel (opening a folder, the smoke test, ...)
@@ -3381,7 +3384,7 @@
       c.restore();
       hit(560, 414, 160, 84, () => { G.talOpen = id; G.talIdx = orbSlot(id) ? 1 : 0; sfx('click'); });
     }
-    { const x = 1180, y = 392, hv = inside(x, y, 50, 50), g3 = c.createLinearGradient(0, y, 0, y + 50); g3.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g3.addColorStop(1, '#e0a000');
+    { const x = VW - 58, y = 392, hv = inside(x, y, 50, 50), g3 = c.createLinearGradient(0, y, 0, y + 50); g3.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g3.addColorStop(1, '#e0a000');
       rr(c, x, y, 50, 50, 10, g3, '#111', 3); c.save(); c.beginPath(); c.rect(x + 4, y + 4, 42, 42); c.clip(); portrait(c, id, x + 25, y + 46, 34, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore();
       text(c, 'i', x + 42, y + 12, 15, '#fff', 'center', '#111', HEAD); hit(x, y, 50, 50, () => openInfo('unit', id)); }
     // info panel: description + stats (green = after the next level)
@@ -4553,14 +4556,14 @@
       text(c, 'Lv' + lv, x + SW - 6, y + 14, 11, '#fff', 'right', '#111', HEAD);
       if (tfOn(S, id)) text(c, '★', x + 12, y + 14, 13, '#ffd24a', 'center', '#111');
       text(c, String(d.cost), x + SW - 6, y + SH - 13, 18, '#ffe135', 'right', '#111', HEAD);
-      if (id === EQSEL && !lifted) { c.globalAlpha = .75 + Math.sin(G.time * 6) * .25; rr(c, x - 3, y - 3, SW + 6, SH + 6, 9, null, '#fff', 4); }
+      if (id === EQSEL && !lifted) { rr(c, x - 3, y - 3, SW + 6, SH + 6, 9, null, '#fff', 4); }
       c.globalAlpha = 1;
     };
     for (let i = 0; i < LINEUP; i++) {
       const x = slotX(i), y = slotY(i), hot = tgt && tgt.kind === 'slot' && tgt.i === i;
       if (L[i]) slotTile(L[i], x, y, i);
       else { rr(c, x, y, SW, SH, 7, '#3a3123', '#111', 3); text(c, String((i + 1) % 10), x + SW / 2, y + SH / 2, 30, 'rgba(255,255,255,.18)', 'center', null, HEAD); }
-      if (hot) { c.globalAlpha = .6 + Math.sin(G.time * 10) * .2; rr(c, x - 4, y - 4, SW + 8, SH + 8, 10, null, '#fff', 5); c.globalAlpha = 1; }
+      if (hot) { c.globalAlpha = .8; rr(c, x - 4, y - 4, SW + 8, SH + 8, 10, null, '#fff', 5); c.globalAlpha = 1; }
     }
     text(c, 'Lineup  ' + L.filter(Boolean).length + '/' + LINEUP, 160, 90, 20, '#7c5432', 'center', null, HEAD);
     baseBtn(c, 70, 112, 180, 46, 'Clear', () => { setLineup(new Array(LINEUP).fill(null)); toast('Lineup cleared.'); }, { size: 22, disabled: !L.some(Boolean) });
@@ -4605,7 +4608,7 @@
       const chips = traitBadges(d).map(b => [b.tip, b.color]).concat(coreTraits(d).filter(t => !GENERIC_TRAITS.has(t.label)).map(t => [t.label, t.color]));
       let tx = 30, ty = 486;
       for (const [lbl, col] of chips) { const cw = chipW(c, lbl, 14); if (tx + cw > 1060) { tx = 30; ty += 28; } if (ty > 514) break; tx += miniChip(c, tx, ty, lbl, col, 14) + 6; }
-      btn(c, 1076, 484, 100, 42, 'Info', () => openInfo('unit', sel), { size: 18, r: 21, color: '#f3d49a' });
+      btn(c, VW - 110, 484, 100, 42, 'Info', () => openInfo('unit', sel), { size: 18, r: 21, color: '#f3d49a' });   // far right
       fitLine(c, nameOf(S, sel) + '  ·  ' + (d.desc || ''), 640, 556, 940, 17, '#fff3d6', 'center');
       [['Cost', d.cost], ['Recharge', d.recharge + 's'], ['Health', st.hp], ['Attack', st.dmg], ['Range', dRng(d)], ['Speed', dSpd(d)]].forEach((r, i) => {
         const x = 166 + i * 160, y = 600; rr(c, x, y - 18, 152, 44, 8, 'rgba(0,0,0,.25)', null);
