@@ -710,6 +710,24 @@
     // tucks itself away after 8 seconds so it never blocks the screen for long (it comes back on the next bit of progress)
     b.style.transition = 'opacity .6s'; setTimeout(() => { b.style.opacity = '0'; setTimeout(() => b.remove(), 650); }, 8000);
   }
+  // "Install app" button (only on the hosted app page, which links a manifest; never in online editors).
+  // Chrome / Edge hand us their install popup; other browsers get short instructions instead.
+  const INSTALL = { evt: null, want: false, done: false };
+  INSTALL.hosted = HAS_DOM && !!document.querySelector('link[rel=manifest]');
+  INSTALL.isApp = () => { try { return ['standalone', 'fullscreen', 'minimal-ui'].some(m => window.matchMedia('(display-mode: ' + m + ')').matches) || navigator.standalone === true; } catch (e) { return false; } };
+  INSTALL.show = () => INSTALL.hosted && !INSTALL.done && !INSTALL.isApp();
+  INSTALL.run = () => {
+    if (INSTALL.evt) {
+      const ev = INSTALL.evt; INSTALL.evt = null;
+      ev.prompt(); ev.userChoice.then(r => { if (r && r.outcome === 'accepted') { INSTALL.done = true; toast('Installing... look for Crumb Crusade on your home screen / desktop.'); } }, () => {});
+    } else if (/iPhone|iPad|iPod/.test(navigator.userAgent)) toast('iPhone: tap Share, then "Add to Home Screen".');
+    else if (/Android/.test(navigator.userAgent)) toast('Tap the browser menu (⋮), then "Install app" or "Add to Home screen".');
+    else toast('Click the install icon at the right end of the address bar (or menu → Install Crumb Crusade).');
+  };
+  if (HAS_DOM) {
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL.evt = e; });
+    window.addEventListener('appinstalled', () => { INSTALL.done = true; INSTALL.evt = null; });
+  }
   // Overlay (real DOM textarea, so copy/paste works) for exporting / importing a save code.
   function openSaveBox() {
     if (!HAS_DOM || document.getElementById('ccsave')) return;
@@ -2475,6 +2493,7 @@
     shown.forEach((id, i) => { c.save(); c.translate(90 + i * 95, 600 + (i % 2) * 14); c.scale(UNITS[id].s || 1, UNITS[id].s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
     ['ant', 'fly', 'beetle', 'mouse'].forEach((id, i) => { const d = FOES[id]; c.save(); c.translate(1220 - i * 100, 606 + (i % 2) * 12 - (d.hover ? d.hover + Math.sin(G.time * 5) * 4 : 0)); c.scale(-(d.s || 1), d.s || 1); c.lineCap = 'round'; drawArt(c, id, { walk: G.time * 7 + i, pose: 0, hurt: false, t: G.time + i }); c.restore(); });
     btn(c, 510, 410, 260, 84, 'PLAY', () => go('chapters'), { size: 40, r: 22 });
+    if (INSTALL.show()) btn(c, 540, 508, 200, 42, '⬇  Install app', () => { INSTALL.want = true; }, { size: 17, r: 12, color: '#9be37a' });
     const armed = G.time < G.resetArm;
     btn(c, 20, 20, 190, 36, armed ? 'Click again to wipe' : 'Reset progress', () => {
       if (armed) { S = defaultSave(); persist(); G.sel = 0; G.resetArm = 0; toast('Progress reset.'); } else G.resetArm = G.time + 3;
@@ -4531,6 +4550,9 @@
       else if (e.type === 'pointerup') for (let i = UI.btns.length - 1; i >= 0; i--) { const b = UI.btns[i]; if (h.x >= b.x && h.x <= b.x + b.w && h.y >= b.y && h.y <= b.y + b.h) { if (b.fn) b.fn(); break; } }
     }
     if (G.sdrag) { const s = G.sdrag; G.sdrag = null; if (!s.moved && s.fn && e.type === 'pointerup') s.fn(); } if (G.dnd) { pointerPos(e); if (e.type === 'pointerup') dropDnd(); G.dnd = null; } G.down = false; G.drag = null; if (e.pointerType && e.pointerType !== 'mouse') { G.mx = -1; G.my = -1; } };
+  // Install button: browsers only allow the install popup from a "real" click, and on touch screens that means
+  // finger-up, so the button just marks it and the popup opens here.
+  window.addEventListener('pointerup', () => { if (INSTALL.want) { INSTALL.want = false; INSTALL.run(); } }, true);
   canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('wheel', e => {
     if (G.screen === 'units' || G.screen === 'capsule' || G.screen === 'special' || G.screen === 'missions') { SC.target = clamp(SC.target + e.deltaY * (e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1), 0, SC.max); e.preventDefault(); return; }
