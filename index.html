@@ -3648,7 +3648,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function unitChips(c, d, x0, y0, maxX, maxY) {
     const chips = traitBadges(d).map(b => [b.tip, b.color]).concat(coreTraits(d).filter(t => !GENERIC_TRAITS.has(t.label)).map(t => [t.label, t.color]));
     let tx = x0, ty = y0;
-    for (const [lbl, col] of chips) { const cw = chipW(c, lbl, 14); if (tx + cw > maxX) { tx = x0; ty += 28; } if (ty > maxY) break; tx += miniChip(c, tx, ty, lbl, col, 14) + 6; }
+    for (const [lbl, col] of chips) { const sh = chipShort(lbl), cw = chipW(c, sh, 14); if (tx + cw > maxX) { tx = x0; ty += 28; } if (ty > maxY) break; const w = miniChip(c, tx, ty, sh, col, 14); if (sh !== lbl && inside(tx, ty, w, 23)) G.chipTip = { x: tx + w / 2, y: ty, label: lbl }; tx += w + 6; }   // short text on the chip; the full text pops up on hover
+  }
+  const CHIP_SHORT = { 'Area attack': 'Area', 'Single target': 'Single', 'Long range': 'Long', 'Mid range': 'Mid', 'Close range': 'Close', 'Slows foes': 'Slow', 'Slows bakers': 'Slow', 'Projectile': 'Shot' };
+  function chipShort(l) {
+    if (CHIP_SHORT[l]) return CHIP_SHORT[l];
+    let s = l.replace('Insanely tough vs ', 'Tough ').replace('Insane damage vs ', 'Insane ').replace('Massive vs ', 'Mass. ').replace('Strong vs ', 'Str. ').replace('Resists ', 'Res. ');
+    return s.length > 12 ? s.replace(/\b(\w{5})\w+/g, '$1.') : s;
+  }
+  function drawChipTip(c) {
+    const t = G.chipTip; if (!t) return; c.font = 'bold 18px ' + FONT; const w = c.measureText(t.label).width + 28, x = clamp(t.x - w / 2, 8, VW - w - 8), y = t.y - 40;
+    rr(c, x, y + 3, w, 32, 9, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, 32, 9, '#2b1a0e', '#ffe9a8', 2); text(c, t.label, x + w / 2, y + 17, 18, '#fff3d6', 'center');
   }
   // Cost / Recharge / Health / Attack / Range / Speed boxes; when `nx` (the next level) is given, the changed numbers show in green
   function statBoxes(c, d, st, nx, y0) {
@@ -5210,9 +5220,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function draw() {
     const c = ctx; c.setTransform(scale, 0, 0, scale, 0, 0); c.globalAlpha = 1;
-    UI.btns.length = 0;
+    UI.btns.length = 0; G.chipTip = null;
     if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
     if (G.pick) drawPick(c);
+    drawChipTip(c);
     if (G.slide) {   // the old screen sliding off to the right (picks up speed), with a soft shadow on its edge
       const p = (G.time - G.slide.t0) / .5;
       if (p >= 1 || p < 0) G.slide = null;
@@ -5390,7 +5401,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-2131';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-2231';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
