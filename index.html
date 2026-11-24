@@ -4913,7 +4913,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---------------- equip (drag & drop into exact slots, gaps allowed) ----------------
   // Lineup tiles sit in 2 rows of 5 (SW x SH each); the unit list below uses the taller CW x CH cards.
   const PREP = { CW: 114, CH: 146, SW: 118, SH: 70, SLOT_Y: 72, BENCH_Y: 250, COLS: 10, slotX: i => 329 + (i % 5) * 126, slotY: i => 72 + Math.floor(i / 5) * 78 };
-  function setLineup(l) { S.lineup = l; persist(); sfx('click'); }
+  // the lineup never has gaps: bakers always sit packed to the left
+  const compactLineup = l => { const r = l.filter(Boolean); while (r.length < LINEUP) r.push(null); return r; };
+  function setLineup(l) { S.lineup = compactLineup(l); persist(); sfx('click'); }
   function dndActive() { return !!(G.dnd && G.dnd.moved); }
   function dropTarget() {
     for (let i = 0; i < LINEUP; i++) if (inside(PREP.slotX(i), PREP.slotY(i), PREP.SW, PREP.SH)) return { kind: 'slot', i };
@@ -4933,6 +4935,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Put `id` into slot i of a lineup that still has a free slot: the bakers in the way slide one place toward the nearest gap.
   function insertPlan(L, i, id) {
     if (L.includes(id) || !L.includes(null)) return null;
+    i = Math.min(i, L.filter(Boolean).length);                         // dropping on an empty slot far along just goes to the end of the row
     const R = L.slice(); let right = -1, left = -1;
     for (let k = i; k < R.length; k++) if (!R[k]) { right = k; break; }
     for (let k = i; k >= 0; k--) if (!R[k]) { left = k; break; }
@@ -4967,6 +4970,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawEquipInner(c) {
     c.fillStyle = '#fbefcc'; c.fillRect(0, 0, VW, VH);
     c.fillStyle = 'rgba(214,170,60,.12)'; for (let y = 70; y < 446; y += 24) c.fillRect(0, y, VW, 12);
+    if (lineupOf(S).some((v, k, a) => !v && a.slice(k).some(Boolean))) { S.lineup = compactLineup(lineupOf(S)); persist(); }   // an older save with gaps gets packed left
     const { SW, SH, slotX, slotY } = PREP, L = lineupOf(S), dragging = dndActive(), tgt = dragging ? dropTarget() : null;
     const toggle = id => {
       const L2 = lineupOf(S).slice(), at = L2.indexOf(id);
@@ -5383,7 +5387,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-2003';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-2020';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
