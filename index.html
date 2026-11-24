@@ -3083,7 +3083,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       { const y0 = Math.max(y, TOP), y1 = Math.min(y + 62, BOT); if (y1 > y0) UI.btns.push({ x: LX, y: y0, w: LW, h: y1 - y0, fn: () => { G.lgSel = ei; openLegendEvent(ei); }, defer: true }); }   // tap: open its map (deferred, so a finger drag scrolls the list)
     });
     c.restore();
-    if (SC.max > 0) { const th = Math.max(40, view * view / (view + SC.max)), ty = TOP + (view - th) * (SC.y / SC.max); rr(c, 10, TOP, 4, view, 2, 'rgba(0,0,0,.12)', null); rr(c, 10, ty, 4, th, 2, 'rgba(232,225,208,.45)', null); }
+    if (SC.max > 0 && G.spOut == null) { const th = Math.max(40, view * view / (view + SC.max)), ty = TOP + (view - th) * (SC.y / SC.max); rr(c, 10, TOP, 4, view, 2, 'rgba(0,0,0,.12)', null); rr(c, 10, ty, 4, th, 2, 'rgba(232,225,208,.45)', null); }
     { c.save(); c.translate(-slideOff() * (LW + 90), 0); const g = c.createLinearGradient(0, 76, 0, 128); g.addColorStop(0, '#c98d4e'); g.addColorStop(1, '#7d5129');
       rr(c, -30, 78, 420, 50, 25, g, '#2b1a0e', 4); dot(c, 30, 103, 17, '#e2483a'); text(c, '★', 30, 104, 20, '#fff', 'center', '#2b1a0e');
       text(c, 'Legend Stages', 58, 104, 26, '#fff', 'left', '#2b1a0e', HEAD);
@@ -3504,7 +3504,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const d = defFor(S, id); let x = -W / 2 + 18;
     if (eq) {   // Equip: just the cost, like Battle Cats' Organize Cats
       if (d.rarity) { rr(c, x, H - 56, 40, 26, 6, RARITY[d.rarity].color, OUT, 2); text(c, d.rarity, x + 20, H - 43, 14, OUT, 'center'); }
-      const cx0 = d.rarity ? x + 62 : x + 12; doughIcon(c, cx0, H - 43, 11); text(c, String(d.cost), cx0 + 18, H - 42, 30, focus ? '#ffe135' : '#b9a94a', 'left', '#000', HEAD); return;   // left side: the +plus levels sit on the right
+      const cx0 = d.rarity ? x + 62 : x + 12; text(c, d.cost + '¢', cx0 - 10, H - 42, 30, focus ? '#ffe135' : '#b9a94a', 'left', '#000', HEAD); return;   // left side: the +plus levels sit on the right
     }
     // Upgrade: just the name and the level (no rarity / role / form chips)
   }
@@ -3561,8 +3561,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     } else if (sel.startsWith('b:')) {
       const k = sel.slice(2), u = BASE_UP[k], lv = baseNat(S, k), tot = baseLv(S, k), mx = lv >= baseNatMax(k), pm = basePlusMax(k);
       if (mx) { baseBtn(c, 88, 414, 360, 84, '', () => showMsg('Max Level for Current Version has been reached.'), { dim: true });
-        text(c, 'Max Lv ' + baseNatMax(k), 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD);
-        text(c, !pm ? 'no + levels for this one' : basePlus(S, k) >= pm ? 'plus levels maxed' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
+        text(c, !pm ? 'no + levels for this one' : basePlus(S, k) >= pm ? 'plus levels maxed' : '+ levels: Normal Capsule  ▶', 268, 458, 18, '#efe8d8', 'center', '#6b6252'); }
       else { const cost = upCost(200, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.base[k] = lv + 1; G.lvFlash = { id: sel, t0: G.time }; }), S.crumbs < cost); }
       text(c, 'Now:  ' + u.desc(tot) + '   (Lv ' + lv + (basePlus(S, k) ? ' +' + basePlus(S, k) : '') + ')', 640, 554, 22, '#fff', 'center');
       text(c, mx ? (pm ? 'Max Lv ' + baseNatMax(k) + ' + up to +' + pm + ' from the Normal Capsule' : 'Fully upgraded!') : 'Next:  ' + u.desc(tot + 1), 640, 596, 22, mx ? '#ffd24a' : '#9be37a', 'center');
@@ -3635,9 +3634,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const d = defFor(S, id), lv = unitLv(S, id), evo = isEvolved(S, id), tfReady = tfAble(S, id), st = unitStats(id, S), cherryLv = lv >= TF_LV;   // the main level past 30 costs a Golden Cherry each
     const maxed = lv >= natCap(S, id) || lv >= UNIT_MAX_LV, nx = maxed ? null : unitStats(id, S, lv + 1);
     // big yellow button: Level Up / True Form / level cap / MAX
-    if (lv >= UNIT_MAX_LV) baseBtn(c, 88, 414, 360, 84, 'MAX LEVEL', () => showMsg('Max Level for Current Version has been reached.'), { size: 36, dim: true });
+    if (lv >= UNIT_MAX_LV) { /* fully levelled: no button */ }
     else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { baseBtn(c, 88, 414, 360, 84, '', () => showMsg('Max Level for Current Version has been reached.'), { dim: true });
-      text(c, 'Max Lv ' + NORMAL_LV_MAX, 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at Lv20 +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
+      text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at Lv20 +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 458, 18, '#efe8d8', 'center', '#6b6252'); }
     else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached.'); }, { dim: true }),
       text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv), noC = cherryLv && (S.cherry || 0) < 1;
@@ -5131,7 +5130,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       portrait(c, id, x + SW / 2 - 10, y + SH - 6, SH - 18, { walk: 0, pose: 0, hurt: false, t: 0 });
       c.restore();
       if (tfOn(S, id)) text(c, '★', x + 12, y + 15, 14, '#ffd24a', 'center', '#111');
-      text(c, String(d.cost), x + 7, y + SH - 14, 20, '#ffe135', 'left', '#111', HEAD);
+      text(c, d.cost + '¢', x + SW - 6, y + SH - 14, 20, '#ffe135', 'right', '#111', HEAD);
       if (id === EQSEL && !lifted) { rr(c, x - 3, y - 3, SW + 6, SH + 6, 9, null, '#fff', 4); }
       c.globalAlpha = 1;
     };
@@ -5525,7 +5524,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1332';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1337';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
