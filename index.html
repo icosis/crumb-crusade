@@ -480,6 +480,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // Heavenly Tower: endless floors, built by towerStage() (the numbers below are only a placeholder)
     { key: 'tower', kind: 'tower', name: 'Heavenly Tower', diff: 'Endless', theme: 'roof', len: 2200, hp: 8000, mag: 2.2, need: 25, reward: 0, waves: [{ u: 'ant', t: 2, e: 3 }] },
   ];
+  // Pest strength is shown as a percentage, so it moves in steps of 5% (unless it is a special number like 666%)
+  const MAG_KEEP = [666, 777];
+  const snapMag = m => { const p = Math.round(m * 100); return MAG_KEEP.includes(p) ? p / 100 : Math.round(m * 20) / 20; };
+  STAGES.forEach(st => { st.mag = snapMag(st.mag); }); SPECIALS.forEach(st => { st.mag = snapMag(st.mag); });
   // Battle indexes: normal stages 0-24, Legend stages SP_BASE + k, Heavenly Tower floor f = TOWER_BASE + f, Section 2/3 stages from SEC_STRIDE
   const TOWER_BASE = 500, TOWER_MAX = 499;
   const TOWER_BOSSES = ['ratking', 'queen', 'crow', 'crazed'], TOWER_THEMES = ['kitchen', 'pantry', 'sink', 'night', 'garden', 'cellar', 'roof'];
@@ -490,7 +494,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (f % 5 === 0) waves.push({ u: TOWER_BOSSES[(f / 5 - 1) % TOWER_BOSSES.length], hp: .55, t: 0 });   // a boss joins every 5th floor
     // strength rises evenly (it does NOT depend on the borrowed stage, whose own strength is hand-tuned): pests x1.8 at floor 1, +9% of that per floor
     return { key: 'tower' + f, kind: 'tower', name: 'Heavenly Tower', diff: 'Floor ' + f, theme: TOWER_THEMES[(f - 1) % TOWER_THEMES.length], len: base.len,
-      hp: 9000 + f * 2500, mag: Math.round(TOWER_MAG0 * (1 + (f - 1) * TOWER_GROW) * 100) / 100, need: 0, reward: Math.round((3000 + f * 1500) / 10) * 10, waves, push: 1 + Math.min(.8, f * .02) };
+      hp: 9000 + f * 2500, mag: snapMag(TOWER_MAG0 * (1 + (f - 1) * TOWER_GROW)), need: 0, reward: Math.round((3000 + f * 1500) / 10) * 10, waves, push: 1 + Math.min(.8, f * .02) };
   }
   const TOWER_MAG0 = 1.8, TOWER_GROW = .09;
   // Daily Twist: one main stage (changes with the date) with one twist (also changes with the date)
@@ -509,7 +513,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const mod = DAILY_MODS[key % DAILY_MODS.length], b = 4 + (key * 13) % 14, base = STAGES[b];   // one of main stages 5 to 18
     sp.dayKey = key; sp.mod = mod; sp.baseIdx = b; sp.theme = base.theme; sp.len = base.len; sp.push = base.push;
     sp.waves = base.waves.map(w => (mod.id === 'rush' && w.e ? Object.assign({}, w, { e: Math.round(w.e * 67) / 100 }) : Object.assign({}, w)));
-    sp.mag = mod.id === 'beefy' ? Math.round(base.mag * 130) / 100 : base.mag; sp.hp = Math.round(base.hp * (mod.id === 'thick' ? 1.6 : 1));
+    sp.mag = mod.id === 'beefy' ? snapMag(base.mag * 1.3) : base.mag; sp.hp = Math.round(base.hp * (mod.id === 'thick' ? 1.6 : 1));
     sp.incomeMul = mod.id === 'dry' ? .75 : 1; sp.unitHp = mod.id === 'frail' ? .7 : 1;
     sp.reward = Math.round(baseReward(b) * 1.2 * (mod.id === 'beefy' ? 1.3 : 1) / 10) * 10;
   }
@@ -528,7 +532,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // the harder copy of a stage for sections 2-3: pest strength x mapMul[map] (tuned per map, since early maps have weaker pest line-ups)
   function secStage(idx) {
     const bi = baseOf(idx), b = STAGES[bi], k = SECTIONS[secOf(idx)], m = MAPS.findIndex(mp => bi >= mp.first && bi <= mp.last);
-    return Object.assign({}, b, { mag: Math.round(b.mag * k.mapMul[m] * 100) / 100, hp: Math.round(b.hp * k.hpMul + k.hpAdd), push: Math.max(b.push || 1, k.push) });
+    return Object.assign({}, b, { mag: snapMag(b.mag * k.mapMul[m]), hp: Math.round(b.hp * k.hpMul + k.hpAdd), push: Math.max(b.push || 1, k.push) });
   }
   const SP_STAGE = SPECIALS[0];
   const isSpecial = i => i >= SP_BASE && i < SEC_STRIDE;
@@ -606,6 +610,34 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   for (const id of Object.keys(TRUE_FORMS)) { TF_DEF[id] = Object.assign({}, UNITS[id], TRUE_FORMS[id], { name: EVO_NAMES[id] || UNITS[id].name }); ART_DEFS[TRUE_FORMS[id].art] = TF_DEF[id]; }
   // the unit definition a save actually fights with (True Form stats when reached)
   const defFor = (save, id) => (tfOn(save, id) && TF_DEF[id] ? TF_DEF[id] : UNITS[id]);
+  // The description of a form REPLACES the normal one (no "Evolved: ..." tail): [Evolved Form, True Form]
+  const FORM_DESC = {
+    bun: ['Finally got the head-baker hat. Still cheap, now insufferably smug about it.', 'Brioche royalty. Buttery, golden, and absolutely not for stalling anymore.'],
+    loaf: ['A wall with ambitions. Bricks are jealous.', 'Fortress Loaf: pests do not breach it, they simply give up and go home.'],
+    pretzel: ['Learned to knot its fists. Hits like a very salty argument.', 'Knot Master. Ties pests in knots, then asks them to apologise.'],
+    baguette: ['Longer, pointier, and utterly sure it is a sword.', 'Grand Lancette: reach so long it pokes the pests before they have heard of you.'],
+    muffin: ['Has stopped crumbling under pressure. Mostly.', 'Berry Blaster: one muffin, one very juicy artillery barrage.'],
+    croissant: ['Flakier and faster. Leaves a trail of crumbs and regret.', 'Cyclone Roll: a pastry-shaped weather event.'],
+    donut: ['The hole in the middle is full of magic now.', 'Glaze Archmage: casts sprinkles, collects tuition.'],
+    cake: ['Three tiers of confidence and frosting.', 'Wedding Colossus: has never once been uninvited, and never will be.'],
+    cookie: ['More chips, more attitude, same crunch.', 'Double-Choc Cookie: twice the chocolate, zero chill.'],
+    pie: ['A deeper dish with an even deeper grudge.', 'Deep-Dish Guard: its crust has filed a formal complaint about your enemies.'],
+    eclair: ['Cream-filled and dangerously pointy.', 'Eclair Paladin: sworn to protect the cream at all costs.'],
+    waffle: ['Its grid pattern is now a battle formation.', 'Belgian Knight: syrup-forged armour, very sticky principles.'],
+    macaron: ['Two shells, one huge ego, plenty of magic.', 'Macaron Sage: ancient, colourful, and unreasonably wise for a cookie sandwich.'],
+    pancake: ['Taller stack, taller tales.', 'Flapjack Colossus: flips pests like a Sunday brunch gone wrong.'],
+    tart: ['Wears the crown. Needs no jam to make a point.', 'Tart Empress: rules the oven with an iron whisk and a sweet filling.'],
+    dragon: ['Now breathes proper fire instead of toast.', 'Sourdough Wyrm: ancient starter, ancient grudge, very warm hugs.'],
+    scone: ['Cream first. Jam second. Fight third.', 'Clotted Scone: dense, dignified, and extremely hard to argue with.'],
+    churro: ['Sugar-dusted and ready for a duel.', 'Churro Champion: undefeated, cinnamon-scented, slightly sticky.'],
+    cupcake: ['Aims better. Sprinkles are now ballistic.', 'Cupcake Howitzer: delivers one heck of a birthday surprise.'],
+    strudel: ['Layers upon layers of stubbornness.', 'Strudel Bastion: flaky outside, immovable inside.'],
+    cinnabun: ['Swirls of spice and bad intentions.', 'Cinnamon Archmage: one swirl, and the whole room smells like victory.'],
+    gingerbread: ['Cracked, but not broken. Mostly just cracked.', 'Gingerbread Titan: the tallest cookie in the neighbourhood and proud of it.'],
+    phoenix: ['Burns bright, rises again, smells of caramel.', 'Toffee Firebird: reborn from the ashes of a very good dessert.'],
+    bakemut: ['Oven Knight. Visits the front line so you do not have to.', 'Awakened Bakemut: it does not walk into battle, it arrives.'],
+  };
+  const descOf = (save, id) => { const f = UNITS[id] ? formOf(save, id) : 0, fd = f && FORM_DESC[id] && FORM_DESC[id][f - 1]; return fd || (defFor(save, id).desc || ''); };
   const nameOf = (save, id) => { const f = UNITS[id] ? formOf(save, id) : 0; return f === 2 ? EVO_NAMES[id] || UNITS[id].name : f === 1 ? EVO1_NAMES[id] || UNITS[id].name : UNITS[id].name; };
   // ---- upgrade prices ----
   // Normal (stage) units keep their own base price but use the gentlest curve.
@@ -1522,7 +1554,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function gachaPull(save, n, rnd) {
     rnd = rnd || Math.random;
-    const cost = n >= 10 ? 10 : 1, draws = n >= 10 ? 11 : 1;
+    n = Math.max(1, Math.floor(n) || 1); const cost = n, draws = n + Math.floor(n / 10);        // every 10 draws bought come with 1 free (so 10 -> 11)
     if ((save.tickets || 0) >= cost) save.tickets -= cost;                    // tickets are used first (like Battle Cats)
     else if ((save.sugar || 0) >= cost * SUGAR_PULL) save.sugar -= cost * SUGAR_PULL;
     else return null;
@@ -1550,6 +1582,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (plusOf(save, id) >= PLUS_MAX) return null;                   // plus levels maxed: can only be sold
     if (!save.plus) save.plus = {};
     capsuleTake(save, id); save.plus[id] = plusOf(save, id) + 1; return 'plus';
+  }
+  // Use every copy that can be used: new bakers are unlocked, then every plus level that still fits (Normal Capsule items and gacha copies alike).
+  // Copies that can't be used (plus levels already maxed) are simply left in Storage.
+  function useAllCapsule(save) {
+    save = save || S; let n = 0, again = true;
+    while (again) { again = false; for (const k of (save.capsule || []).slice()) if (UNITS[k] ? capsuleUse(save, k) : itemUse(save, k)) { n++; again = true; } }
+    return n;
   }
   function capsuleSell(save, id) { if (!capsuleTake(save, id)) return 0; const v = sellValue(id); save.crumbs += v; return v; }
   const npValue = id => NP_VALUE[UNITS[id].rarity] || 0;
@@ -1614,7 +1653,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2366,7 +2405,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; if (screen === 'prep' && from !== 'prep') G.bunSay = null; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -2374,7 +2413,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function noteStages(area) { const sec = area === 'map' ? G.sec || 0 : S.lastSec; if (S.lastArea !== area || S.lastSec !== sec) { S.lastArea = area; S.lastSec = sec; persist(); } }
   const inLegend = () => S.lastArea === 'special' && legendOpen(S);   // (a save from before the lock may still say 'special')
   const baseName = () => (inLegend() ? 'Legend Stages' : SECTIONS[S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : 0].name);
+  // Start!! slides the Bakery Base away to the right, uncovering the stage list
+  function slideAway() {
+    try { const s = document.createElement('canvas'); s.width = canvas.width; s.height = canvas.height; s.getContext('2d').drawImage(canvas, 0, 0); G.slide = { img: s, t0: G.time }; } catch (e) { G.slide = null; }
+  }
   function resumeStages() {
+    slideAway();
     HIST.length = 0; HIST.push('prep');
     if (inLegend()) { scReset(); go('special', true); return; }
     G.sec = S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : null; G.map = null; go('map', true);
@@ -2898,9 +2942,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (inTutorial(B.idx)) {   // first stage not won yet: no way out except trying again
         btn(c, p.x + 150, yy + 16, 260, 60, 'Retry', () => startBattle(B.idx));
       } else {
-        btn(c, p.x + 40, yy + 16, 150, 60, backSp ? 'Legend' : 'Map', () => { go(backSp ? 'legendmap' : 'map'); }, { color: '#f3d49a', size: backSp ? 20 : undefined });
-        btn(c, p.x + 205, yy + 16, 150, 60, 'Bakery', () => go('shop'), { color: '#8fc0a9' });
-        btn(c, p.x + 370, yy + 16, 150, 60, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
+        // like Battle Cats: a big Ok that goes back to the map (or the Legend Stages list)
+        btn(c, p.x + 30, yy + 16, 280, 64, 'Ok', () => { go(backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 34 });
+        text(c, backSp ? 'back to Legend Stages' : 'back to the map', p.x + 170, yy + 94, 13, '#7c5432', 'center');
+        btn(c, p.x + 326, yy + 16, 200, 64, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
       }
     } else if (G.paused) {
       const p = overlayPanel(c, 420, 300);
@@ -3111,10 +3156,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const SW = 1200 / ids.length, it = SHOP_ITEMS[k], x = 40 + q * SW + 8, y = 110, w = SW - 16, h = 460, have = (S.items && S.items[k]) || 0, can = (S.sugar || 0) >= it.price;
       rr(c, x, y + 6, w, h, 20, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, h, 20, '#fff3d6', '#4a2f12', 4);
       rr(c, x + 16, y + 16, w - 32, 190, 14, '#2b4a47', '#e0b060', 3);
-      c.save(); c.translate(x + w / 2, y + 112);
+      c.save(); c.beginPath(); c.rect(x + 19, y + 19, w - 38, 184); c.clip(); c.translate(x + w / 2, y + 112);   // nothing may spill out of the picture box
       if (k === 'radar') { for (let r = 70; r > 0; r -= 20) { c.globalAlpha = .25 + (70 - r) / 140; ell(c, 0, 0, r, r, null, '#9be37a', 3); } c.globalAlpha = 1; c.rotate(G.time * 2); line(c, [0, 0, 66, 0], '#9be37a', 4); c.rotate(-G.time * 2); chestIcon(c, 0, 10, 1.1); }
       else if (k === 'rich') { portrait(c, 'bun', 0, 60, 110, { walk: G.time * 3, pose: 0, hurt: false, t: G.time }); for (let q2 = 0; q2 < 5; q2++) doughIcon(c, -70 + q2 * 35, -60 + Math.sin(G.time * 3 + q2) * 6, 12); }
-      else if (k === 'orb') { ORB_TRAITS.forEach((t, q2) => orbIcon(c, -66 + q2 * 44, Math.sin(G.time * 2 + q2) * 8 + (q2 % 2 ? 26 : -10), 24, t + '.' + (q2 % 2 ? 'def' : 'atk'))); }
+      else if (k === 'orb') { ORB_TRAITS.forEach((t, q2) => { const row = q2 < 5 ? 0 : 1, col = row ? q2 - 5 : q2, n2 = row ? ORB_TRAITS.length - 5 : 5;   // two tidy rows, centred, inside the box
+        orbIcon(c, (col - (n2 - 1) / 2) * 46, Math.sin(G.time * 2 + q2) * 4 + (row ? 34 : -30), 19, t + '.' + (q2 % 2 ? 'def' : 'atk')); }); }
       else { for (let q2 = 0; q2 < 5; q2++) { const gx = -48 + q2 * 24; line(c, [gx, 70, gx + 4, -10], '#c98a1a', 4); ell(c, gx + 4, -24, 8, 18, '#ffd24a', '#8a5a0a', 2); } }
       c.restore();
       text(c, it.name, x + w / 2, y + 240, 28, OUT, 'center', null, HEAD);
@@ -3279,6 +3325,20 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function carStep(key, d) { const s = CAR[key]; if (!s || !s.n) return; const t = clamp(Math.round(s.target) + d, 0, s.n - 1); if (t !== s.target) { s.target = t; sfx('click'); } }
   // offset d (in cards) from the centre -> x offset, scale, and how "side" the card is (0 = centre, 1 = side)
   function carSlot(d, gap1, gap2, kSide) { const a = Math.abs(d), f = Math.min(1, a); return { x: Math.sign(d) * (a < 1 ? a * gap1 : gap1 + (a - 1) * gap2), k: 1 - f * (1 - kSide), f }; }
+  // a slider that scrubs through the carousel: the knob follows the cards, and dragging (or tapping) the track moves them
+  function carSlider(c, key, n, car, x0, x1, y) {
+    if (n < 2) { G.slGeom = null; return; }
+    const f = clamp(car.pos / (n - 1), 0, 1), kx = x0 + 10 + (x1 - x0 - 20) * f, live = G.sldrag && G.sldrag.key === key, hv = live || inside(x0 - 10, y - 18, x1 - x0 + 20, 36);
+    rr(c, x0, y - 7, x1 - x0, 14, 7, '#1b1b1b', null);
+    if (n <= 24) for (let i = 0; i < n; i++) dot(c, x0 + 10 + (x1 - x0 - 20) * i / (n - 1), y, 2, 'rgba(255,255,255,.28)');   // a tick for every card
+    dot(c, kx, y, hv ? 11 : 9, '#111'); dot(c, kx, y, hv ? 9 : 7.5, '#fff');
+    G.slGeom = { key, screen: G.screen, x0, x1, y, n };
+  }
+  function sliderTo(x) {
+    const g = G.slGeom, s = g && CAR[g.key]; if (!s) return;
+    const t = clamp(Math.round(clamp((x - g.x0 - 10) / (g.x1 - g.x0 - 20), 0, 1) * (g.n - 1)), 0, g.n - 1);
+    if (t !== s.target) { s.target = t; sfx('click'); }
+  }
   function pageDots(c, n, cur, y) {
     if (n < 2) return;
     const gap = Math.min(32, 720 / n), r = Math.min(8, gap * .36), x0 = 640 - (n - 1) * gap / 2;
@@ -3452,8 +3512,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.fillStyle = '#fbefcc'; c.fillRect(0, 0, VW, VH);
     c.fillStyle = 'rgba(214,170,60,.12)'; for (let y = 70; y < 400; y += 24) c.fillRect(0, y, VW, 12);
     baseTop(c, 'Upgrade');
-    { const n = items.length, x0 = 440, x1 = 1120, f = n > 1 ? cur / (n - 1) : 0;   // slider track like Battle Cats'
-      rr(c, x0, 66, x1 - x0, 14, 7, '#1b1b1b', null); dot(c, x0 + 8 + (x1 - x0 - 16) * f, 73, 8, '#fff'); }
+    carSlider(c, key, items.length, car, 440, 1120, 73);   // slider track like Battle Cats' (drag it, or tap anywhere on it)
     // category pill + sort button (top left), currencies (top right)
     const fold = UP_FOLDERS.find(f => f.id === UPCAT);
     rr(c, -30, 86, 450, 52, 26, UPSEL && UPSEL.startsWith('b:') ? '#2f7f86' : '#111', null); const selB = !!(UPSEL && UPSEL.startsWith('b:')); if (!(UPCAT === 'main' && UPSEL && UPSEL.startsWith('f:'))) text(c, fold ? fold.one : selB ? 'Power Ups' : 'Bakers', 200, 112, 30, '#fff', 'center', null, HEAD);
@@ -3474,6 +3533,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const W = 360, H = 288, top = 92 + sl.f * 92;
       c.save(); c.translate(cx, top); c.scale(sl.k, sl.k); flipCard(c, items[i], () => upCard(c, items[i], W, H, sl.f < .5));
       if (sl.f > 0) { c.globalAlpha = sl.f * .35; rr(c, -W / 2, 0, W, H, 4, '#000', null); c.globalAlpha = 1; }
+      levelFlash(c, items[i], W, H);
       c.restore();
       const w = W * sl.k, h = H * sl.k;
       hit(cx - w / 2, top, w, h, i === cur ? (items[i].startsWith('f:') ? () => openFolder(items[i]) : () => {}) : () => { car.target = i; sfx('click'); });
@@ -3493,7 +3553,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (mx) { baseBtn(c, 88, 414, 360, 84, '', pm ? () => { G.gachaTab = 'normal'; go('gacha'); } : null, { dim: true, disabled: !pm });
         text(c, 'Max Lv ' + baseNatMax(k), 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD);
         text(c, !pm ? 'no + levels for this one' : basePlus(S, k) >= pm ? 'plus levels maxed' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
-      else { const cost = upCost(200, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.base[k] = lv + 1; }), S.crumbs < cost); }
+      else { const cost = upCost(200, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.base[k] = lv + 1; G.lvFlash = { id: sel, t0: G.time }; }), S.crumbs < cost); }
       text(c, 'Now:  ' + u.desc(tot) + '   (Lv ' + lv + (basePlus(S, k) ? ' +' + basePlus(S, k) : '') + ')', 640, 554, 22, '#fff', 'center');
       text(c, mx ? (pm ? 'Max Lv ' + baseNatMax(k) + ' + up to +' + pm + ' from the Normal Capsule' : 'Fully upgraded!') : 'Next:  ' + u.desc(tot + 1), 640, 596, 22, mx ? '#ffd24a' : '#9be37a', 'center');
     } else upUnitPanel(c, sel);
@@ -3526,6 +3586,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       toast(nameOf(S, id) + '  ·  ' + FORM_NAMES[S.form[id]]);
     });
   }
+  // level-up: a white flash over the card, a ring of light spreading out around it, and a few sparkles rising off
+  function levelFlash(c, id, W, H) {
+    const f = G.lvFlash; if (!f || f.id !== id) return;
+    const p = (G.time - f.t0) / .8; if (p < 0 || p >= 1) { if (p >= 1) G.lvFlash = null; return; }
+    c.save();
+    c.globalAlpha = Math.pow(1 - p, 2) * .85; rr(c, -W / 2, 0, W, H, 6, '#fff', null);                           // the flash
+    for (let k = 0; k < 3; k++) { const q = clamp(p * 1.4 - k * .18, 0, 1); if (q <= 0 || q >= 1) continue; const e = 8 + q * 60;   // rings of light
+      c.globalAlpha = (1 - q) * .8; rr(c, -W / 2 - e, -e, W + e * 2, H + e * 2, 14 + e * .3, null, '#fff', 7 * (1 - q) + 2); }
+    c.globalAlpha = 1 - p; for (let k = 0; k < 9; k++) { const sx = -W / 2 + ((k * 97) % 100) / 100 * W, sy = H - p * (90 + (k % 3) * 70) - (k * 31) % 60; text(c, '✦', sx, sy, 22 + (k % 3) * 8, '#fff', 'center', '#ffd24a'); }
+    c.restore();
+  }
   function upBack() { if (UPCAT !== 'main') { UPSEL = 'f:' + UPCAT; UPCAT = 'main'; sfx('click'); } else goBack(); }
   function upBtn(c, label, cost, fn, dim, size) {
     baseBtn(c, 88, 414, 360, 84, '', fn, { dim });
@@ -3545,7 +3616,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, '+ ' + gc + ' grain', 330, 479, 18, hasG ? '#fff' : '#efe8d8', 'left', '#4a2f12');
     } else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast('Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Section 1' : 'Section 2') + ' to raise it.'); }, { dim: true }),
       text(c, 'Level Cap', 268, 444, 36, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Section 1' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
-    else { const cost = unitUpCost(id, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.levels[id] = lv + 1; }), S.crumbs < cost); }
+    else { const cost = unitUpCost(id, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.levels[id] = lv + 1; G.lvFlash = { id, t0: G.time }; }), S.crumbs < cost); }
     // Talents oval, Orb and Info
     const tals = talentsOf(id);
     if (tals.length) {
@@ -3564,7 +3635,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // info panel: description + stats (green = after the next level)
     { const ax = 1104, ay = 624, hv = inside(ax - 18, ay - 14, 36, 28); text(c, G.upAbil ? '⌃' : '⌄', ax, ay, 34, hv ? '#fff' : '#e8e1d0', 'center', null, HEAD); hit(ax - 22, ay - 18, 44, 36, () => { G.upAbil = !G.upAbil; sfx('click'); }); }
     if (G.upAbil) { abilityPanel(c, id, d); return; }
-    { const fm = formOf(S, id), txt = (d.desc || '') + (fm === 1 ? ' Evolved: now wears the head-baker hat.' : fm === 2 && !TF_DEF[id] ? ' True Form: stronger than ever.' : '');
+    { const txt = descOf(S, id);
       const lines = wrapLines(c, txt, 880, 28).slice(0, 3); lines.forEach((ln, i) => text(c, ln, 640, 575 + (i - (lines.length - 1) / 2) * 38, 28, '#fff', 'center')); }
   }
 
@@ -3887,6 +3958,37 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     for (const k of Object.keys(BASE_UP)) base += baseLv(save, k);
     return { units, plus, base, total: units + plus + base };
   }
+  // what the Bun says when tapped (the first thing it says is always the most useful tip for your save)
+  const BUN_LINES = [
+    'I was told there would be jam. There is no jam. I am filing a complaint.',
+    'Fun fact: pests hate being called "guests". Try it.',
+    'Pro tip: a Bun Buddy is cheap. Cheap is good. Cheap is also me.',
+    'Did you know Power Ups make your oven and your Rolling Pin stronger? Rolling in dough, literally.',
+    'I am not a snack. I am a strategist who happens to be edible.',
+    'Knockback is just a very rude way of saying "please go home".',
+    'Save a Rare Ticket for a rainy day. Or a sunny one. Just save it.',
+    'Heard a rumour that Legend Stages have a Heavenly Tower. I am too short to climb it.',
+    'If your wall is crumbling, add more crumbs. That is my whole philosophy.',
+    'Keep an eye on the oven. A hungry oven is a sad oven.',
+    'Combos! Some bakers work better together. Like peanut butter and, uh, me.',
+    'Rolling Pin is great, but remember it needs time to recharge. Like me after lunch.',
+    'The Daily Twist changes every day. So does my mood, but less usefully.',
+    'Boss pests hit hard. Bring a wall, and think of me fondly.',
+    'Red pests hate Twist. Black pests hate Cookie. I hate Mondays.',
+    'Upgrading a baker feels great. Upgrading me is not an option. Sadly.',
+    'I once held a line for twenty seconds. They gave me a sticker.',
+    'Never trust a pest that offers you a peaceful solution. They want the oven.',
+    'You are doing great, baker. Probably. Statistically, anyway.',
+    'Pssst. Check your Storage. Something might be waiting in there.',
+    'Remember: a good lineup is half the battle. The other half is dough.',
+    'My favourite colour is golden brown. It is also my body.',
+    'If a pest stares at you, stare back. They hate that.',
+    'Try the Expedition. Scouts bring back loot while you are away.',
+    'I would give a speech, but I am only a bun. So: win!',
+    'Fresh out of the oven, fresh out of ideas. Go clear a stage.',
+    'Sugar Cubes are great. Sugar Cubes are also delicious. Do not eat them.',
+    'Pest strength is a percentage. Mine is 100%. Of bun.',
+  ];
   function drawPrep(c) {
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     const L = lineupOf(S), eq = L.filter(Boolean), capN = (S.capsule || []).length, tk = S.tickets || 0;
@@ -3906,10 +4008,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       : newSpecial ? 'A new legend stage is open: ' + newSpecial.name + ' (' + newSpecial.diff + '). Tap the Legend Stages banner!'
       : S.cleared < STAGES.length ? 'Win battles to earn crumbs, then upgrade your bakers! Rare Tickets come from Missions, Expeditions and the odd lucky win.'
       : secCleared(S, 2) < STAGES.length ? 'Keep going! Every section you clear raises the level cap.' : 'Crumb World is saved! Farm Crumb Rush and max out your team.';
-    { const lines = wrapLines(c, msg, 470, 30), bw = 540, bh = Math.max(268, 60 + lines.length * 42), bx = 712, by = 132;
+    // the bubble keeps its message until the player taps it; each tap swaps in another line
+    { const lines = wrapLines(c, G.bunSay || msg, 470, 30), bw = 540, bh = Math.max(268, 60 + lines.length * 42), bx = 712, by = 132;
+      hit(bx, by, bw, bh + 46, () => { let k; do { k = Math.floor(Math.random() * BUN_LINES.length); } while (BUN_LINES[k] === G.bunSay && BUN_LINES.length > 1); G.bunSay = BUN_LINES[k]; sfx('click'); });
       rr(c, bx, by + 6, bw, bh, 30, 'rgba(0,0,0,.3)', null); rr(c, bx, by, bw, bh, 30, '#41585a', '#f2f2ea', 5);
       poly(c, [bx + 230, by + bh - 4, bx + 300, by + bh - 4, bx + 250, by + bh + 46], '#41585a', null); line(c, [bx + 230, by + bh, bx + 250, by + bh + 46, bx + 300, by + bh], '#f2f2ea', 5);
-      lines.forEach((ln, i) => text(c, ln, bx + bw / 2, by + bh / 2 + (i - (lines.length - 1) / 2) * 42, 30, '#fff', 'center')); }
+      lines.forEach((ln, i) => text(c, ln, bx + bw / 2, by + bh / 2 + (i - (lines.length - 1) / 2) * 42, 30, '#fff', 'center'));
+      text(c, 'tap me for more', bx + bw - 26, by + bh - 20, 14, 'rgba(255,255,255,.5)', 'right'); }
     baseTopBar(c);
     // Sugar Sale banner (top right): opens the Shop
     { const x = 908, y = 68, w = 284, h = 50, hov = inside(x, y, w, h);
@@ -4235,6 +4340,28 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (!res) { sfx('deny'); toast('Not enough tickets or Sugar Cubes (' + SUGAR_PULL + ' per draw).'); return; }
     missStats(S).pulls += res.length; persist(); markDirty(); G.gacha = { res, n, t0: G.time, tick: 0, snd: {}, skipAll: false };
   }
+  // Custom amount: a little box with - / + and quick amounts. Rare: tickets first, else Sugar Cubes. Normal: Normal Tickets.
+  const PULL_MAX = 100;
+  const pullMax = normal => Math.min(PULL_MAX, normal ? (S.ntickets || 0) : Math.max(S.tickets || 0, Math.floor((S.sugar || 0) / SUGAR_PULL)));
+  function drawPullBox(c) {
+    const pb = G.pullBox, normal = G.gachaTab === 'normal', mx = pullMax(normal); pb.n = clamp(pb.n, 1, Math.max(1, mx));
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => { G.pullBox = null; sfx('click'); });
+    const x = 390, y = 150, w = 500, h = 400; hit(x, y, w, h, () => {});
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#fff3d6', '#111', 5);
+    text(c, 'How many draws?', x + w / 2, y + 44, 30, OUT, 'center', null, HEAD);
+    const step = d => { pb.n = clamp(pb.n + d, 1, Math.max(1, mx)); sfx('click'); };
+    baseBtn(c, x + 36, y + 76, 84, 70, '−', () => step(-1), { size: 44 }); baseBtn(c, x + w - 120, y + 76, 84, 70, '+', () => step(1), { size: 44 });
+    text(c, String(pb.n), x + w / 2, y + 114, 64, '#e2483a', 'center', '#fff', HEAD);
+    [-10, 10].forEach((d, i) => btn(c, i ? x + w - 120 : x + 36, y + 154, 84, 36, (d > 0 ? '+' : '−') + '10', () => step(d), { size: 18, r: 14, color: '#ffd24a' }));
+    [5, 20, 50].forEach((q, i) => btn(c, x + 140 + i * 80, y + 154, 70, 36, String(q), () => { pb.n = clamp(q, 1, Math.max(1, mx)); sfx('click'); }, { size: 18, r: 14, color: '#f3d49a' }));
+    btn(c, x + w / 2 - 90, y + 198, 180, 34, 'Max (' + mx + ')', () => { pb.n = Math.max(1, mx); sfx('click'); }, { size: 18, r: 14, color: '#9be37a', disabled: mx < 1 });
+    const free = normal ? 0 : Math.floor(pb.n / 10), draws = pb.n + free, useSugar = !normal && (S.tickets || 0) < pb.n;
+    text(c, normal ? pb.n + ' Normal Ticket' + (pb.n === 1 ? '' : 's') : useSugar ? pb.n * SUGAR_PULL + ' Sugar Cubes' : pb.n + ' Rare Ticket' + (pb.n === 1 ? '' : 's'), x + w / 2, y + 262, 24, OUT, 'center', null, HEAD);
+    text(c, normal ? 'Draws: ' + pb.n : 'Draws: ' + draws + (free ? '  (' + free + ' free: every 10 bought gives 1 more)' : ''), x + w / 2, y + 292, 17, '#7c5432', 'center');
+    const can = mx >= 1;
+    baseBtn(c, x + 36, y + h - 84, 200, 60, 'Cancel', () => { G.pullBox = null; sfx('click'); }, { size: 26 });
+    baseBtn(c, x + w - 236, y + h - 84, 200, 60, 'Draw!', () => { const n = pb.n; G.pullBox = null; if (normal) normalPull(n); else doPull(n); }, { size: 30, disabled: !can });
+  }
   // ---------------- Normal Capsule (Normal Tickets): free level-ups for normal bakers and Power Ups ----------------
   const NORMAL_ODDS = { unit: .6 };                                    // the rest (40%) is a Power Up level
   function normalPull(n) {
@@ -4314,6 +4441,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       else { icon(c, x + 80, y + 54, 1.6); text(c, String(n), x + w - 22, y + 54, 40, '#fff', 'right', '#111', HEAD); }
       hit(x, y - 26, w, h + 26, () => (normal ? normalPull(n) : doPull(n)));
     });
+    // custom amount (any number of draws)
+    btn(c, 420, 586, 250, 52, 'Custom amount  ✎', () => { const mx = pullMax(normal); if (mx < 1) { sfx('deny'); toast(normal ? 'You have no Normal Tickets.' : 'Not enough tickets or Sugar Cubes.'); return; } G.pullBox = { n: Math.min(5, mx) }; sfx('click'); }, { size: 20, r: 26, color: '#fff3d6' });
     // bottom bar: back · ticket count · Sugar Cubes
     baseBottom(c, () => goBack(), true);
     rr(c, 700, 660, 230, 44, 22, '#111', '#e0b060', 3); icon(c, 736, 682, 1.1); text(c, String(have), 914, 683, 28, '#ffd24a', 'right', null, HEAD);
@@ -4332,6 +4461,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       });
       baseBtn(c, px + pw / 2 - 110, py + ph - 76, 220, 58, 'OK', () => { G.nres = null; sfx('click'); }, { size: 30 });
     }
+    if (G.pullBox && !G.gacha) drawPullBox(c); else if (G.pullBox) G.pullBox = null;
     if (G.gacha) drawGachaReveal(c);
   }
   // The pull has three beats: a tension build-up (longer for rarer pulls), a flash, then each card flips over in turn.
@@ -4363,6 +4493,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'Click to skip', 1240, 700, 14, 'rgba(255,255,255,.5)', 'right');
       return;
     }
+    if (n > 12) { drawGachaSummary(c, gs, res, rc, T); return; }
     // ---- reveal: cards flip over one after another ----
     const ts = G.time - (gs.t0 + T), FLIP = .4, GAP = n === 1 ? 0 : .5;
     const cw = n === 1 ? 280 : 182, ch = n === 1 ? 380 : 252, cols = n === 1 ? 1 : 6;
@@ -4396,12 +4527,41 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     });
     if (ts < .5) { c.globalAlpha = 1 - ts / .5; c.fillStyle = '#fff'; c.fillRect(0, 0, VW, VH); c.globalAlpha = 1; }
     if (!allDone) { hit(0, 0, VW, VH, () => { gs.skipAll = true; }); text(c, 'Click to skip', 640, 690, 16, 'rgba(255,255,255,.6)', 'center'); }
-    else {
+    else gachaButtons(c, gs);
+  }
+  // a big pull (more than 12 draws) is shown as a tidy summary instead of a wall of flipping cards
+  function drawGachaSummary(c, gs, res, rc, T) {
+    const ts = G.time - (gs.t0 + T);
+    const groups = {}; for (const r of res) { const k = r.base || r.id || r.name, g = groups[k] || (groups[k] = { r, n: 0, isNew: false }); g.n++; g.isNew = g.isNew || !!r.isNew; }
+    const list = Object.values(groups).sort((a, b) => (RARITY_RANK[b.r.rarity] || 0) - (RARITY_RANK[a.r.rarity] || 0) || b.n - a.n);
+    const tally = { LR: 0, UR: 0, SR: 0, R: 0 }; for (const r of res) tally[r.rarity] = (tally[r.rarity] || 0) + 1;
+    const g2 = c.createRadialGradient(640, 360, 20, 640, 360, 700); g2.addColorStop(0, rc.color); g2.addColorStop(1, 'rgba(0,0,0,0)'); c.globalAlpha = .35; c.fillStyle = g2; c.fillRect(0, 0, VW, VH); c.globalAlpha = 1;
+    text(c, res.length + ' draws!', 640, 40, 34, '#fff', 'center', '#000', HEAD);
+    let tx = 640 - 260; for (const k of ['LR', 'UR', 'SR', 'R']) { if (!tally[k]) continue; rr(c, tx, 62, 124, 34, 10, RARITY[k].color, OUT, 2); text(c, RARITY[k].name ? k + '  ×' + tally[k] : k + ' ×' + tally[k], tx + 62, 80, 18, OUT, 'center', null, HEAD); tx += 134; }
+    const cols = 8, cw = 142, chh = 136, gap = 10, rows = Math.ceil(list.length / cols), x0 = (VW - (Math.min(cols, list.length) * (cw + gap) - gap)) / 2;
+    list.slice(0, 40).forEach((g, i) => {
+      const a = gs.skipAll ? 1 : clamp(ts * 5 - i * .12, 0, 1); if (!a) return;
+      const col = i % cols, row = Math.floor(i / cols), x = x0 + col * (cw + gap), y = 112 + row * (chh + gap), r = g.r, ac = RARITY[r.rarity].color;
+      c.globalAlpha = a; rr(c, x, y, cw, chh, 12, RARITY[r.rarity].light, ac, 4);
+      c.save(); c.beginPath(); c.rect(x + 6, y + 6, cw - 12, 74); c.clip(); rr(c, x + 6, y + 6, cw - 12, 74, 8, 'rgba(255,255,255,.55)', null);
+      if (r.base) powerIcon(c, r.base, x + cw / 2, y + 42, .3); else portrait(c, r.id, x + cw / 2, y + 78, 64); c.restore();
+      fitText(c, r.name || UNITS[r.id].name, x + cw / 2, y + 96, cw - 14, 15, OUT, 'center');
+      text(c, '×' + g.n, x + cw - 10, y + 22, 20, '#111', 'right', '#fff', HEAD);
+      if (g.isNew) { rr(c, x + 8, y + chh - 28, 52, 20, 7, '#e2483a', null); text(c, 'NEW!', x + 34, y + chh - 17, 13, '#fff', 'center', null, HEAD); }
+      else { rr(c, x + 8, y + chh - 28, cw - 16, 20, 7, '#2c7a72', null); text(c, r.item ? 'To Storage' : 'Storage', x + cw / 2, y + chh - 17, 13, '#fff', 'center'); }
+      c.globalAlpha = 1;
+    });
+    if (list.length > 40) text(c, '+ ' + (list.length - 40) + ' more kinds in Storage', 640, 112 + Math.ceil(40 / cols) * (chh + gap) + 8, 15, 'rgba(255,255,255,.7)', 'center');
+    if (ts < .5) { c.globalAlpha = 1 - ts / .5; c.fillStyle = '#fff'; c.fillRect(0, 0, VW, VH); c.globalAlpha = 1; }
+    if (ts < list.length * .12 + .6 && !gs.skipAll) { hit(0, 0, VW, VH, () => { gs.skipAll = true; }); text(c, 'Click to skip', 640, 690, 16, 'rgba(255,255,255,.6)', 'center'); } else gachaButtons(c, gs);
+  }
+  function gachaButtons(c, gs) {
+    {
       // OK  |  PULL AGAIN (same pull size)  |  OPEN CAPSULE
-      const again = gs.n >= 10 ? 10 : 1, can = gs.normal ? (S.ntickets || 0) >= again : (S.tickets || 0) >= again || (S.sugar || 0) >= again * SUGAR_PULL;
+      const again = Math.max(1, gs.n || 1), can = gs.normal ? (S.ntickets || 0) >= again : (S.tickets || 0) >= again || (S.sugar || 0) >= again * SUGAR_PULL;
       btn(c, 250, 650, 180, 56, 'OK', () => { G.gacha = null; sfx('click'); }, { size: 28, color: '#9be37a' });
       btn(c, 450, 650, 380, 56, '', () => { if (!can) { sfx('deny'); toast(gs.normal ? 'Not enough Normal Tickets.' : 'Not enough tickets or Sugar Cubes.'); return; } if (gs.normal) normalPull(again); else doPull(again); }, { color: can ? '#ffd24a' : '#c9bba3' });
-      text(c, (gs.normal ? 'DRAW ' + (again === 10 ? '×10' : '×1') : 'PULL ' + (again === 10 ? '×11' : '×1')) + ' AGAIN', 640, 670, 24, OUT, 'center', null, HEAD); if (gs.normal) text(c, again + ' Normal Ticket' + (again === 1 ? '' : 's') + '  ·  you have ' + (S.ntickets || 0), 640, 694, 12, OUT, 'center'); else text(c, ((S.tickets || 0) >= again ? again + ' ticket' + (again === 1 ? '' : 's') : again * SUGAR_PULL + ' Sugar Cubes') + '  ·  you have ' + (S.tickets || 0) + ' tickets, ' + (S.sugar || 0) + ' sugar', 640, 694, 12, OUT, 'center');
+      text(c, (gs.normal ? 'DRAW ×' + again : 'PULL ×' + (again + Math.floor(again / 10))) + ' AGAIN', 640, 670, 24, OUT, 'center', null, HEAD); if (gs.normal) text(c, again + ' Normal Ticket' + (again === 1 ? '' : 's') + '  ·  you have ' + (S.ntickets || 0), 640, 694, 12, OUT, 'center'); else text(c, ((S.tickets || 0) >= again ? again + ' ticket' + (again === 1 ? '' : 's') : again * SUGAR_PULL + ' Sugar Cubes') + '  ·  you have ' + (S.tickets || 0) + ' tickets, ' + (S.sugar || 0) + ' sugar', 640, 694, 12, OUT, 'center');
       btn(c, 850, 650, 220, 56, 'STORAGE', () => { scReset(); go('capsule'); }, { size: 20, color: '#ff9d5c' });
     }
   }
@@ -4475,7 +4635,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     portrait(c, id, 0, ly + 284, 250, { walk: G.time * 5, pose: 0, hurt: false, t: G.time, maxW: lw - 44 });
     c.restore();
     text(c, foe ? d.name : nameOf(S, id), lx + lw / 2, ly + 336, evo ? 26 : 32, OUT, 'center', null, HEAD);
-    fitText(c, foe ? FOE_DESC[id] || '' : d.desc, lx + lw / 2, ly + 368, lw - 28, 15, '#a8702e', 'center');
+    fitText(c, foe ? FOE_DESC[id] || '' : descOf(S, id), lx + lw / 2, ly + 368, lw - 28, 15, '#a8702e', 'center');
     let tx = lx + 22; const ty = ly + 396;
     if (!foe) { if (d.rarity) { rr(c, tx, ty, 54, 26, 8, RARITY[d.rarity].color, OUT, 2); text(c, d.rarity, tx + 27, ty + 14, 15, OUT, 'center'); tx += 62; } tx += roleChip(c, d, tx, ty, 26) + 8; const lv = unitLv(S, id), lbw = plusOf(S, id) ? 86 : 62; rr(c, tx, ty, lbw, 26, 8, '#3a2416', null); text(c, lvText(id, lv, true), tx + lbw / 2, ty + 14, 15, '#ffe9a8', 'center'); tx += lbw + 8; if (evo) { const room = lx + lw - 16 - (tx + 4); fitLine(c, room >= 100 ? '★ TRUE FORM' : '★ TF', tx + 4, ty + 14, room, 15, '#c98a1a'); } }
     else if (d.boss) { rr(c, tx, ty, 70, 26, 8, '#c8102e', null); text(c, 'BOSS', tx + 35, ty + 14, 15, '#fff', 'center'); }
@@ -4696,8 +4856,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       return;
     }
     // popup for the chosen item
-    { const usable = (S.capsule || []).filter(k2 => !UNITS[k2] && !itemBlock(S, k2)).length, lo = leftovers(S).length, plan = capsuleSellPlan(S);
-      baseBtn(c, 380, 658, 220, 52, 'Use all', () => { let n = 0, again = true; while (again) { again = false; for (const k2 of (S.capsule || []).slice()) if (!UNITS[k2] && itemUse(S, k2)) { n++; again = true; } } persist(); markDirty(); sfx('up'); toast('Used ' + n + ' level-up' + (n === 1 ? '' : 's') + '!'); }, { size: 26, disabled: !usable });
+    { const usable = (S.capsule || []).filter(k2 => (UNITS[k2] ? !isOwned(S, k2) || plusOf(S, k2) < PLUS_MAX : !itemBlock(S, k2))).length, lo = leftovers(S).length, plan = capsuleSellPlan(S);
+      baseBtn(c, 380, 658, 220, 52, 'Use all', () => { const n = useAllCapsule(); persist(); markDirty(); sfx('up'); toast(n ? 'Used ' + n + ' item' + (n === 1 ? '' : 's') + ': unlocks and plus levels applied!' : 'Nothing usable right now.'); }, { size: 26, disabled: !usable });
       baseBtn(c, 620, 658, 400, 52, 'Exchange all for NP / Tickets', () => {
         let t = 0; while (itemsToTicket(S)) t++; const r = plan.sell.length ? capsuleSellAll(S, true) : { sell: [], np: 0 };
         persist(); markDirty(); sfx('up'); toast((t ? t + ' Rare Ticket' + (t > 1 ? 's' : '') : '') + (t && r.np ? ' + ' : '') + (r.np ? r.np + ' NP' : '') + (t || r.np ? '!' : 'Nothing to exchange.'));
@@ -4820,7 +4980,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const items = eqList(EQCAT), key = 'eq:' + EQCAT, car = carousel(key, items.length);
     if (car.sel !== EQSEL) { const j = items.indexOf(EQSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined) car.target = car.pos = EQCAT === 'main' ? Math.min(UP_FOLDERS.length, items.length - 1) : 0; }
     const cur = Math.round(car.target), sel = items[cur] || null; EQSEL = car.sel = sel;
-    pageDots(c, items.length, cur, 240);
+    carSlider(c, key, items.length, car, 360, 920, 240);
     const fold = UP_FOLDERS.find(f => f.id === EQCAT), onFolder = !!(sel && sel.startsWith('f:'));
     rr(c, -30, 252, 330, 44, 22, '#111', null); if (!(EQCAT === 'main' && onFolder)) text(c, fold ? fold.one : 'Bakers', 135, 275, 24, '#fff', 'center', null, HEAD);
     btn(c, 70, 172, 180, 32, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 14, r: 15, color: '#d8d0c0' });
@@ -4856,7 +5016,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       let tx = 30, ty = 486;
       for (const [lbl, col] of chips) { const cw = chipW(c, lbl, 14); if (tx + cw > 1060) { tx = 30; ty += 28; } if (ty > 514) break; tx += miniChip(c, tx, ty, lbl, col, 14) + 6; }
       btn(c, VW - 110, 484, 100, 42, 'Info', () => openInfo('unit', sel), { size: 18, r: 21, color: '#f3d49a' });   // far right
-      fitLine(c, nameOf(S, sel) + '  ·  ' + (d.desc || ''), 640, 556, 940, 17, '#fff3d6', 'center');
+      fitLine(c, nameOf(S, sel) + '  ·  ' + descOf(S, sel), 640, 556, 940, 17, '#fff3d6', 'center');
       [['Cost', d.cost], ['Recharge', d.recharge + 's'], ['Health', st.hp], ['Attack', st.dmg], ['Range', dRng(d)], ['Speed', dSpd(d)]].forEach((r, i) => {
         const x = 166 + i * 160, y = 600; rr(c, x, y - 18, 152, 44, 8, 'rgba(0,0,0,.25)', null);
         text(c, r[0], x + 8, y - 6, 12, '#d9bf98'); text(c, String(r[1]), x + 144, y + 10, 18, '#ffe9a8', 'right');
@@ -5024,6 +5184,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     UI.btns.length = 0;
     if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
     if (G.pick) drawPick(c);
+    if (G.slide) {   // the old screen sliding off to the right (picks up speed), with a soft shadow on its edge
+      const p = (G.time - G.slide.t0) / .5;
+      if (p >= 1 || p < 0) G.slide = null;
+      else { const ox = Math.round(p * p * canvas.width); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(ox - 14, 0, 14, canvas.height); c.drawImage(G.slide.img, ox, 0); c.setTransform(scale, 0, 0, scale, 0, 0); }
+    }
     if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
       c.globalAlpha = a; c.font = 'bold 18px ' + FONT; const w = c.measureText(G.toast.msg).width + 48;
@@ -5076,6 +5241,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   canvas.addEventListener('pointerdown', e => {
     pointerPos(e); G.down = true; audio();
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    { const sg = G.slGeom, ck = carKeyOf(G.screen);   // the slider on Upgrade / Equip
+      if (sg && sg.screen === G.screen && sg.key === ck && !G.talOpen && !G.comboOpen && Math.abs(G.my - sg.y) <= 20 && G.mx >= sg.x0 - 16 && G.mx <= sg.x1 + 16) { G.sldrag = sg; sliderTo(G.mx); return; } }
     { const ck = carKeyOf(G.screen); if (ck && CAR[ck] && G.my > CAR_ZONE[G.screen][0] && G.my < CAR_ZONE[G.screen][1]) { G.hdrag = { key: ck, x: G.mx, y: G.my, p: CAR[ck].pos, moved: false, pitch: CAR_PITCH[G.screen] }; return; } }
     for (let i = UI.btns.length - 1; i >= 0; i--) { const b = UI.btns[i]; if (inside(b.x, b.y, b.w, b.h)) { if (b.defer) G.sdrag = { y: G.my, s: SC.target, fn: b.fn, moved: false }; else if (b.fn) b.fn(); return; } }
     if (G.screen === 'units' && G.my >= UL.top) { G.sdrag = { y: G.my, s: SC.target, fn: null, moved: false }; return; }
@@ -5083,6 +5250,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   });
   canvas.addEventListener('pointermove', e => {
     pointerPos(e);
+    if (G.sldrag) sliderTo(G.mx);
     if (G.dnd && !G.dnd.moved && Math.hypot(G.mx - G.dnd.sx, G.my - G.dnd.sy) > 8) { G.dnd.moved = true; sfx('click'); }
     if (G.stDrag) { const d = G.stDrag; if (!d.moved && Math.hypot(G.mx - d.sx, G.my - d.sy) > 8) d.moved = true;
       if (d.moved) { G.stPos = G.stPos || {}; G.stPos[d.page + '|' + d.k] = { x: clamp(G.mx + d.ox, 40, VW - 40), y: clamp(G.my + d.oy, 170, 630) }; } }
@@ -5104,7 +5272,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }
   });
   const release = e => {
-    G.rdrag = null;
+    G.rdrag = null; G.sldrag = null;
     if (G.stDrag) { const d = G.stDrag; G.stDrag = null; if (!d.moved && e.type === 'pointerup') { G.stSel = d.k; G.stAll = false; sfx('click'); } }
     if (G.hdrag) {   // carousel: a drag snaps to the nearest card, a tap presses whatever is under the finger
       const h = G.hdrag, s = CAR[h.key]; G.hdrag = null;
@@ -5193,9 +5361,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-1440';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-1941';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
