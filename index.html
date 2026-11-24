@@ -4887,12 +4887,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }
     // popup for the chosen item
     { const usable = (S.capsule || []).filter(k2 => (UNITS[k2] ? !isOwned(S, k2) || plusOf(S, k2) < PLUS_MAX : !itemBlock(S, k2))).length, lo = leftovers(S).length, plan = capsuleSellPlan(S);
-      baseBtn(c, 380, 658, 220, 52, 'Use all', () => { const n = useAllCapsule(); persist(); markDirty(); sfx('up'); toast(n ? 'Used ' + n + ' item' + (n === 1 ? '' : 's') + ': unlocks and plus levels applied!' : 'Nothing usable right now.'); }, { size: 26, disabled: !usable });
-      baseBtn(c, 620, 658, 400, 52, 'Exchange all for NP / Tickets', () => {
-        let t = 0; while (itemsToTicket(S)) t++; const r = plan.sell.length ? capsuleSellAll(S, true) : { sell: [], np: 0 };
-        persist(); markDirty(); sfx('up'); toast((t ? t + ' Rare Ticket' + (t > 1 ? 's' : '') : '') + (t && r.np ? ' + ' : '') + (r.np ? r.np + ' NP' : '') + (t || r.np ? '!' : 'Nothing to exchange.'));
-      }, { size: 20, disabled: lo < 5 && !plan.sell.length }); }
-    const k = G.stSel; if (!k || !counts[k]) { G.stSel = null; return; }
+      const npAll = plan.np == null ? plan.sell.reduce((s2, id) => s2 + npValue(id), 0) + 2 * lo : 0, tkAll = Math.floor(lo / 5);
+      baseBtn(c, 126, 658, 190, 52, 'Use all', () => { const n = useAllCapsule(); persist(); markDirty(); sfx('up'); toast(n ? 'Used ' + n + ' item' + (n === 1 ? '' : 's') + ': unlocks and plus levels applied!' : 'Nothing usable right now.'); }, { size: 26, disabled: !usable });
+      // exchange everything that can be sold: the player picks NP or Rare Tickets
+      baseBtn(c, 330, 658, 350, 52, 'Exchange all → NP' + (npAll ? '  (+' + npAll + ')' : ''), () => {
+        let np = plan.sell.length ? capsuleSellAll(S, true).np : 0; for (const k2 of (S.capsule || []).slice()) if (!UNITS[k2] && itemMaxed(S, k2)) np += itemSellNp(S, k2);
+        persist(); markDirty(); sfx('up'); toast(np ? 'Got ' + np + ' NP!' : 'Nothing to exchange.');
+      }, { size: 22, disabled: !plan.sell.length && !lo });
+      baseBtn(c, 694, 658, 336, 52, 'Exchange all → Tickets' + (tkAll ? '  (+' + tkAll + ')' : ''), () => {
+        let tk = 0; while (itemsToTicket(S)) tk++;
+        persist(); markDirty(); sfx('up'); toast(tk ? 'Got ' + tk + ' Rare Ticket' + (tk > 1 ? 's' : '') + '!' : 'Needs 5 maxed Normal Capsule leftovers per ticket.');
+      }, { size: 20, disabled: lo < 5 }); }    const k = G.stSel; if (!k || !counts[k]) { G.stSel = null; return; }
     c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
     stArt(c, k, 640, 250, 190, true);
     text(c, 'You have ' + counts[k] + ' of this.', 640, 274, 20, '#fff', 'center', '#000');
@@ -5401,7 +5406,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-2231';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1045';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
