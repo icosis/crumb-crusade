@@ -2239,7 +2239,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.drawImage(s.cv, s.b.x0, s.b.y0, s.b.x1 - s.b.x0, s.b.y1 - s.b.y0);
   }
   function portrait(c, id, x, y, size, anim) {
-    const d = defOf(id); let sc = Math.min(1.25, size / (d.h + (d.hover || 0) * .5));
+    const d = defOf(id); let sc = Math.min(anim && anim.big ? 2 : 1.25, size / (d.h + (d.hover || 0) * .5));
     if (anim && anim.maxW && HAS_DOM) { const b = artBox(UNITS[id] ? artFor(id) : id), aw = (b.x1 - b.x0) * (d.s || 1); if (aw * sc > anim.maxW) sc = anim.maxW / aw; }   // wide art (wings, tails) shrinks to fit its box
     c.save(); c.translate(x, y - (d.hover ? d.hover * sc * .4 : 0)); c.scale(sc, sc); c.lineCap = 'round';
     const s = d.s || 1; c.scale(s, s);
@@ -3049,6 +3049,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (G.lgSel == null || !LG_EVENTS[G.lgSel]) { const k = LG_EVENTS.findIndex(e => lgOpen(e) && e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key])); G.lgSel = k >= 0 ? k : 0; }
     const ev = LG_EVENTS[G.lgSel], info = LG_INFO[ev.kind];
     baseRoom(c, lineupOf(S).filter(Boolean));
+    drawBaseGhost(c);
     // ---- right: the same bubble text as the Bakery Base had; it only changes when you tap it (no buttons here) ----
     { const pool = BUN_LINES.concat(LEGEND_QUIPS), lines = wrapLines(c, G.bunSay || G.baseMsg || LEGEND_INTRO, 470, 30), B = baseBubble(c, lines, 42, 268);
       hit(B.bx, B.by, B.bw, B.bh + 46, () => { let k; do { k = Math.floor(Math.random() * pool.length); } while (pool[k] === G.bunSay && pool.length > 1); G.bunSay = pool[k]; sfx('click'); });
@@ -3460,7 +3461,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.restore();
   }
   // one Upgrade card in local coords: x -W/2..W/2, y 0..H
-  function upCard(c, key, W, H, focus) {
+  function upCard(c, key, W, H, focus, eq) {   // eq: the Equip screen's version (bigger picture, the dough cost along the bottom)
     const fold = key.startsWith('f:') && UP_FOLDERS.find(f => 'f:' + f.id === key);
     if (fold) {
       const col = fold.color || (RARITY[fold.id] ? RARITY[fold.id].color : '#c9b6ff');
@@ -3477,7 +3478,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     rr(c, -W / 2, 0, W, H, 4, isB ? '#2f7f86' : '#000', focus ? '#fff' : isB ? '#1d5458' : '#3a3a3a', 6);
     text(c, isB ? BASE_UP[bk].name : nameOf(S, id), 0, 28, 30, focus ? '#fff' : '#bdbdbd', 'center');
     // art box with a warm gold glow (like the Battle Cats upgrade cards)
-    const ax = -W / 2 + 14, ay = 54, aw = W - 28, ah = 136;
+    const ax = -W / 2 + 14, ay = 54, aw = W - 28, ah = eq && !isB ? 166 : 136;
     c.save(); c.beginPath(); c.rect(ax, ay, aw, ah); c.clip();
     const fm = isB ? 2 : formOf(S, id);
     if (fm === 2) { const g = c.createLinearGradient(ax, ay + ah, ax + aw, ay); g.addColorStop(0, '#9a6510'); g.addColorStop(.6, '#e8b640'); g.addColorStop(1, '#fff6c8'); c.fillStyle = g; c.fillRect(ax, ay, aw, ah); }
@@ -3486,7 +3487,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       else { const g = c.createLinearGradient(0, ay, 0, ay + ah); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#e9e9e9'); c.fillStyle = g; c.fillRect(ax, ay, aw, ah); } }
     if (!isB && UNITS[id].rarity) { c.fillStyle = RARITY[UNITS[id].rarity].color; c.globalAlpha = .35; c.fillRect(ax, ay, aw, 8); c.globalAlpha = 1; }
     if (isB) powerIcon(c, bk, ax + 90, ay + ah / 2 + 4, 1);
-    else portrait(c, id, ax + 90, ay + ah - 6, 120, { walk: focus && !STATIC_ART ? G.time * 5 : 0, pose: 0, hurt: false, t: STATIC_ART ? 0 : G.time, maxW: 170 });
+    else portrait(c, id, ax + (eq ? 100 : 90), ay + ah - 6, eq ? 150 : 120, { big: eq, walk: focus && !STATIC_ART ? G.time * 5 : 0, pose: 0, hurt: false, t: STATIC_ART ? 0 : G.time, maxW: eq ? 210 : 170 });
     // dark diagonal plate with the level
     poly(c, [ax + aw - 150, ay + ah, ax + aw - 110, ay + ah - 66, ax + aw, ay + ah - 66, ax + aw, ay + ah], 'rgba(0,0,0,.82)', null);
     c.restore();
@@ -3499,6 +3500,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // lower black area: rarity / role / True Form, or the power-up effect
     if (isB) { fitLine(c, BASE_UP[bk].desc(baseLv(S, bk)), 0, H - 44, W - 40, 20, focus ? '#ffe9a8' : '#9a9a9a', 'center'); return; }
     const d = defFor(S, id); let x = -W / 2 + 18;
+    if (eq) {   // Equip: just the cost, like Battle Cats' Organize Cats
+      if (d.rarity) { rr(c, x, H - 56, 40, 26, 6, RARITY[d.rarity].color, OUT, 2); text(c, d.rarity, x + 20, H - 43, 14, OUT, 'center'); }
+      doughIcon(c, W / 2 - 112, H - 42, 11); text(c, String(d.cost), W / 2 - 18, H - 42, 30, focus ? '#ffe135' : '#b9a94a', 'right', '#000', HEAD); return;
+    }
     if (d.rarity) { rr(c, x, H - 58, 40, 24, 6, RARITY[d.rarity].color, OUT, 2); text(c, d.rarity, x + 20, H - 45, 14, OUT, 'center'); x += 48; }
     if (UNITS[id].special) { rr(c, x, H - 58, 40, 24, 6, '#c9b6ff', OUT, 2); text(c, 'SP', x + 20, H - 45, 14, OUT, 'center'); x += 48; }
     x += roleChip(c, d, x, H - 58, 24) + 8;
@@ -3522,8 +3527,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const fold = UP_FOLDERS.find(f => f.id === UPCAT);
     rr(c, -30, 86, 450, 52, 26, UPSEL && UPSEL.startsWith('b:') ? '#2f7f86' : '#111', null); const selB = !!(UPSEL && UPSEL.startsWith('b:')); if (!(UPCAT === 'main' && UPSEL && UPSEL.startsWith('f:'))) text(c, fold ? fold.one : selB ? 'Power Ups' : 'Bakers', 200, 112, 30, '#fff', 'center', null, HEAD);
     if (!selB) btn(c, 14, 144, 180, 32, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 15, r: 16, color: '#d8d0c0' });
-    [['C', S.cherry || 0, '#c8102e', '#ff8a7a'], ['G', S.grain || 0, '#e0a800', '#fff27a']].forEach((r, i) => {   // round icons with the count under them
-      const x = 1132 + i * 72, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, r[3]); g2.addColorStop(1, r[2]);
+    [['C', S.cherry || 0, '#c8102e', '#ff8a7a']].forEach((r, i) => {   // round icon with the count under it (Golden Cherry only)
+      const x = 1204 + i * 72, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, r[3]); g2.addColorStop(1, r[2]);
       c.beginPath(); c.arc(x, y, 24, 0, TAU); c.fillStyle = g2; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
       text(c, r[0], x, y, r[0].length > 1 ? 16 : 20, '#fff', 'center', '#111', HEAD);
       text(c, String(r[1]), x, y + 36, 18, '#ffe135', 'center', '#111', HEAD);
@@ -3538,7 +3543,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const W = 360, H = 288, top = 92 + sl.f * 92;
       c.save(); c.translate(cx, top); c.scale(sl.k, sl.k); flipCard(c, items[i], () => upCard(c, items[i], W, H, sl.f < .5));
       if (sl.f > 0) { c.globalAlpha = sl.f * .35; rr(c, -W / 2, 0, W, H, 4, '#000', null); c.globalAlpha = 1; }
-      { const it2 = items[i]; if (UNITS[it2] && lineupOf(S).includes(it2)) inUseStamp(c, W, H); if (lvBlocked(it2)) { c.globalAlpha = .5; rr(c, -W / 2, 0, W, H, 4, '#6b6b6b', null); c.globalAlpha = 1; } }   // grey = this one can't level up right now
+      { const it2 = items[i]; if (UNITS[it2] && lineupOf(S).includes(it2)) inUseStamp(c, W, H); }
       levelFlash(c, items[i], W, H);
       c.restore();
       const w = W * sl.k, h = H * sl.k;
@@ -3556,8 +3561,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'Move to', 640, 552, 28, '#fff', 'center'); text(c, f.label, 640, 596, 30, '#fff', 'center');
     } else if (sel.startsWith('b:')) {
       const k = sel.slice(2), u = BASE_UP[k], lv = baseNat(S, k), tot = baseLv(S, k), mx = lv >= baseNatMax(k), pm = basePlusMax(k);
-      if (mx) { baseBtn(c, 88, 414, 360, 84, '', pm ? () => { G.gachaTab = 'normal'; go('gacha'); } : null, { dim: true, disabled: !pm });
-        text(c, 'Max Lv ' + baseNatMax(k), 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD);
+      if (mx) { baseBtn(c, 88, 414, 360, 84, '', () => showMsg('Max Level for Current Version has been reached.'), { dim: true });
+        text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD);
         text(c, !pm ? 'no + levels for this one' : basePlus(S, k) >= pm ? 'plus levels maxed' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
       else { const cost = upCost(200, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.base[k] = lv + 1; G.lvFlash = { id: sel, t0: G.time }; }), S.crumbs < cost); }
       text(c, 'Now:  ' + u.desc(tot) + '   (Lv ' + lv + (basePlus(S, k) ? ' +' + basePlus(S, k) : '') + ')', 640, 554, 22, '#fff', 'center');
@@ -3631,13 +3636,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const d = defFor(S, id), lv = unitLv(S, id), evo = isEvolved(S, id), tfReady = tfAble(S, id), st = unitStats(id, S), cherryLv = lv >= TF_LV;   // the main level past 30 costs a Golden Cherry each
     const maxed = lv >= natCap(S, id) || lv >= UNIT_MAX_LV, nx = maxed ? null : unitStats(id, S, lv + 1);
     // big yellow button: Level Up / True Form / level cap / MAX
-    if (lv >= UNIT_MAX_LV) baseBtn(c, 88, 414, 360, 84, 'MAX LEVEL', null, { size: 36, disabled: true });
-    else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { baseBtn(c, 88, 414, 360, 84, '', () => { G.gachaTab = 'normal'; go('gacha'); }, { dim: true });
-      text(c, 'Max Lv ' + NORMAL_LV_MAX, 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at Lv20 +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
-    else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached. Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it.'); }, { dim: true }),
-      text(c, 'Level Cap', 268, 444, 36, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
+    if (lv >= UNIT_MAX_LV) baseBtn(c, 88, 414, 360, 84, 'Level Cap UP!', () => showMsg('Max Level for Current Version has been reached.'), { size: 34, dim: true });
+    else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { baseBtn(c, 88, 414, 360, 84, '', () => showMsg('Max Level for Current Version has been reached.'), { dim: true });
+      text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at Lv20 +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
+    else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached.'); }, { dim: true }),
+      text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv), noC = cherryLv && (S.cherry || 0) < 1;
-      upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Past Lv' + TF_LV + ' each level needs 1 Golden Cherry (you have ' + (S.cherry || 0) + '). Rank rewards, the Heavenly Tower, Section 2-3 and the Shop give them.'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv) S.cherry--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
+      upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Max Level for Current Version has been reached. Each level past Lv' + TF_LV + ' needs 1 Golden Cherry (you have ' + (S.cherry || 0) + ').'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv) S.cherry--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
       if (cherryLv) text(c, '+ 1 cherry', 330, 479, 18, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12'); }
     // Talents oval, Orb and Info
     const tals = talentsOf(id), showMid = tfReady || (evo && tals.length > 0);
@@ -4062,6 +4067,39 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       cap(x + 268, 'Rare', 'Capsule', '#f6c343', '#6b4410', tk, () => { G.gachaTab = 'rare'; go('gacha'); });
       if (tk || S.ntickets) { rr(c, x - 44, y - 50, 210, 32, 10, '#fff27a', '#2b1a0e', 3); poly(c, [x + 120, y - 20, x + 148, y - 20, x + 150, y - 4], '#fff27a', null); text(c, 'Capsules Ready Now!', x + 61, y - 34, 16, '#2b1a0e', 'center', null, HEAD); } }
   }
+  // stages-cleared counter in a wood frame hugging the left edge
+  function drawRankBar(c) {
+    const g = c.createLinearGradient(0, 76, 0, 134); g.addColorStop(0, '#c98d4e'); g.addColorStop(1, '#7d5129');
+    rr(c, -30, 76, 330, 58, 29, g, '#2b1a0e', 4); dot(c, 34, 105, 21, '#2b1a0e'); dot(c, 34, 105, 18, '#e8d9b8'); text(c, 'i', 34, 106, 24, '#2b1a0e', 'center', null, HEAD);
+    rr(c, 64, 84, 222, 42, 21, '#0e0e0e', null);
+    const rk = userRank(S); text(c, String(rk.total), 175, 106, 32, '#ffd24a', 'center', null, HEAD);
+    hit(-30, 76, 330, 58, () => { G.rankOpen = true; G.rankScroll = null; sfx('click'); });
+    if (rankReady()) { const fl = .6 + Math.sin(G.time * 8) * .4; c.globalAlpha = fl; rr(c, 250, 64, 70, 30, 10, '#e2483a', '#fff', 3); text(c, 'Pts!', 285, 80, 17, '#fff', 'center', null, HEAD); c.globalAlpha = 1; }
+  }
+  // the three small icons under the yellow buttons
+  function drawBaseIcons(c) {
+    iconBtn(c, 44, 482, 'Menu', menuIcon, () => { G.menuOpen = true; sfx('click'); });
+    iconBtn(c, 166, 482, 'Expedition', (cc, ix, iy) => helmetIcon(cc, ix, iy), () => go('expo'));
+    if (expoReady()) bangBadge(c, 252, 494);
+    iconBtn(c, 288, 482, 'Missions', clipboardIcon, () => { G.missTab = missReady() && !MISSIONS.main.some(m => missDone(S, m) && !missClaimed(S, 'main', m)) ? 'daily' : 'main'; scReset(); go('missions'); });
+    if (missReady()) bangBadge(c, 374, 494);
+  }
+  // Start!!: the whole left column (rank bar, yellow buttons, icon row) steps off to the left one piece after another and the tray drops; Back plays it in reverse.
+  // Drawn UNDER the orange Legend buttons.
+  function drawBaseGhost(c) {
+    const rev = G.spOut != null && G.screen === 'special';
+    if (!rev && G.trayOut == null) return;
+    const tt = rev ? G.time - G.spOut : G.time - G.trayOut, p = tt / .62;
+    if (!rev && (p >= 1 || p < 0)) { G.trayOut = null; return; }
+    const k = rev ? 1 - smooth01(tt / SLIDE_BACK) : p * p, n0 = UI.btns.length;   // tray: 0 = in place, 1 = gone
+    const off = i => -(rev ? 1 - smooth01((tt - (3 - i) * .07) / .45) : Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2)) * 470;   // each piece on its own beat
+    c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip();
+    c.save(); c.translate(0, k * 230); drawBaseTray(c); c.restore();
+    c.save(); c.translate(off(0), 0); drawRankBar(c); c.restore();
+    drawBaseButtons(c, [off(0), off(1), off(2)]);
+    c.save(); c.translate(off(3), 0); drawBaseIcons(c); c.restore();
+    c.restore(); UI.btns.length = n0;
+  }
   function drawPrep(c) {
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     const L = lineupOf(S), eq = L.filter(Boolean), capN = (S.capsule || []).length, tk = S.tickets || 0;
@@ -4100,22 +4138,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       dot(c, 1240, 93, 26, '#1f3a12'); dot(c, 1240, 93, 22, '#5fbf3a'); text(c, 'i', 1240, 94, 30, '#ffe135', 'center', '#1f3a12', HEAD);
       hit(1214, 67, 52, 52, () => toast('The Shop sells Sugar Cubes, items and bundles.'));
     }
-    // stages-cleared counter in a wood frame hugging the left edge, Treasure next to it (where Battle Cats has its calendar)
-    { const g = c.createLinearGradient(0, 76, 0, 134); g.addColorStop(0, '#c98d4e'); g.addColorStop(1, '#7d5129');
-      rr(c, -30, 76, 330, 58, 29, g, '#2b1a0e', 4); dot(c, 34, 105, 21, '#2b1a0e'); dot(c, 34, 105, 18, '#e8d9b8'); text(c, 'i', 34, 106, 24, '#2b1a0e', 'center', null, HEAD);
-      rr(c, 64, 84, 222, 42, 21, '#0e0e0e', null);
-      const rk = userRank(S); text(c, String(rk.total), 175, 106, 32, '#ffd24a', 'center', null, HEAD);
-      hit(-30, 76, 330, 58, () => { G.rankOpen = true; G.rankScroll = null; sfx('click'); });
-      if (rankReady()) { const fl = .6 + Math.sin(G.time * 8) * .4; c.globalAlpha = fl; rr(c, 250, 64, 70, 30, 10, '#e2483a', '#fff', 3); text(c, 'Pts!', 285, 80, 17, '#fff', 'center', null, HEAD); c.globalAlpha = 1; }
-    }
+    drawRankBar(c);
     // big buttons
     drawBaseButtons(c);
-    // small icons on the left
-    iconBtn(c, 44, 482, 'Menu', menuIcon, () => { G.menuOpen = true; sfx('click'); });
-    iconBtn(c, 166, 482, 'Expedition', (cc, ix, iy) => helmetIcon(cc, ix, iy), () => go('expo'));
-    if (expoReady()) bangBadge(c, 252, 494);
-    iconBtn(c, 288, 482, 'Missions', clipboardIcon, () => { G.missTab = missReady() && !MISSIONS.main.some(m => missDone(S, m) && !missClaimed(S, 'main', m)) ? 'daily' : 'main'; scReset(); go('missions'); });
-    if (missReady()) bangBadge(c, 374, 494);
+    drawBaseIcons(c);
     drawBaseTray(c);
     // bottom wood bar: back · Shop · Sugar Cubes
     baseBottom(c, () => go('title'));
@@ -5140,8 +5166,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const sl = carSlot(i - car.pos, 306, 250, .72), cx = 640 + sl.x;
       if (cx < -150 || cx > VW + 150) continue;
       const W = 360, H = 288, k = sl.k * K, top = 335 + sl.f * 89, it = items[i];
-      c.save(); c.translate(cx, top); c.scale(k, k); flipCard(c, it, () => upCard(c, it, W, H, sl.f < .5));
-      if (!it.startsWith('f:') && L.includes(it)) { rr(c, -W / 2 + 14, H - 70, W - 28, 50, 8, '#2c7a72', '#fff', 4); text(c, 'EQUIPPED', 0, H - 44, 30, '#fff', 'center', null, HEAD); }
+      c.save(); c.translate(cx, top); c.scale(k, k); flipCard(c, it, () => upCard(c, it, W, H, sl.f < .5, true));
+      if (!it.startsWith('f:') && L.includes(it)) inUseStamp(c, W, H);
       if (sl.f > 0) { c.globalAlpha = sl.f * .35; rr(c, -W / 2, 0, W, H, 4, '#000', null); c.globalAlpha = 1; }
       c.restore();
       const w = W * k, h = H * k;
@@ -5326,15 +5352,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (G.pick) drawPick(c);
     drawChipTip(c);
     if (G.msgBox) drawMsgBox(c);
-    if (G.trayOut != null || (G.spOut != null && G.screen === 'special')) {   // Start!!: the yellow buttons step off to the LEFT one after another and the tray drops; Back plays it in reverse
-      const rev = G.spOut != null && G.screen === 'special', tt = rev ? G.time - G.spOut : G.time - G.trayOut, p = tt / .62;
-      if (!rev && (G.screen === 'prep' || p >= 1 || p < 0)) G.trayOut = null;
-      else {
-        const k = rev ? 1 - smooth01(tt / SLIDE_BACK) : p * p, n0 = UI.btns.length;   // tray: 0 = in place, 1 = gone
-        const offs = [0, 1, 2].map(i => -(rev ? 1 - smooth01((tt - (2 - i) * .07) / .45) : Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2)) * 470);   // each button on its own beat
-        c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip(); c.save(); c.translate(0, k * 230); drawBaseTray(c); c.restore(); drawBaseButtons(c, offs); c.restore(); UI.btns.length = n0;
-      }
-    }    if (G.toast) {
+    if (G.trayOut != null && G.screen !== 'special') G.trayOut = null;   // the slide-away is drawn inside the Legend screen (under the orange buttons)
+    if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
       c.globalAlpha = a; c.font = 'bold 18px ' + FONT; const w = c.measureText(G.toast.msg).width + 48;
       rr(c, 640 - w / 2, 80, w, 44, 22, 'rgba(30,20,12,.88)', null); text(c, G.toast.msg, 640, 103, 18, '#fff3d6', 'center'); c.globalAlpha = 1;
@@ -5507,7 +5526,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1152';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1314';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
