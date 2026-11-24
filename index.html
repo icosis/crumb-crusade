@@ -2409,7 +2409,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.spOut = null; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -3334,15 +3334,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // a slider that scrubs through the carousel: the knob follows the cards, and dragging (or tapping) the track moves them
   function carSlider(c, key, n, car, x0, x1, y) {
     if (n < 2) { G.slGeom = null; return; }
-    const f = clamp(car.pos / (n - 1), 0, 1), kx = x0 + 10 + (x1 - x0 - 20) * f, live = G.sldrag && G.sldrag.key === key, hv = live || inside(x0 - 10, y - 18, x1 - x0 + 20, 36);
-    rr(c, x0, y - 7, x1 - x0, 14, 7, '#1b1b1b', null);
-    if (n <= 24) for (let i = 0; i < n; i++) dot(c, x0 + 10 + (x1 - x0 - 20) * i / (n - 1), y, 2, 'rgba(255,255,255,.28)');   // a tick for every card
-    dot(c, kx, y, hv ? 11 : 9, '#111'); dot(c, kx, y, hv ? 9 : 7.5, '#fff');
+    const f = clamp(car.pos / (n - 1), 0, 1), kx = x0 + 14 + (x1 - x0 - 28) * f, live = G.sldrag && G.sldrag.key === key, hv = live || inside(x0 - 10, y - 18, x1 - x0 + 20, 36);
+    rr(c, x0, y - 8, x1 - x0, 16, 8, '#1b1b1b', null);
+    rr(c, kx - 15, y - 7, 30, 14, 7, hv ? '#b4b4b4' : '#8f8f8f', null);   // the pill-shaped thumb
     G.slGeom = { key, screen: G.screen, x0, x1, y, n };
-  }
-  function sliderTo(x) {
+  }  function sliderTo(x) {
     const g = G.slGeom, s = g && CAR[g.key]; if (!s) return;
-    const t = clamp(Math.round(clamp((x - g.x0 - 10) / (g.x1 - g.x0 - 20), 0, 1) * (g.n - 1)), 0, g.n - 1);
+    const t = clamp(Math.round(clamp((x - g.x0 - 14) / (g.x1 - g.x0 - 28), 0, 1) * (g.n - 1)), 0, g.n - 1);
     if (t !== s.target) { s.target = t; sfx('click'); }
   }
   function pageDots(c, n, cur, y) {
@@ -3519,13 +3517,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.fillStyle = '#fbefcc'; c.fillRect(0, 0, VW, VH);
     c.fillStyle = 'rgba(214,170,60,.12)'; for (let y = 70; y < 400; y += 24) c.fillRect(0, y, VW, 12);
     baseTop(c, 'Upgrade');
-    carSlider(c, key, items.length, car, 440, 1120, 73);   // slider track like Battle Cats' (drag it, or tap anywhere on it)
+    carSlider(c, key, items.length, car, 327, 953, 73);   // slider track like Battle Cats' (drag it, or tap anywhere on it)
     // category pill + sort button (top left), currencies (top right)
     const fold = UP_FOLDERS.find(f => f.id === UPCAT);
     rr(c, -30, 86, 450, 52, 26, UPSEL && UPSEL.startsWith('b:') ? '#2f7f86' : '#111', null); const selB = !!(UPSEL && UPSEL.startsWith('b:')); if (!(UPCAT === 'main' && UPSEL && UPSEL.startsWith('f:'))) text(c, fold ? fold.one : selB ? 'Power Ups' : 'Bakers', 200, 112, 30, '#fff', 'center', null, HEAD);
     if (!selB) btn(c, 14, 144, 180, 32, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 15, r: 16, color: '#d8d0c0' });
-    [['C', S.cherry || 0, '#c8102e', '#ff8a7a'], ['NP', S.np || 0, '#ff8a2a', '#ffd24a'], ['G', S.grain || 0, '#e0a800', '#fff27a'], ['O', orbTotal(S), '#4a78c2', '#9bd0ff']].forEach((r, i) => {   // round icons with the count under them
-      const x = 988 + i * 72, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, r[3]); g2.addColorStop(1, r[2]);
+    [['C', S.cherry || 0, '#c8102e', '#ff8a7a'], ['G', S.grain || 0, '#e0a800', '#fff27a']].forEach((r, i) => {   // round icons with the count under them
+      const x = 1132 + i * 72, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, r[3]); g2.addColorStop(1, r[2]);
       c.beginPath(); c.arc(x, y, 24, 0, TAU); c.fillStyle = g2; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
       text(c, r[0], x, y, r[0].length > 1 ? 16 : 20, '#fff', 'center', '#111', HEAD);
       text(c, String(r[1]), x, y + 36, 18, '#ffe135', 'center', '#111', HEAD);
@@ -3540,6 +3538,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const W = 360, H = 288, top = 92 + sl.f * 92;
       c.save(); c.translate(cx, top); c.scale(sl.k, sl.k); flipCard(c, items[i], () => upCard(c, items[i], W, H, sl.f < .5));
       if (sl.f > 0) { c.globalAlpha = sl.f * .35; rr(c, -W / 2, 0, W, H, 4, '#000', null); c.globalAlpha = 1; }
+      { const it2 = items[i]; if (UNITS[it2] && lineupOf(S).includes(it2)) inUseStamp(c, W, H); if (lvBlocked(it2)) { c.globalAlpha = .5; rr(c, -W / 2, 0, W, H, 4, '#6b6b6b', null); c.globalAlpha = 1; } }   // grey = this one can't level up right now
       levelFlash(c, items[i], W, H);
       c.restore();
       const w = W * sl.k, h = H * sl.k;
@@ -3604,6 +3603,24 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.globalAlpha = 1 - p; for (let k = 0; k < 9; k++) { const sx = -W / 2 + ((k * 97) % 100) / 100 * W, sy = H - p * (90 + (k % 3) * 70) - (k * 31) % 60; text(c, '✦', sx, sy, 22 + (k % 3) * 8, '#fff', 'center', '#ffd24a'); }
     c.restore();
   }
+  // a unit / Power Up that can't be levelled up right now (level cap, maxed, or past Lv30 with no Golden Cherry) is drawn greyed out
+  function lvBlocked(key) {
+    if (key.startsWith('b:')) return baseNat(S, key.slice(2)) >= baseNatMax(key.slice(2));
+    if (!UNITS[key] || !isOwned(S, key)) return false;
+    const lv = unitLv(S, key); return lv >= UNIT_MAX_LV || lv >= natCap(S, key) || (lv >= TF_LV && (S.cherry || 0) < 1);
+  }
+  function inUseStamp(c, W, H) {   // the red 'In use' stamp Battle Cats puts on cats that are in your lineup
+    c.save(); c.translate(W / 2 - 66, 104); c.rotate(.35); c.globalAlpha = .9; c.beginPath(); c.arc(0, 0, 38, 0, TAU); c.lineWidth = 5; c.strokeStyle = '#e2483a'; c.stroke(); c.beginPath(); c.arc(0, 0, 31, 0, TAU); c.lineWidth = 2; c.stroke();
+    text(c, 'In', 0, -9, 22, '#e2483a', 'center', null, HEAD); text(c, 'use', 0, 11, 22, '#e2483a', 'center', null, HEAD); c.restore();
+  }
+  // a plain message box with an OK button (Battle Cats' 'Max Level for Current Version has been reached.')
+  const showMsg = txt => { G.msgBox = txt; sfx('deny'); };
+  function drawMsgBox(c) {
+    c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
+    const x = 220, y = 230, w = 840, h = 190; rr(c, x, y, w, h, 4, '#111', null); rr(c, x + 8, y + 8, w - 16, h - 16, 2, '#33302a', '#e8e1d0', 3);
+    wrapLines(c, G.msgBox, w - 70, 28).slice(0, 3).forEach((ln, i, a) => text(c, ln, x + w / 2, y + h / 2 + (i - (a.length - 1) / 2) * 36, 28, '#fff', 'center'));
+    baseBtn(c, x + w - 250, y + h + 14, 200, 64, 'OK', () => { G.msgBox = null; sfx('click'); }, { size: 36 });
+  }
   function upBack() { if (UPCAT !== 'main') { UPSEL = 'f:' + UPCAT; UPCAT = 'main'; sfx('click'); } else goBack(); }
   function upBtn(c, label, cost, fn, dim, size) {
     baseBtn(c, 88, 414, 360, 84, '', fn, { dim });
@@ -3617,10 +3634,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (lv >= UNIT_MAX_LV) baseBtn(c, 88, 414, 360, 84, 'MAX LEVEL', null, { size: 36, disabled: true });
     else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { baseBtn(c, 88, 414, 360, 84, '', () => { G.gachaTab = 'normal'; go('gacha'); }, { dim: true });
       text(c, 'Max Lv ' + NORMAL_LV_MAX, 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at Lv20 +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
-    else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast('Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it.'); }, { dim: true }),
+    else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached. Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it.'); }, { dim: true }),
       text(c, 'Level Cap', 268, 444, 36, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv), noC = cherryLv && (S.cherry || 0) < 1;
-      upBtn(c, 'Level Up!', cost, () => { if (noC) { sfx('deny'); toast('Past Lv' + TF_LV + ' each level needs 1 Golden Cherry (you have ' + (S.cherry || 0) + '). Rank rewards, the Heavenly Tower, Section 2-3 and the Shop give them.'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv) S.cherry--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC);
+      upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Past Lv' + TF_LV + ' each level needs 1 Golden Cherry (you have ' + (S.cherry || 0) + '). Rank rewards, the Heavenly Tower, Section 2-3 and the Shop give them.'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv) S.cherry--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
       if (cherryLv) text(c, '+ 1 cherry', 330, 479, 18, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12'); }
     // Talents oval, Orb and Info
     const tals = talentsOf(id), showMid = tfReady || (evo && tals.length > 0);
@@ -4021,10 +4038,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     'Pest strength is a percentage. Mine is 100%. Of bun.',
   ];
   // the three big yellow buttons (also drawn sliding away to the right when Start!! is pressed, and back again on Back)
-  function drawBaseButtons(c) {
-    baseBtn(c, 22, 168, 392, 78, 'Start!!', resumeStages, { size: 40 });
-    baseBtn(c, 22, 272, 392, 78, 'Upgrade', () => { G.shopFrom = 'prep'; go('shop'); }, { size: 40 });
-    baseBtn(c, 22, 376, 392, 78, 'Equip', () => go('equip'), { size: 40 });
+  function drawBaseButtons(c, offs) {   // offs: a sideways offset per button (used by the stepped slide away)
+    const o = offs || [0, 0, 0], at = (i, fn) => { c.save(); c.translate(o[i], 0); fn(); c.restore(); };
+    at(0, () => baseBtn(c, 22, 168, 392, 78, 'Start!!', resumeStages, { size: 40 }));
+    at(1, () => baseBtn(c, 22, 272, 392, 78, 'Upgrade', () => { G.shopFrom = 'prep'; go('shop'); }, { size: 40 }));
+    at(2, () => baseBtn(c, 22, 376, 392, 78, 'Equip', () => go('equip'), { size: 40 }));
   }
   // wooden tray across the door gap: Storage + Ticket capsule + Sugar capsule (also drawn sliding down when Start!! is pressed)
   function drawBaseTray(c) {
@@ -5110,7 +5128,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const items = eqList(EQCAT), key = fltOn() ? 'eq:filter' : 'eq:' + EQCAT, car = carousel(key, items.length);
     if (car.sel !== EQSEL) { const j = items.indexOf(EQSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined) car.target = car.pos = (EQCAT === 'main' && !fltOn()) ? Math.min(UP_FOLDERS.length, items.length - 1) : 0; }
     const cur = Math.round(car.target), sel = items[cur] || null; EQSEL = car.sel = sel;
-    carSlider(c, key, items.length, car, 440, 1120, 74);
+    carSlider(c, key, items.length, car, 327, 953, 74);
     const fold = UP_FOLDERS.find(f => f.id === EQCAT), onFolder = !!(sel && sel.startsWith('f:'));
     rr(c, -30, 325, 330, 46, 23, '#111', null); if (fltOn()) text(c, 'Filter: ' + items.length + ' bakers', 135, 349, 22, '#9be3ff', 'center', null, HEAD); else if (!(EQCAT === 'main' && onFolder)) text(c, fold ? fold.one : 'Bakers', 135, 349, 26, '#fff', 'center', null, HEAD);
     btn(c, 24, 378, 160, 30, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 14, r: 15, color: '#d8d0c0' });
@@ -5135,16 +5153,16 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (onFolder) baseBtn(c, 980, 335, 290, 64, 'Open', () => openFolder(sel), { size: 34 });
     else if (sel) {
       baseBtn(c, 980, 335, 224, 64, 'Unit Info', () => openInfo('unit', sel), { size: 30 });
-      const on = L.includes(sel), hv = inside(1212, 335, 58, 64);
-      rr(c, 1212, 341, 58, 64, 12, 'rgba(0,0,0,.35)', null); rr(c, 1212, 335, 58, 64, 12, hv ? '#ffe97a' : on ? '#9be37a' : '#ffd23a', '#111', 4); text(c, on ? '−' : '+', 1241, 361, 40, '#fff', 'center', '#4a2f12', HEAD); text(c, on ? 'Remove' : 'Equip', 1241, 388, 12, '#4a2f12', 'center', null, HEAD);
-      hit(1212, 335, 58, 64, () => toggle(sel));
-      unitChips(c, defFor(S, sel), 473, 602, 812, 602);   // abilities under the card, short text (hover for the full name)
-    }    baseTop(c, 'Equip');
+      { const hv = inside(1212, 335, 58, 64), on = fltOn();   // the Filter button sits where Battle Cats puts its cat-with-star button
+        rr(c, 1212, 341, 58, 64, 12, 'rgba(0,0,0,.35)', null); rr(c, 1212, 335, 58, 64, 12, hv ? '#ffe97a' : on ? '#9be3ff' : '#ffd23a', '#111', 4);
+        poly(c, [1225, 351, 1257, 351, 1246, 366, 1246, 380, 1236, 376, 1236, 366], '#fff', '#4a2f12', 3); text(c, 'Filter', 1241, 393, 12, '#4a2f12', 'center', null, HEAD);
+        hit(1212, 335, 58, 64, () => { G.fltOpen = true; scReset(); sfx('click'); }); }
+    }
+    baseTop(c, 'Equip');
     baseBottom(c, eqBack, true);
     { const nAct = comboTotals(L.filter(Boolean)).list.length;
-      baseBtn(c, 330, 662, 140, 46, 'Upgrade', () => { if (sel && UNITS[sel]) UPSEL = sel; G.shopFrom = 'equip'; go('shop'); }, { size: 24 });
-      baseBtn(c, 484, 660, 236, 50, 'Combos' + (nAct ? '  ★' + nAct : ''), () => { G.comboOpen = true; sfx('click'); }, { size: 26 });
-      baseBtn(c, 734, 662, 150, 46, 'Filter' + (fltOn() ? ' ★' : ''), () => { G.fltOpen = true; scReset(); sfx('click'); }, { size: 24 }); }
+      baseBtn(c, 560, 662, 136, 46, 'Upgrade', () => { if (sel && UNITS[sel]) UPSEL = sel; G.shopFrom = 'equip'; go('shop'); }, { size: 24 });
+      baseBtn(c, 708, 660, 232, 50, 'Combos' + (nAct ? '  ★' + nAct : ''), () => { G.comboOpen = true; sfx('click'); }, { size: 26 }); }
     if (dragging) { c.save(); c.globalAlpha = .9; portrait(c, G.dnd.id, G.mx, G.my + 30, 64, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); }
     if (G.comboOpen) drawComboPopup(c);
     if (G.fltOpen) drawFilterPopup(c);
@@ -5307,12 +5325,14 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
     if (G.pick) drawPick(c);
     drawChipTip(c);
-    if (G.trayOut != null || (G.spOut != null && G.screen === 'special')) {   // the yellow buttons slide away to the right and the tray drops (Start!!); Back plays it in reverse
-      const rev = G.spOut != null && G.screen === 'special', p = rev ? 0 : (G.time - G.trayOut) / SLIDE_IN;
+    if (G.msgBox) drawMsgBox(c);
+    if (G.trayOut != null || (G.spOut != null && G.screen === 'special')) {   // Start!!: the yellow buttons step off to the LEFT one after another and the tray drops; Back plays it in reverse
+      const rev = G.spOut != null && G.screen === 'special', tt = rev ? G.time - G.spOut : G.time - G.trayOut, p = tt / .62;
       if (!rev && (G.screen === 'prep' || p >= 1 || p < 0)) G.trayOut = null;
       else {
-        const k = rev ? 1 - smooth01((G.time - G.spOut) / SLIDE_BACK) : p * p, n0 = UI.btns.length;   // 0 = in place, 1 = gone
-        c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip(); c.save(); c.translate(0, k * 230); drawBaseTray(c); c.restore(); c.translate(k * 1300, 0); drawBaseButtons(c); c.restore(); UI.btns.length = n0;
+        const k = rev ? 1 - smooth01(tt / SLIDE_BACK) : p * p, n0 = UI.btns.length;   // tray: 0 = in place, 1 = gone
+        const offs = [0, 1, 2].map(i => -(rev ? 1 - smooth01((tt - (2 - i) * .07) / .45) : Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2)) * 470);   // each button on its own beat
+        c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip(); c.save(); c.translate(0, k * 230); drawBaseTray(c); c.restore(); drawBaseButtons(c, offs); c.restore(); UI.btns.length = n0;
       }
     }    if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
@@ -5487,7 +5507,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1131';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1152';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
