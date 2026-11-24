@@ -3448,7 +3448,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (fltOn()) { const all = UNIT_ORDER.filter(fltMatch); return UPSORT === 'level' ? all.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a)) : all; }   // filter on: one flat list across every rarity
     let ids = UNIT_ORDER.filter(id => isOwned(S, id) && rarityOf(id) === (cat === 'main' ? 'B' : cat));
     if (UPSORT === 'level') ids = ids.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a));
-    return cat === 'main' ? UP_FOLDERS.map(f => 'f:' + f.id).concat(ids, Object.keys(BASE_UP).map(k => 'b:' + k)) : ids;
+    return cat === 'main' ? UP_FOLDERS.map(f => 'f:' + f.id).concat(ids, Object.keys(BASE_UP).map(k => 'b:' + k), UP_FOLDERS.slice().reverse().map(f => 'f:' + f.id)) : ids;
   }
   const BASE_ICON = { pin: 'pin', range: 'pin', charge: 'pin', wallet: 'dough', tin: 'dough', accounting: 'dough', oven: 'oven', research: 'book', study: 'book' };
   function powerIcon(c, k, x, y, s) {
@@ -3560,8 +3560,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'Move to', 640, 552, 28, '#fff', 'center'); text(c, f.label, 640, 596, 30, '#fff', 'center');
     } else if (sel.startsWith('b:')) {
       const k = sel.slice(2), u = BASE_UP[k], lv = baseNat(S, k), tot = baseLv(S, k), mx = lv >= baseNatMax(k), pm = basePlusMax(k);
-      if (mx) { baseBtn(c, 88, 414, 360, 84, '', () => showMsg('Max Level for Current Version has been reached.'), { dim: true });
-        text(c, !pm ? 'no + levels for this one' : basePlus(S, k) >= pm ? 'plus levels maxed' : '+ levels: Normal Capsule  ▶', 268, 458, 18, '#efe8d8', 'center', '#6b6252'); }
+      if (mx) { /* maxed: no button, no text */ }
       else { const cost = upCost(200, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.base[k] = lv + 1; G.lvFlash = { id: sel, t0: G.time }; }), S.crumbs < cost); }
       text(c, 'Now:  ' + u.desc(tot) + '   (Lv ' + lv + (basePlus(S, k) ? ' +' + basePlus(S, k) : '') + ')', 640, 554, 22, '#fff', 'center');
       text(c, mx ? (pm ? 'Max Lv ' + baseNatMax(k) + ' + up to +' + pm + ' from the Normal Capsule' : 'Fully upgraded!') : 'Next:  ' + u.desc(tot + 1), 640, 596, 22, mx ? '#ffd24a' : '#9be37a', 'center');
@@ -3635,8 +3634,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const maxed = lv >= natCap(S, id) || lv >= UNIT_MAX_LV, nx = maxed ? null : unitStats(id, S, lv + 1);
     // big yellow button: Level Up / True Form / level cap / MAX
     if (lv >= UNIT_MAX_LV) { /* fully levelled: no button */ }
-    else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { baseBtn(c, 88, 414, 360, 84, '', () => showMsg('Max Level for Current Version has been reached.'), { dim: true });
-      text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at Lv20 +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 458, 18, '#efe8d8', 'center', '#6b6252'); }
+    else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { /* can't level further: no button, no text */ }
     else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached.'); }, { dim: true }),
       text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv), noC = cherryLv && (S.cherry || 0) < 1;
@@ -5101,7 +5099,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (fltOn()) { const all = UNIT_ORDER.filter(fltMatch); return UPSORT === 'level' ? all.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a)) : all; }   // filter on: one flat list across every rarity
     let ids = UNIT_ORDER.filter(id => isOwned(S, id) && rarityOf(id) === (cat === 'main' ? 'B' : cat));
     if (UPSORT === 'level') ids = ids.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a));
-    return cat === 'main' ? UP_FOLDERS.map(f => 'f:' + f.id).concat(ids) : ids;
+    return cat === 'main' ? UP_FOLDERS.map(f => 'f:' + f.id).concat(ids, UP_FOLDERS.slice().reverse().map(f => 'f:' + f.id)) : ids;
   }
   function eqBack() { if (EQCAT !== 'main') { EQSEL = 'f:' + EQCAT; EQCAT = 'main'; sfx('click'); } else goBack(); }
   let STATIC_ART = false;
@@ -5150,7 +5148,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // ---- carousel (same as Upgrade: rarity folders, then normal bakers) ----
     if (G.eqSel) { const id = G.eqSel; G.eqSel = null; EQSEL = id; EQCAT = rarityOf(id) === 'B' ? 'main' : rarityOf(id); }   // tapped a slot: show that baker
     const items = eqList(EQCAT), key = fltOn() ? 'eq:filter' : 'eq:' + EQCAT, car = carousel(key, items.length);
-    if (car.sel !== EQSEL) { const j = items.indexOf(EQSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined) car.target = car.pos = (EQCAT === 'main' && !fltOn()) ? Math.min(UP_FOLDERS.length, items.length - 1) : 0; }
+    if (car.sel !== EQSEL) { const j = items.indexOf(EQSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined || (EQSEL && !items.includes(car.sel))) car.target = car.pos = (EQCAT === 'main' && !fltOn()) ? Math.min(UP_FOLDERS.length, items.length - 1) : 0; }
     const cur = Math.round(car.target), sel = items[cur] || null; EQSEL = car.sel = sel;
     carSlider(c, key, items.length, car, 327, 953, 74);
     const fold = UP_FOLDERS.find(f => f.id === EQCAT), onFolder = !!(sel && sel.startsWith('f:'));
@@ -5524,7 +5522,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1337';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1341';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
