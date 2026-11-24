@@ -3637,8 +3637,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     unitChips(c, d, tals.length ? 790 : 580, 424, 1210, 490);
     { const ax = 1112, ay = 523, hv = inside(ax - 18, ay - 14, 36, 28); text(c, G.upAbil ? '⌃' : '⌄', ax, ay, 30, hv ? '#fff' : '#e8e1d0', 'center', null, HEAD); hit(ax - 22, ay - 18, 44, 36, () => { G.upAbil = !G.upAbil; sfx('click'); }); }
     if (G.upAbil) { abilityPanel(c, id, d); return; }
-    fitLine(c, descOf(S, id), 640, 532, 900, 18, '#fff3d6', 'center');
-    statBoxes(c, d, st, nx, 584);
+    { const ls = wrapLines(c, descOf(S, id), 880, 26).slice(0, 3); ls.forEach((ln, i) => text(c, ln, 640, 575 + (i - (ls.length - 1) / 2) * 34, 26, '#fff', 'center')); }
   }
   // colour matchups first, then abilities, as small chips
   function unitChips(c, d, x0, y0, maxX, maxY) {
@@ -5045,8 +5044,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, on ? 'EQUIPPED  ·  drag its slot down to remove' : 'Drag this card up into a slot to equip it', 30, 466, 16, on ? '#9be37a' : '#ffe9a8', 'left', null, HEAD);
       unitChips(c, d, 30, 486, 1060, 514);
       btn(c, VW - 110, 484, 100, 42, 'Info', () => openInfo('unit', sel), { size: 18, r: 21, color: '#f3d49a' });   // far right
-      fitLine(c, nameOf(S, sel) + '  ·  ' + descOf(S, sel), 640, 556, 940, 17, '#fff3d6', 'center');
-      statBoxes(c, d, st, null, 584);
+      { const ls = wrapLines(c, nameOf(S, sel) + '  ·  ' + descOf(S, sel), 900, 24).slice(0, 2); ls.forEach((ln, i) => text(c, ln, 640, 589 + (i - (ls.length - 1) / 2) * 32, 24, '#fff3d6', 'center')); }
     }
     baseTop(c, 'Equip');
     baseBottom(c, eqBack);
@@ -5387,7 +5385,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-2020';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-2041';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
