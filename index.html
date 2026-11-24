@@ -3633,10 +3633,26 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       rr(c, x, y, 50, 50, 10, g3, '#111', 3); c.save(); c.beginPath(); c.rect(x + 4, y + 4, 42, 42); c.clip(); portrait(c, id, x + 25, y + 46, 34, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore();
       text(c, 'i', x + 42, y + 12, 15, '#fff', 'center', '#111', HEAD); hit(x, y, 50, 50, () => openInfo('unit', id)); }
     // info panel: description + stats (green = after the next level)
-    { const ax = 1104, ay = 624, hv = inside(ax - 18, ay - 14, 36, 28); text(c, G.upAbil ? '⌃' : '⌄', ax, ay, 34, hv ? '#fff' : '#e8e1d0', 'center', null, HEAD); hit(ax - 22, ay - 18, 44, 36, () => { G.upAbil = !G.upAbil; sfx('click'); }); }
+    // trait chips next to the buttons, then the same bottom panel as the Equip screen (description + stat boxes; green = after the next level)
+    unitChips(c, d, tals.length ? 790 : 580, 424, 1210, 490);
+    { const ax = 1112, ay = 523, hv = inside(ax - 18, ay - 14, 36, 28); text(c, G.upAbil ? '⌃' : '⌄', ax, ay, 30, hv ? '#fff' : '#e8e1d0', 'center', null, HEAD); hit(ax - 22, ay - 18, 44, 36, () => { G.upAbil = !G.upAbil; sfx('click'); }); }
     if (G.upAbil) { abilityPanel(c, id, d); return; }
-    { const txt = descOf(S, id);
-      const lines = wrapLines(c, txt, 880, 28).slice(0, 3); lines.forEach((ln, i) => text(c, ln, 640, 575 + (i - (lines.length - 1) / 2) * 38, 28, '#fff', 'center')); }
+    fitLine(c, descOf(S, id), 640, 532, 900, 18, '#fff3d6', 'center');
+    statBoxes(c, d, st, nx, 584);
+  }
+  // colour matchups first, then abilities, as small chips
+  function unitChips(c, d, x0, y0, maxX, maxY) {
+    const chips = traitBadges(d).map(b => [b.tip, b.color]).concat(coreTraits(d).filter(t => !GENERIC_TRAITS.has(t.label)).map(t => [t.label, t.color]));
+    let tx = x0, ty = y0;
+    for (const [lbl, col] of chips) { const cw = chipW(c, lbl, 14); if (tx + cw > maxX) { tx = x0; ty += 28; } if (ty > maxY) break; tx += miniChip(c, tx, ty, lbl, col, 14) + 6; }
+  }
+  // Cost / Recharge / Health / Attack / Range / Speed boxes; when `nx` (the next level) is given, the changed numbers show in green
+  function statBoxes(c, d, st, nx, y0) {
+    [['Cost', d.cost], ['Recharge', d.recharge + 's'], ['Health', st.hp, nx && nx.hp !== st.hp ? nx.hp : null], ['Attack', st.dmg, nx && nx.dmg !== st.dmg ? nx.dmg : null], ['Range', dRng(d)], ['Speed', dSpd(d)]].forEach((r, i) => {
+      const x = 166 + i * 160, y = y0 + 16; rr(c, x, y - 18, 152, 44, 8, 'rgba(0,0,0,.25)', null);
+      text(c, r[0], x + 8, y - 6, 12, '#d9bf98'); text(c, String(r[1]), x + 144, y + 10, 18, '#ffe9a8', 'right');
+      if (r[2] != null) text(c, '→ ' + r[2], x + 144, y - 6, 12, '#9be37a', 'right');
+    });
   }
 
   // a square ability icon like Battle Cats' (colour, short label); bought talents get an orange frame
@@ -4911,8 +4927,18 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const L = lineupOf(S).slice(), from = L.indexOf(d.id);
     if (t.kind === 'bench') { if (from < 0) return; L[from] = null; }
     else if (from >= 0) { [L[from], L[t.i]] = [L[t.i], L[from]]; }
-    else L[t.i] = d.id;
+    else { const ins = insertPlan(L, t.i, d.id); if (ins) { setLineup(ins); return; } L[t.i] = d.id; }   // a new baker pushes the others aside; with a full lineup it replaces the one it lands on
     setLineup(L);
+  }
+  // Put `id` into slot i of a lineup that still has a free slot: the bakers in the way slide one place toward the nearest gap.
+  function insertPlan(L, i, id) {
+    if (L.includes(id) || !L.includes(null)) return null;
+    const R = L.slice(); let right = -1, left = -1;
+    for (let k = i; k < R.length; k++) if (!R[k]) { right = k; break; }
+    for (let k = i; k >= 0; k--) if (!R[k]) { left = k; break; }
+    if (right >= 0 && (left < 0 || right - i <= i - left)) { for (let k = right; k > i; k--) R[k] = R[k - 1]; }
+    else { for (let k = left; k < i; k++) R[k] = R[k + 1]; }
+    R[i] = id; return R;
   }
   // plus-level tag ("+3") at the bottom right of a unit portrait
   function plusTag(c, id, x, y, size) { const p = plusOf(S, id); if (p) text(c, '+' + p, x, y, size || 14, '#ffe135', 'right', '#111', HEAD); }
@@ -4964,9 +4990,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (id === EQSEL && !lifted) { rr(c, x - 3, y - 3, SW + 6, SH + 6, 9, null, '#fff', 4); }
       c.globalAlpha = 1;
     };
+    const Lv = (dragging && tgt && tgt.kind === 'slot' && insertPlan(L, tgt.i, G.dnd.id)) || L;   // live preview: the others slide aside to make room
     for (let i = 0; i < LINEUP; i++) {
       const x = slotX(i), y = slotY(i), hot = tgt && tgt.kind === 'slot' && tgt.i === i;
-      if (L[i]) slotTile(L[i], x, y, i);
+      if (Lv[i]) slotTile(Lv[i], x, y, i);
       else { rr(c, x, y, SW, SH, 7, '#3a3123', '#111', 3); text(c, String((i + 1) % 10), x + SW / 2, y + SH / 2, 30, 'rgba(255,255,255,.18)', 'center', null, HEAD); }
       if (hot) { c.globalAlpha = .8; rr(c, x - 4, y - 4, SW + 8, SH + 8, 10, null, '#fff', 5); c.globalAlpha = 1; }
     }
@@ -5012,15 +5039,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const d = defFor(S, sel), on = L.includes(sel), st = unitStats(sel, S);
       // traits (where Upgrade has its big button): colour matchups first, then abilities
       text(c, on ? 'EQUIPPED  ·  drag its slot down to remove' : 'Drag this card up into a slot to equip it', 30, 466, 16, on ? '#9be37a' : '#ffe9a8', 'left', null, HEAD);
-      const chips = traitBadges(d).map(b => [b.tip, b.color]).concat(coreTraits(d).filter(t => !GENERIC_TRAITS.has(t.label)).map(t => [t.label, t.color]));
-      let tx = 30, ty = 486;
-      for (const [lbl, col] of chips) { const cw = chipW(c, lbl, 14); if (tx + cw > 1060) { tx = 30; ty += 28; } if (ty > 514) break; tx += miniChip(c, tx, ty, lbl, col, 14) + 6; }
+      unitChips(c, d, 30, 486, 1060, 514);
       btn(c, VW - 110, 484, 100, 42, 'Info', () => openInfo('unit', sel), { size: 18, r: 21, color: '#f3d49a' });   // far right
       fitLine(c, nameOf(S, sel) + '  ·  ' + descOf(S, sel), 640, 556, 940, 17, '#fff3d6', 'center');
-      [['Cost', d.cost], ['Recharge', d.recharge + 's'], ['Health', st.hp], ['Attack', st.dmg], ['Range', dRng(d)], ['Speed', dSpd(d)]].forEach((r, i) => {
-        const x = 166 + i * 160, y = 600; rr(c, x, y - 18, 152, 44, 8, 'rgba(0,0,0,.25)', null);
-        text(c, r[0], x + 8, y - 6, 12, '#d9bf98'); text(c, String(r[1]), x + 144, y + 10, 18, '#ffe9a8', 'right');
-      });
+      statBoxes(c, d, st, null, 584);
     }
     baseTop(c, 'Equip');
     baseBottom(c, eqBack);
@@ -5361,9 +5383,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-1941';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-2003';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
