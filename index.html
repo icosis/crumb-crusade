@@ -2409,7 +2409,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; if (screen === 'prep' && from !== 'prep') G.bunSay = null; if (screen === 'special' && from !== 'special') { G.spIn = G.time; G.lgSay = null; } sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.spOut = null; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -3041,14 +3041,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const LEGEND_INTRO = 'Welcome to the Legend Stages! Pick an event on the left to enter it.';
   const LEGEND_QUIPS = ['Legend stages pay Sugar Cubes, Rare Tickets and rare goodies. Worth the trip!', 'The Heavenly Tower never ends. I stopped counting floors at 3.', 'A Trio Trial lets only a few baker types fight. Pick wisely.', 'The Daily Twist changes every day. So does my breakfast.', 'Golden Field grows Golden Grain, the secret to True Forms.', 'Crumb Rush is full of gilded beetles carrying loads of dough.'];
   function drawSpecial(c) {
+    let back = 0; if (G.spOut != null) { back = G.time - G.spOut; if (back > (LG_EVENTS.length - 1) * .05 + .4) { G.spOut = null; goBack(); return; } }   // Back plays the Start!! animation in reverse
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     if (G.lgSel == null || !LG_EVENTS[G.lgSel]) { const k = LG_EVENTS.findIndex(e => lgOpen(e) && e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key])); G.lgSel = k >= 0 ? k : 0; }
     const ev = LG_EVENTS[G.lgSel], info = LG_INFO[ev.kind];
     baseRoom(c, lineupOf(S).filter(Boolean));
-    // ---- right: the mascot's bubble. Its text stays put until you tap it; each tap shows another line (no buttons here) ----
-    { const pool = Object.values(LG_INFO).map(x => x.blurb).concat(LEGEND_QUIPS), lines = wrapLines(c, G.lgSay || LEGEND_INTRO, 470, 28), B = baseBubble(c, lines, 36, 268);
-      hit(B.bx, B.by, B.bw, B.bh + 46, () => { let k; do { k = Math.floor(Math.random() * pool.length); } while (pool[k] === G.lgSay && pool.length > 1); G.lgSay = pool[k]; sfx('click'); });
-      lines.forEach((ln, i) => text(c, ln, B.bx + B.bw / 2, B.by + B.bh / 2 + (i - (lines.length - 1) / 2) * 36, 28, '#fff', 'center'));
+    // ---- right: the same bubble text as the Bakery Base had; it only changes when you tap it (no buttons here) ----
+    { const pool = BUN_LINES.concat(LEGEND_QUIPS), lines = wrapLines(c, G.bunSay || G.baseMsg || LEGEND_INTRO, 470, 30), B = baseBubble(c, lines, 42, 268);
+      hit(B.bx, B.by, B.bw, B.bh + 46, () => { let k; do { k = Math.floor(Math.random() * pool.length); } while (pool[k] === G.bunSay && pool.length > 1); G.bunSay = pool[k]; sfx('click'); });
+      lines.forEach((ln, i) => text(c, ln, B.bx + B.bw / 2, B.by + B.bh / 2 + (i - (lines.length - 1) / 2) * 42, 30, '#fff', 'center'));
       text(c, 'tap me for more', B.bx + B.bw - 26, B.by + B.bh - 20, 14, 'rgba(255,255,255,.5)', 'right'); }    // ---- left: scrolling list of orange event buttons ----
     const TOP = 138, BOT = 646, LX = 26, LW = 446, view = BOT - TOP, rowH = 104;
     SC.max = Math.max(0, LG_EVENTS.length * rowH + 20 - view);
@@ -3057,7 +3058,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.save(); c.beginPath(); c.rect(0, TOP, 600, view); c.clip();
     LG_EVENTS.forEach((e, ei) => {
       const y = TOP + 26 - SC.y + ei * rowH; if (y > BOT || y + rowH < TOP) return;
-      const sp = clamp((G.time - (G.spIn || -9) - ei * .07) / .4, 0, 1), dx = -Math.pow(1 - sp, 3) * (LW + 90);   // the orange buttons slide in from the left, one after another
+      const sp = G.spOut != null ? 1 - clamp((back - (LG_EVENTS.length - 1 - ei) * .05) / .35, 0, 1) : clamp((G.time - (G.spIn || -9) - ei * .07) / .4, 0, 1), dx = -Math.pow(1 - sp, 3) * (LW + 90);   // the orange buttons slide in from the left, one after another
       c.save(); c.translate(dx, 0);
       const o = lgOpen(e), sel = ei === G.lgSel, got = e.ks.filter(q => S.spDone[SPECIALS[q].key]).length, done = got === e.ks.length, fresh = e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key]);
       text(c, LG_INFO[e.kind].label, LX + 6, y - 10, 15, '#ff7ad9', 'left', '#2b1a0e', HEAD);
@@ -3073,7 +3074,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       e.ks.forEach((q, j) => text(c, '★', LX + 20 + j * 20, y + 74, 17, S.spDone[SPECIALS[q].key] ? '#ff7ad9' : '#c9c2b6', 'center', '#2b1a0e'));   // one star per stage, pink when cleared
       if (o && fresh) { c.save(); c.translate(LX + LW - 26, y + 58); c.rotate(-.1); rr(c, -34, -14, 70, 28, 6, '#e2483a', '#fff', 2); text(c, 'New!', 1, 1, 18, '#fff', 'center', null, HEAD); c.restore(); }
       c.restore();
-      hit(LX, y, LW, 62, () => { G.lgSel = ei; openLegendEvent(ei); });            // tap: open its map
+      { const y0 = Math.max(y, TOP), y1 = Math.min(y + 62, BOT); if (y1 > y0) UI.btns.push({ x: LX, y: y0, w: LW, h: y1 - y0, fn: () => { G.lgSel = ei; openLegendEvent(ei); }, defer: true }); }   // tap: open its map (deferred, so a finger drag scrolls the list)
     });
     c.restore();
     if (SC.max > 0) { const th = Math.max(40, view * view / (view + SC.max)), ty = TOP + (view - th) * (SC.y / SC.max); rr(c, 8, TOP, 8, view, 4, 'rgba(0,0,0,.3)', null); rr(c, 8, ty, 8, th, 4, '#e8e1d0', null); }
@@ -3082,7 +3083,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'Legend Stages', 58, 104, 26, '#fff', 'left', '#2b1a0e', HEAD);
       const got = LEGEND_FIXED.filter(x => S.spDone[x.key]).length; rr(c, 410, 82, 120, 40, 20, '#2b1a0e', '#e0b060', 3); text(c, '★ ' + got + '/' + LEGEND_FIXED.length, 470, 103, 18, '#ffd24a', 'center', null, HEAD); }
     baseTopBar(c);
-    baseBottom(c, () => goBack());
+    baseBottom(c, () => { if (G.spOut == null) { G.spOut = G.time; sfx('click'); } });
   }
   // ---------------- Talent Orbs ----------------
   // a glossy sphere in the pest colour, with a sword (Attack) or shield (Defense) mark and the grade letter
@@ -4053,6 +4054,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       : S.cleared < STAGES.length ? 'Win battles to earn crumbs, then upgrade your bakers! Rare Tickets come from Missions, Expeditions and the odd lucky win.'
       : secCleared(S, 2) < STAGES.length ? 'Keep going! Every section you clear raises the level cap.' : 'Crumb World is saved! Farm Crumb Rush and max out your team.';
     // the bubble keeps its message until the player taps it; each tap swaps in another line
+    G.baseMsg = G.bunSay || msg;   // the Legend Stages screen keeps showing this same text
     { const lines = wrapLines(c, G.bunSay || msg, 470, 30), bw = 540, bh = Math.max(268, 60 + lines.length * 42), bx = 712, by = 132;
       hit(bx, by, bw, bh + 46, () => { let k; do { k = Math.floor(Math.random() * BUN_LINES.length); } while (BUN_LINES[k] === G.bunSay && BUN_LINES.length > 1); G.bunSay = BUN_LINES[k]; sfx('click'); });
       rr(c, bx, by + 6, bw, bh, 30, 'rgba(0,0,0,.3)', null); rr(c, bx, by, bw, bh, 30, '#41585a', '#f2f2ea', 5);
@@ -5238,12 +5240,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
     if (G.pick) drawPick(c);
     drawChipTip(c);
-    if (G.trayOut != null) {   // the bakery's tray sliding down (behind the bottom bar)
-      const p = (G.time - G.trayOut) / .45;
-      if (G.screen === 'prep' || p >= 1 || p < 0) G.trayOut = null;
-      else { const n0 = UI.btns.length; c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip(); c.translate(0, p * p * 230); drawBaseTray(c); c.restore(); UI.btns.length = n0; }
-    }
-    if (G.toast) {
+    if (G.trayOut != null || (G.spOut != null && G.screen === 'special')) {   // the bakery's tray sliding down (Start!!) or back up (Back), behind the bottom bar
+      const rev = G.spOut != null && G.screen === 'special', p = rev ? clamp((G.time - G.spOut) / .45, 0, 1) : (G.time - G.trayOut) / .45;
+      if (!rev && (G.screen === 'prep' || p >= 1 || p < 0)) G.trayOut = null;
+      else { const n0 = UI.btns.length; c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip(); c.translate(0, (rev ? (1 - p) * (1 - p) : p * p) * 230); drawBaseTray(c); c.restore(); UI.btns.length = n0; }
+    }    if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
       c.globalAlpha = a; c.font = 'bold 18px ' + FONT; const w = c.measureText(G.toast.msg).width + 48;
       rr(c, 640 - w / 2, 80, w, 44, 22, 'rgba(30,20,12,.88)', null); text(c, G.toast.msg, 640, 103, 18, '#fff3d6', 'center'); c.globalAlpha = 1;
@@ -5299,6 +5300,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (sg && sg.screen === G.screen && sg.key === ck && !G.talOpen && !G.comboOpen && Math.abs(G.my - sg.y) <= 20 && G.mx >= sg.x0 - 16 && G.mx <= sg.x1 + 16) { G.sldrag = sg; sliderTo(G.mx); return; } }
     { const ck = carKeyOf(G.screen); if (ck && CAR[ck] && G.my > CAR_ZONE[G.screen][0] && G.my < CAR_ZONE[G.screen][1]) { G.hdrag = { key: ck, x: G.mx, y: G.my, p: CAR[ck].pos, moved: false, pitch: CAR_PITCH[G.screen] }; return; } }
     for (let i = UI.btns.length - 1; i >= 0; i--) { const b = UI.btns[i]; if (inside(b.x, b.y, b.w, b.h)) { if (b.defer) G.sdrag = { y: G.my, s: SC.target, fn: b.fn, moved: false }; else if (b.fn) b.fn(); return; } }
+    if (G.screen === 'special' && G.mx < 600 && G.my >= 138 && G.my <= 646) { G.sdrag = { y: G.my, s: SC.target, fn: null, moved: false }; return; }   // drag the orange list
     if (G.screen === 'units' && G.my >= UL.top) { G.sdrag = { y: G.my, s: SC.target, fn: null, moved: false }; return; }
     if (G.screen === 'battle' && !G.paused && !G.result && G.my > TOP && G.my < PANEL_Y) G.drag = { x: G.mx, cam: G.cam };
   });
@@ -5415,7 +5417,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1108';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1119';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
