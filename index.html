@@ -3502,7 +3502,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const d = defFor(S, id); let x = -W / 2 + 18;
     if (eq) {   // Equip: just the cost, like Battle Cats' Organize Cats
       if (d.rarity) { rr(c, x, H - 56, 40, 26, 6, RARITY[d.rarity].color, OUT, 2); text(c, d.rarity, x + 20, H - 43, 14, OUT, 'center'); }
-      doughIcon(c, W / 2 - 112, H - 42, 11); text(c, String(d.cost), W / 2 - 18, H - 42, 30, focus ? '#ffe135' : '#b9a94a', 'right', '#000', HEAD); return;
+      const cx0 = d.rarity ? x + 62 : x + 12; doughIcon(c, cx0, H - 43, 11); text(c, String(d.cost), cx0 + 18, H - 42, 30, focus ? '#ffe135' : '#b9a94a', 'left', '#000', HEAD); return;   // left side: the +plus levels sit on the right
     }
     if (d.rarity) { rr(c, x, H - 58, 40, 24, 6, RARITY[d.rarity].color, OUT, 2); text(c, d.rarity, x + 20, H - 45, 14, OUT, 'center'); x += 48; }
     if (UNITS[id].special) { rr(c, x, H - 58, 40, 24, 6, '#c9b6ff', OUT, 2); text(c, 'SP', x + 20, H - 45, 14, OUT, 'center'); x += 48; }
@@ -5526,7 +5526,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1314';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1323';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
