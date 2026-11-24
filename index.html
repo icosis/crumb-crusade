@@ -46,7 +46,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const TAU = Math.PI * 2;
   const VW = 1280, VH = 720, TOP = 52, PANEL_Y = 556, GROUND_Y = 470;
   const STEP = 1 / 60, KB_T = 0.42, REC_T = 0.25;
-  const MAX_UNITS = 40, MAX_FOES = 40, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 20, LINEUP = 10, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
+  const MAX_UNITS = 40, MAX_FOES = 40, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 30, LINEUP = 10, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
   const OUT = '#3a2416';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -582,9 +582,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const lvMul = lv => 1 + .2 * (lv - 1);   // +20% of the Lv1 stats every level, all the way to Lv40
   // Battle Cats level cap: Lv10 at first; Lv20 unlocks once the second chapter (Map 2) is cleared.
   const LV_CAP_EARLY = 10, LV_CAP_UNLOCK = 10;
-  // Lv10 -> Lv20 (Map 2 cleared) -> Lv30 (Section 1 cleared) -> Lv40 (Section 2 cleared). Going past Lv20 needs the True Form first.
-  const lvCap = save => (!save ? LV_CAP_EARLY : secCleared(save, 1) >= STAGES.length ? 40 : save.cleared >= STAGES.length ? 30 : save.cleared >= LV_CAP_UNLOCK ? 20 : LV_CAP_EARLY);
-  // True Form: unlocked at Lv20 (TF_LV) with crumbs + Golden Grain. Stronger, renamed, drawn with a golden aura; needed to level past 20.
+  // Lv10 -> Lv20 (Map 2 cleared) -> Lv30 (Map 4 cleared, so Map 5 can be fought at Lv30) -> Lv40 (Section 2 cleared). The True Form needs Lv30, and going past Lv30 needs it.
+  const lvCap = save => (!save ? LV_CAP_EARLY : secCleared(save, 1) >= STAGES.length ? 40 : save.cleared >= 20 ? 30 : save.cleared >= LV_CAP_UNLOCK ? 20 : LV_CAP_EARLY);
+  // True Form: unlocked at Lv30 (TF_LV) with crumbs + Golden Grain. Stronger, renamed, drawn with a golden aura; needed to level past 30.
   const EVO_MUL = { hp: 1.5, dmg: 1.4 };
   const EVO_NAMES = { bun: 'Brioche Buddy', loaf: 'Fortress Loaf', pretzel: 'Knot Master', baguette: 'Grand Lancette', muffin: 'Berry Blaster', croissant: 'Cyclone Roll', donut: 'Glaze Archmage', cake: 'Wedding Colossus',
     cookie: 'Double-Choc Cookie', pie: 'Deep-Dish Guard', eclair: 'Eclair Paladin', waffle: 'Belgian Knight', macaron: 'Macaron Sage', pancake: 'Flapjack Colossus', tart: 'Tart Empress', dragon: 'Sourdough Wyrm',
@@ -3200,7 +3200,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, 'REWARD UNIT', 676, 352, 14, '#c9b6ff');
     text(c, d.name, 676, 382, 24, '#fff', 'left', null, HEAD); roleChip(c, d, 940, 370, 22);
     text(c, 'HP ' + d.hp + '   ATK ' + d.dmg + '   Area   Range ' + dRng(d) + '   Cost ' + d.cost, 676, 414, 15, '#e2d8ff');
-    fitText(c, 'Joins at Lv10. At Lv20 its True Form, Awakened Bakemut, becomes a rush nuker.', 676, 446, 520, 14, '#c9b6ff');
+    fitText(c, 'Joins at Lv10. At Lv30 its True Form, Awakened Bakemut, becomes a rush nuker.', 676, 446, 520, 14, '#c9b6ff');
     if (done) text(c, '✓ Bakemut is on your team. Replay for crumbs.', 660, 512, 18, '#2c7a72');
     else if (!open) text(c, '🔒 Clear Map 3 (' + MAPS[2].name + ') to open this stage.', 660, 512, 18, '#c8102e');
     btn(c, 980, 590, 250, 80, open ? 'BATTLE!' : 'LOCKED', () => { if (open) startBattle(SP_IDX); else { sfx('deny'); toast('Clear every stage of ' + MAPS[2].name + ' first.'); } }, { size: 32, color: open ? '#ff9d5c' : '#c9bba3' });
@@ -3614,8 +3614,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const cost = evoCost(id), gc = grainCost(id), hasG = (S.grain || 0) >= gc;
       upBtn(c, 'True Form ★', cost, () => { if (!hasG) { sfx('deny'); toast('Needs ' + gc + ' Golden Grain (you have ' + (S.grain || 0) + '). Win Golden Field legend stages.'); return; } buy(cost, () => { S.grain -= gc; S.evolved[id] = 1; sfx('boss'); toast(UNITS[id].name + ' reached its True Form: ' + EVO_NAMES[id] + '!'); }); }, S.crumbs < cost || !hasG, 32);
       text(c, '+ ' + gc + ' grain', 330, 479, 18, hasG ? '#fff' : '#efe8d8', 'left', '#4a2f12');
-    } else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast('Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Section 1' : 'Section 2') + ' to raise it.'); }, { dim: true }),
-      text(c, 'Level Cap', 268, 444, 36, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Section 1' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
+    } else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast('Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it.'); }, { dim: true }),
+      text(c, 'Level Cap', 268, 444, 36, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.levels[id] = lv + 1; G.lvFlash = { id, t0: G.time }; }), S.crumbs < cost); }
     // Talents oval, Orb and Info
     const tals = talentsOf(id);
@@ -5385,7 +5385,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-2041';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-2103';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
