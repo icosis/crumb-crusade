@@ -46,7 +46,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const TAU = Math.PI * 2;
   const VW = 1280, VH = 720, TOP = 52, PANEL_Y = 556, GROUND_Y = 470;
   const STEP = 1 / 60, KB_T = 0.42, REC_T = 0.25;
-  const MAX_UNITS = 40, MAX_FOES = 40, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 30, LINEUP = 10, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
+  const MAX_UNITS = 40, MAX_FOES = 40, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 30, LINEUP = 10, TEAMS = 5, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
   const OUT = '#3a2416';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -714,7 +714,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // SAVE
   // =====================================================================
   const SAVE_KEY = 'crumb-crusade-save-v1';
-  function defaultSave() { return { cherry: 0, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
+  function defaultSave() { return { teams: [], teamIdx: 0, cherry: 0, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
   let NO_PERSIST = !HAS_DOM;
   // Storage layers, tried in order. Some editors (w3editor, sandboxed iframes) block or wipe
   // localStorage, so we also mirror to window.name, which survives a refresh in the same tab.
@@ -821,6 +821,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         if (j.talents && typeof j.talents === 'object') for (const id of Object.keys(j.talents)) if (UNITS[id] && UNITS[id].talent) { const t = Math.floor(+j.talents[id] || 0); if (t > 0) s.talents[id] = Math.min(TALENT_MAX, t); }
         if (j.awakened && typeof j.awakened === 'object') for (const id of Object.keys(j.awakened)) if (UNITS[id] && UNITS[id].special) s.awakened[id] = 1;
         if (j.plus && typeof j.plus === 'object') for (const id of Object.keys(j.plus)) if (UNITS[id] && (UNITS[id].gacha || isNormalU(id))) { const p = Math.floor(+j.plus[id] || 0); if (p > 0) s.plus[id] = Math.min(plusCap(id), p); }
+        s.teamIdx = clamp(Math.floor(+j.teamIdx || 0), 0, TEAMS - 1); s.teams = Array.isArray(j.teams) ? j.teams.slice(0, TEAMS).map(a => (Array.isArray(a) ? a.slice(0, LINEUP).map(id => (UNITS[id] ? id : null)) : null)) : [];
         for (const id of Object.keys(s.levels)) if (isNormalU(id) && s.levels[id] > NORMAL_LV_MAX) { s.plus[id] = Math.min(NORMAL_PLUS_MAX, (s.plus[id] || 0) + s.levels[id] - NORMAL_LV_MAX); s.levels[id] = NORMAL_LV_MAX; }
         if (Array.isArray(j.capsule)) s.capsule = j.capsule.filter(id => typeof id === 'string' && ((UNITS[id] && UNITS[id].gacha) || (id.startsWith('n:') && UNITS[id.slice(2)] && !UNITS[id.slice(2)].gacha && !UNITS[id.slice(2)].special) || (id.startsWith('b:') && BASE_UP[id.slice(2)]))).slice(0, 500);
         s.ntickets = Math.max(0, Math.floor(+j.ntickets || 0));
@@ -2408,7 +2409,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; if (screen === 'prep' && from !== 'prep') G.bunSay = null; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; if (screen === 'prep' && from !== 'prep') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -2416,12 +2417,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function noteStages(area) { const sec = area === 'map' ? G.sec || 0 : S.lastSec; if (S.lastArea !== area || S.lastSec !== sec) { S.lastArea = area; S.lastSec = sec; persist(); } }
   const inLegend = () => S.lastArea === 'special' && legendOpen(S);   // (a save from before the lock may still say 'special')
   const baseName = () => (inLegend() ? 'Legend Stages' : SECTIONS[S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : 0].name);
-  // Start!! slides the Bakery Base away to the right, uncovering the stage list
-  function slideAway() {
-    try { const s = document.createElement('canvas'); s.width = canvas.width; s.height = canvas.height; s.getContext('2d').drawImage(canvas, 0, 0); G.slide = { img: s, t0: G.time }; } catch (e) { G.slide = null; }
-  }
   function resumeStages() {
-    slideAway();
     HIST.length = 0; HIST.push('prep');
     if (inLegend()) { scReset(); go('special', true); return; }
     G.sec = S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : null; G.map = null; go('map', true);
@@ -3034,8 +3030,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
           go: () => startBattle(TOWER_BASE + fl), pests: [...new Set(t.waves.map(w => w.u))] };
       }
       return { name: x.kind === 'daily' ? 'Daily: ' + x.mod.name : e.ks.length > 1 ? x.diff : x.name, open: spOpen(S, q), done: !!S.spDone[x.key], boss: x.waves.some(w => FOES[w.u].boss), grade: null, mag: x.mag, hp: x.hp,
-        reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && !isOwned(S, 'bakemut') ? '  + Bakemut' : ''), first: !S.spDone[x.key], attack: x.kind === 'awaken' ? 'Details' : null,
-        go: () => (x.kind === 'awaken' ? go('awaken') : startBattle(SP_BASE + q)), pests: [...new Set(x.waves.map(w => w.u))] };
+        reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && !isOwned(S, 'bakemut') ? '  + Bakemut' : ''), first: !S.spDone[x.key], attack: null,
+        go: () => startBattle(SP_BASE + q), pests: [...new Set(x.waves.map(w => w.u))] };
     });
     drawStageSelect(c, { key: 'lg:' + (G.lgEvent || 0), stages, sel: e.ks.indexOf(G.spSel), setSel: k => { G.spSel = e.ks[k]; }, back: () => goBack(),
       title: 'Legend Stages  ·  ' + e.name, sub: info.label });
@@ -3062,6 +3058,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.save(); c.beginPath(); c.rect(0, TOP, 600, view); c.clip();
     LG_EVENTS.forEach((e, ei) => {
       const y = TOP + 26 - SC.y + ei * rowH; if (y > BOT || y + rowH < TOP) return;
+      const sp = clamp((G.time - (G.spIn || -9) - ei * .07) / .4, 0, 1), dx = -Math.pow(1 - sp, 3) * (LW + 90);   // the orange buttons slide in from the left, one after another
+      c.save(); c.translate(dx, 0);
       const o = lgOpen(e), sel = ei === G.lgSel, got = e.ks.filter(q => S.spDone[SPECIALS[q].key]).length, done = got === e.ks.length, fresh = e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key]);
       text(c, LG_INFO[e.kind].label, LX + 6, y - 10, 15, '#ff7ad9', 'left', '#2b1a0e', HEAD);
       text(c, e.ks.length + ' stage' + (e.ks.length > 1 ? 's' : ''), LX + LW - 6, y - 10, 15, '#fff', 'right', '#2b1a0e', HEAD);
@@ -3076,6 +3074,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       e.ks.forEach((q, j) => text(c, '★', LX + 20 + j * 20, y + 74, 17, S.spDone[SPECIALS[q].key] ? '#ff7ad9' : '#c9c2b6', 'center', '#2b1a0e'));   // one star per stage, pink when cleared
       if (o && fresh) { c.save(); c.translate(LX + LW - 26, y + 58); c.rotate(-.1); rr(c, -34, -14, 70, 28, 6, '#e2483a', '#fff', 2); text(c, 'New!', 1, 1, 18, '#fff', 'center', null, HEAD); c.restore(); }
       ell(c, LX + LW + 40, y + 20, 22, 18, '#fff', '#2b1a0e', 2); poly(c, [LX + LW + 26, y + 32, LX + LW + 22, y + 42, LX + LW + 36, y + 35], '#fff', null); text(c, '•••', LX + LW + 40, y + 19, 12, '#6b6b6b', 'center');
+      c.restore();
       hit(LX + LW + 16, y - 2, 50, 44, () => { G.lgSel = ei; sfx('click'); });     // ••• : the mascot explains it
       hit(LX, y, LW, 62, () => { G.lgSel = ei; openLegendEvent(ei); });            // tap: open its map
     });
@@ -4934,7 +4933,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const PREP = { CW: 114, CH: 146, SW: 118, SH: 70, SLOT_Y: 72, BENCH_Y: 250, COLS: 10, slotX: i => 329 + (i % 5) * 126, slotY: i => 72 + Math.floor(i / 5) * 78 };
   // the lineup never has gaps: bakers always sit packed to the left
   const compactLineup = l => { const r = l.filter(Boolean); while (r.length < LINEUP) r.push(null); return r; };
-  function setLineup(l) { S.lineup = compactLineup(l); persist(); sfx('click'); }
+  function setLineup(l) { S.lineup = compactLineup(l); (S.teams = S.teams || [])[S.teamIdx || 0] = S.lineup.slice(); persist(); sfx('click'); }
+  // saved teams (slots 1-5): switching keeps each team's lineup
+  function switchTeam(n) {
+    n = (n + TEAMS) % TEAMS; if (n === (S.teamIdx || 0)) return;
+    S.teams = S.teams || []; S.teams[S.teamIdx || 0] = lineupOf(S).slice();
+    const tm = S.teams[n]; S.lineup = tm ? compactLineup(tm) : new Array(LINEUP).fill(null); S.teamIdx = n; G.eqSel = null; persist(); markDirty(); sfx('click');
+  }
   function dndActive() { return !!(G.dnd && G.dnd.moved); }
   function dropTarget() {
     for (let i = 0; i < LINEUP; i++) if (inside(PREP.slotX(i), PREP.slotY(i), PREP.SW, PREP.SH)) return { kind: 'slot', i };
@@ -5020,7 +5025,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       else { rr(c, x, y, SW, SH, 7, '#3a3123', '#111', 3); text(c, String((i + 1) % 10), x + SW / 2, y + SH / 2, 30, 'rgba(255,255,255,.18)', 'center', null, HEAD); }
       if (hot) { c.globalAlpha = .8; rr(c, x - 4, y - 4, SW + 8, SH + 8, 10, null, '#fff', 5); c.globalAlpha = 1; }
     }
-    text(c, 'Lineup  ' + L.filter(Boolean).length + '/' + LINEUP, 160, 90, 20, '#7c5432', 'center', null, HEAD);
+    { const ti = S.teamIdx || 0, hl = inside(64, 72, 44, 36), hr = inside(212, 72, 44, 36);   // team slot: Team 1 .. Team 5
+      poly(c, [96, 80, 96, 100, 78, 90], hl ? '#5a3a0a' : '#9a6a2a', null); poly(c, [224, 80, 224, 100, 242, 90], hr ? '#5a3a0a' : '#9a6a2a', null);
+      text(c, 'Team ' + (ti + 1), 160, 90, 26, '#7c5432', 'center', null, HEAD);
+      hit(64, 72, 44, 36, () => switchTeam(ti - 1)); hit(212, 72, 44, 36, () => switchTeam(ti + 1)); }
     baseBtn(c, 70, 112, 180, 46, 'Clear', () => { setLineup(new Array(LINEUP).fill(null)); toast('Lineup cleared.'); }, { size: 22, disabled: !L.some(Boolean) });
     ['Drag a card up into a slot', 'Drag slots to swap them', 'Drag a slot down to remove'].forEach((t, i) => text(c, t, 1122, 92 + i * 24, 15, '#7c5432', 'center'));
     { const nAct = comboTotals(L.filter(Boolean)).list.length;
@@ -5229,11 +5237,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
     if (G.pick) drawPick(c);
     drawChipTip(c);
-    if (G.slide) {   // the old screen sliding off to the right (picks up speed), with a soft shadow on its edge
-      const p = (G.time - G.slide.t0) / .5;
-      if (p >= 1 || p < 0) G.slide = null;
-      else { const ox = Math.round(p * p * canvas.width); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(ox - 14, 0, 14, canvas.height); c.drawImage(G.slide.img, ox, 0); c.setTransform(scale, 0, 0, scale, 0, 0); }
-    }
     if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
       c.globalAlpha = a; c.font = 'bold 18px ' + FONT; const w = c.measureText(G.toast.msg).width + 48;
@@ -5406,9 +5409,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1045';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1050';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
