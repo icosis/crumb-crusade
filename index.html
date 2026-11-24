@@ -589,8 +589,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const EVO_NAMES = { bun: 'Brioche Buddy', loaf: 'Fortress Loaf', pretzel: 'Knot Master', baguette: 'Grand Lancette', muffin: 'Berry Blaster', croissant: 'Cyclone Roll', donut: 'Glaze Archmage', cake: 'Wedding Colossus',
     cookie: 'Double-Choc Cookie', pie: 'Deep-Dish Guard', eclair: 'Eclair Paladin', waffle: 'Belgian Knight', macaron: 'Macaron Sage', pancake: 'Flapjack Colossus', tart: 'Tart Empress', dragon: 'Sourdough Wyrm',
     scone: 'Clotted Scone', churro: 'Churro Champion', cupcake: 'Cupcake Howitzer', strudel: 'Strudel Bastion', cinnabun: 'Cinnamon Archmage', gingerbread: 'Gingerbread Titan', phoenix: 'Toffee Firebird', bakemut: 'Awakened Bakemut' };
-  const autoTF = (save, id) => !!(UNITS[id] && !UNITS[id].gacha && !UNITS[id].special && save && save.levels && (save.levels[id] || 1) >= 20 && ((save.plus && save.plus[id]) || 0) >= 10);
-  const isEvolved = (save, id) => !!(save && ((save.evolved && save.evolved[id]) || autoTF(save, id)));   // "evolved" = has reached its True Form
+  const isEvolved = (save, id) => !!(save && save.evolved && save.evolved[id]);   // "evolved" = has reached its True Form
   // Evolved Form names (Battle Cats' 2nd form): unlocked at total level 10 (levels + plus levels). Same stats as the first form.
   const EVO1_NAMES = { bun: 'Big Bun Buddy', loaf: 'Stout Bread Wall', pretzel: 'Twist Brawler', baguette: 'Long Lancette', muffin: 'Berry Barrage', croissant: 'Dash Roll Deluxe', donut: 'Glaze Wizard', cake: 'Great Gateau',
     cookie: 'Choco Chip Cookie', pie: 'Pie Guardian', eclair: 'Eclair Knight', waffle: 'Waffle Paladin', macaron: 'Macaron Mystic', pancake: 'Stack Colossus', tart: 'Royal Tart Queen', dragon: 'Sourdough Drake',
@@ -689,6 +688,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
 
   const unitLv = (save, id) => save.levels[id] || 1;
+  const totalLv = (save, id) => unitLv(save, id) + ((save.plus && save.plus[id]) || 0);   // crumb level + plus levels: 20 +10 counts as 30
+  const tfAble = (save, id) => !!(UNITS[id] && EVO_NAMES[id] && isOwned(save, id) && !isEvolved(save, id) && totalLv(save, id) >= TF_LV);
   // Plus levels (Battle Cats style): each duplicate from the gacha adds +1, on top of the levels bought with crumbs.
   // They do not count toward the Lv cap or evolution, and stack up to +PLUS_MAX.
   const PLUS_MAX = 10;
@@ -711,7 +712,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // SAVE
   // =====================================================================
   const SAVE_KEY = 'crumb-crusade-save-v1';
-  function defaultSave() { return { pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
+  function defaultSave() { return { tfV: 1, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
   let NO_PERSIST = !HAS_DOM;
   // Storage layers, tried in order. Some editors (w3editor, sandboxed iframes) block or wipe
   // localStorage, so we also mirror to window.name, which survives a refresh in the same tab.
@@ -818,6 +819,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         if (j.talents && typeof j.talents === 'object') for (const id of Object.keys(j.talents)) if (UNITS[id] && UNITS[id].talent) { const t = Math.floor(+j.talents[id] || 0); if (t > 0) s.talents[id] = Math.min(TALENT_MAX, t); }
         if (j.awakened && typeof j.awakened === 'object') for (const id of Object.keys(j.awakened)) if (UNITS[id] && UNITS[id].special) s.awakened[id] = 1;
         if (j.plus && typeof j.plus === 'object') for (const id of Object.keys(j.plus)) if (UNITS[id] && (UNITS[id].gacha || isNormalU(id))) { const p = Math.floor(+j.plus[id] || 0); if (p > 0) s.plus[id] = Math.min(plusCap(id), p); }
+        if (!j.tfV) for (const id of Object.keys(UNITS)) if (isNormalU(id) && (s.levels[id] || 1) >= 20 && (s.plus[id] || 0) >= 10) s.evolved[id] = 1;   // older saves: keep the True Forms normal bakers already had
+        s.tfV = 1;
         for (const id of Object.keys(s.levels)) if (isNormalU(id) && s.levels[id] > NORMAL_LV_MAX) { s.plus[id] = Math.min(NORMAL_PLUS_MAX, (s.plus[id] || 0) + s.levels[id] - NORMAL_LV_MAX); s.levels[id] = NORMAL_LV_MAX; }
         if (Array.isArray(j.capsule)) s.capsule = j.capsule.filter(id => typeof id === 'string' && ((UNITS[id] && UNITS[id].gacha) || (id.startsWith('n:') && UNITS[id.slice(2)] && !UNITS[id.slice(2)].gacha && !UNITS[id.slice(2)].special) || (id.startsWith('b:') && BASE_UP[id.slice(2)]))).slice(0, 500);
         s.ntickets = Math.max(0, Math.floor(+j.ntickets || 0));
@@ -1653,7 +1656,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -3604,37 +3607,35 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (cost != null) { crumbIcon(c, 214, 478, 10); text(c, String(cost), 230, 479, 20, dim ? '#efe8d8' : '#fff', 'left', dim ? '#6b6252' : '#4a2f12', HEAD); }
   }
   function upUnitPanel(c, id) {
-    const d = defFor(S, id), lv = unitLv(S, id), evo = isEvolved(S, id), tfReady = lv >= TF_LV && !evo && !isNormalU(id), st = unitStats(id, S);
-    const maxed = lv >= natCap(S, id) || tfReady || lv >= UNIT_MAX_LV, nx = maxed ? null : unitStats(id, S, lv + 1);
+    const d = defFor(S, id), lv = unitLv(S, id), evo = isEvolved(S, id), tfReady = tfAble(S, id), tfBlock = !evo && lv >= TF_LV, st = unitStats(id, S);
+    const maxed = lv >= natCap(S, id) || tfBlock || lv >= UNIT_MAX_LV, nx = maxed ? null : unitStats(id, S, lv + 1);
     // big yellow button: Level Up / True Form / level cap / MAX
     if (lv >= UNIT_MAX_LV) baseBtn(c, 88, 414, 360, 84, 'MAX LEVEL', null, { size: 36, disabled: true });
-    else if (isNormalU(id) && lv >= NORMAL_LV_MAX && !tfReady) { baseBtn(c, 88, 414, 360, 84, '', () => { G.gachaTab = 'normal'; go('gacha'); }, { dim: true });
-      text(c, 'Max Lv ' + NORMAL_LV_MAX, 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? 'True Form at +10 (now +' + plusOf(S, id) + ')  ▶' : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
-    else if (tfReady) {
-      const cost = evoCost(id), gc = grainCost(id), hasG = (S.grain || 0) >= gc;
-      upBtn(c, 'True Form ★', cost, () => { if (!hasG) { sfx('deny'); toast('Needs ' + gc + ' Golden Grain (you have ' + (S.grain || 0) + '). Win Golden Field legend stages.'); return; } buy(cost, () => { S.grain -= gc; S.evolved[id] = 1; sfx('boss'); toast(UNITS[id].name + ' reached its True Form: ' + EVO_NAMES[id] + '!'); }); }, S.crumbs < cost || !hasG, 32);
-      text(c, '+ ' + gc + ' grain', 330, 479, 18, hasG ? '#fff' : '#efe8d8', 'left', '#4a2f12');
-    } else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast('Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it.'); }, { dim: true }),
+    else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { baseBtn(c, 88, 414, 360, 84, '', () => { G.gachaTab = 'normal'; go('gacha'); }, { dim: true });
+      text(c, 'Max Lv ' + NORMAL_LV_MAX, 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, plusOf(S, id) >= NORMAL_PLUS_MAX ? 'plus levels maxed' : !evo ? (tfReady ? 'ready to evolve!  + levels ▶' : 'True Form at total Lv' + TF_LV + ' (now ' + totalLv(S, id) + ')  ▶') : '+ levels: Normal Capsule  ▶', 268, 479, 16, '#efe8d8', 'center', '#6b6252'); }
+    else if (tfBlock) { baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast(tfReady ? 'Press Evolve first: past Lv' + TF_LV + ' needs the True Form.' : 'Past Lv' + TF_LV + ' needs the True Form.'); }, { dim: true });
+      text(c, 'Evolve first', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD); text(c, 'the True Form lets it pass Lv' + TF_LV, 268, 479, 16, '#efe8d8', 'center', '#6b6252');    } else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { sfx('deny'); toast('Level cap ' + lv + ': clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it.'); }, { dim: true }),
       text(c, 'Level Cap', 268, 444, 36, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv); upBtn(c, 'Level Up!', cost, () => buy(cost, () => { S.levels[id] = lv + 1; G.lvFlash = { id, t0: G.time }; }), S.crumbs < cost); }
     // Talents oval, Orb and Info
-    const tals = talentsOf(id);
-    if (tals.length) {
-      const h = inside(560, 414, 160, 84);
+    const tals = talentsOf(id), showMid = tfReady || (evo && tals.length > 0);
+    if (showMid) {   // the oval: Evolve once the baker is ready for its True Form, Talents after it has one
+      const h = inside(560, 414, 160, 84), cost = evoCost(id), gc = grainCost(id), can = S.crumbs >= cost && (S.grain || 0) >= gc;
       c.save(); c.translate(45, 0);
       ell(c, 595, 462, 80, 44, 'rgba(0,0,0,.4)', null);
-      const g = c.createLinearGradient(0, 414, 0, 500); g.addColorStop(0, h ? '#fff27a' : '#ffe45e'); g.addColorStop(1, '#e8a000');
-      ell(c, 595, 456, 80, 44, g, '#4a2f12', 4);
-      text(c, 'Talents', 595, 458, 36, '#fff', 'center', '#4a2f12', HEAD);
+      const g = c.createLinearGradient(0, 414, 0, 500); g.addColorStop(0, tfReady ? (can ? (h ? '#fff27a' : '#ffe45e') : '#d8d0bf') : (h ? '#fff27a' : '#ffe45e')); g.addColorStop(1, tfReady ? (can ? '#e8a000' : '#a99f8b') : '#e8a000');
+      ell(c, 595, 456, 80, 44, g, tfReady && !can ? '#6b6252' : '#4a2f12', 4);
+      if (tfReady) { text(c, 'Evolve ★', 595, 445, 28, '#fff', 'center', '#4a2f12', HEAD); text(c, cost + ' · ' + gc + ' grain', 595, 475, 13, can ? '#fff' : '#efe8d8', 'center', '#4a2f12'); }
+      else text(c, 'Talents', 595, 458, 36, '#fff', 'center', '#4a2f12', HEAD);
       c.restore();
-      hit(560, 414, 160, 84, () => { G.talOpen = id; G.talIdx = orbSlot(id) ? 1 : 0; sfx('click'); });
-    }
-    { const x = VW - 58, y = 392, hv = inside(x, y, 50, 50), g3 = c.createLinearGradient(0, y, 0, y + 50); g3.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g3.addColorStop(1, '#e0a000');
+      if (tfReady) hit(560, 414, 160, 84, () => { if ((S.grain || 0) < gc) { sfx('deny'); toast('Needs ' + gc + ' Golden Grain (you have ' + (S.grain || 0) + '). Win Golden Field legend stages.'); return; } buy(cost, () => { S.grain -= gc; S.evolved[id] = 1; sfx('boss'); toast(UNITS[id].name + ' reached its True Form: ' + EVO_NAMES[id] + '!'); }); });
+      else hit(560, 414, 160, 84, () => { G.talOpen = id; G.talIdx = orbSlot(id) ? 1 : 0; sfx('click'); });
+    }    { const x = VW - 58, y = 392, hv = inside(x, y, 50, 50), g3 = c.createLinearGradient(0, y, 0, y + 50); g3.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g3.addColorStop(1, '#e0a000');
       rr(c, x, y, 50, 50, 10, g3, '#111', 3); c.save(); c.beginPath(); c.rect(x + 4, y + 4, 42, 42); c.clip(); portrait(c, id, x + 25, y + 46, 34, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore();
       text(c, 'i', x + 42, y + 12, 15, '#fff', 'center', '#111', HEAD); hit(x, y, 50, 50, () => openInfo('unit', id)); }
     // info panel: description + stats (green = after the next level)
     // trait chips next to the buttons, then the same bottom panel as the Equip screen (description + stat boxes; green = after the next level)
-    unitChips(c, d, tals.length ? 790 : 580, 424, 1210, 490);
+    unitChips(c, d, showMid ? 790 : 580, 424, 1210, 490);
     { const ax = 1112, ay = 523, hv = inside(ax - 18, ay - 14, 36, 28); text(c, G.upAbil ? '⌃' : '⌄', ax, ay, 30, hv ? '#fff' : '#e8e1d0', 'center', null, HEAD); hit(ax - 22, ay - 18, 44, 36, () => { G.upAbil = !G.upAbil; sfx('click'); }); }
     if (G.upAbil) { abilityPanel(c, id, d); return; }
     { const ls = wrapLines(c, descOf(S, id), 880, 26).slice(0, 3); ls.forEach((ln, i) => text(c, ln, 640, 575 + (i - (ls.length - 1) / 2) * 34, 26, '#fff', 'center')); }
@@ -4009,7 +4010,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const L = lineupOf(S), eq = L.filter(Boolean), capN = (S.capsule || []).length, tk = S.tickets || 0;
     baseRoom(c, eq);
     // speech bubble: the most useful next step for this save
-    const tfReady = UNIT_ORDER.find(id => isOwned(S, id) && !isNormalU(id) && unitLv(S, id) >= TF_LV && !isEvolved(S, id) && (S.grain || 0) >= grainCost(id));
+    const tfReady = UNIT_ORDER.find(id => tfAble(S, id) && (S.grain || 0) >= grainCost(id));
     const newSpecial = SPECIALS.find((x, k) => spOpen(S, k) && !S.spDone[x.key]);
     const newSec = [2, 1].find(k => secOpen(S, k) && !secCleared(S, k));
     const msg = rankReady() ? 'Your User Rank went up! Tap the rank counter at the top left to claim a reward.'
@@ -4115,7 +4116,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // the True Form path: level 20, then Golden Grain, then the button
     const cand = UNIT_ORDER.filter(id => isOwned(S, id) && !isNormalU(id) && !isEvolved(S, id) && EVO_NAMES[id]).sort((a, b) => unitLv(S, b) - unitLv(S, a))[0];
     if (!cand) { if (!UNIT_ORDER.some(id => isOwned(S, id) && !isNormalU(id))) g.push({ label: 'Recruit a baker from the Gacha', hint: 'Rare tickets come from Missions and Expeditions', cur: Math.min(1, S.tickets || 0), max: 1, go: () => go('gacha') }); }
-    else if (unitLv(S, cand) < TF_LV) g.push({ label: 'Raise ' + nameOf(S, cand) + ' to Lv ' + TF_LV, hint: 'Then it can reach its True Form' + (unitLv(S, cand) >= lvCap(S) ? '  (clear more stages to raise the level cap)' : ''), cur: unitLv(S, cand), max: TF_LV, go: () => { UPSEL = cand; go('shop'); } });
+    else if (totalLv(S, cand) < TF_LV) g.push({ label: 'Raise ' + nameOf(S, cand) + ' to Lv ' + TF_LV, hint: 'Crumb levels plus + levels count. Then it can reach its True Form' + (unitLv(S, cand) >= lvCap(S) ? '  (clear more stages to raise the level cap)' : ''), cur: totalLv(S, cand), max: TF_LV, go: () => { UPSEL = cand; go('shop'); } });
     else if ((S.grain || 0) < grainCost(cand)) g.push({ label: 'Collect Golden Grain for ' + nameOf(S, cand), hint: 'Win the Golden Field Legend stages', cur: S.grain || 0, max: grainCost(cand), go: () => go(legendOpen(S) ? 'special' : 'chapters') });
     else g.push({ label: nameOf(S, cand) + ' is ready for its True Form!', hint: 'Open Upgrade and press True Form', cur: 1, max: 1, ready: true, go: () => { UPSEL = cand; go('shop'); } });
     // rewards waiting
@@ -5385,9 +5386,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1123-2103';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1123-2121';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
