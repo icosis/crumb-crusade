@@ -2332,8 +2332,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function artBox(id) {                                       // tight bounds of the drawing, measured once per type
     if (ART_BOX[id]) return ART_BOX[id];
     const W = 520, H = 520, OX = 260, OY = 400, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-    const g = cv.getContext('2d'); g.lineCap = 'round'; g.lineJoin = 'round';
-    for (const walk of [0, TAU / 4, TAU / 2, TAU * .75]) for (const pose of [-.4, 0, 1]) for (const t of [0, .3, .7, 1.1]) {
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const walk of [0, TAU / 4, TAU * .75]) for (const pose of [-.4, 1]) for (const t of [0, .45, 1.1]) {
       g.setTransform(1, 0, 0, 1, OX, OY); ART[id](g, { walk, pose, hurt: t > .5, t });
     }
     const px = g.getImageData(0, 0, W, H).data; let x0 = W, y0 = H, x1 = 0, y1 = 0;
@@ -5550,7 +5550,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // =====================================================================
   // MAIN LOOP + INPUT
   // =====================================================================
-  const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
+  const canvas = document.getElementById('game'), ctx = canvas.getContext('2d', { alpha: false });
   let scale = 1;
   // Render quality = max pixels per CSS pixel. Lowered automatically (and remembered) if frames are slow.
   const QUALITY_STEPS = [2, 1.5, 1, .8, .65];
@@ -5741,10 +5741,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2057';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2127';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
+  if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
+    const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
 })();
 
 </script>
