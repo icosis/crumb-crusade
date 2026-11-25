@@ -3503,7 +3503,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const car = carousel('ch', cards.length);
     if (!car.init) { car.init = true; let k = 0; for (let j = SECTIONS.length - 1; j > 0; j--) if (secOpen(S, j)) { k = j; break; } car.target = car.pos = inLegend() ? SECTIONS.length : S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : k; }
     const cur = Math.round(car.target), enter = cd => {
-      if (cd.pvp) { if (S.cleared < 10) { sfx('deny'); toast('Clear Map 2 (stage 2-5) to open the PvP Arena.'); return; } G.pvpd = null; go('pvp'); return; }
+      if (cd.pvp) { G.pvpd = null; go('pvp'); return; }   // the Arena is open to everyone
       if (cd.special && !legendOpen(S)) { sfx('deny'); toast('Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).'); return; }
       if (cd.special) { S.lastArea = 'special'; persist(); go('prep'); toast('Press Start!! to play Legend Stages'); return; }
       if (!secOpen(S, cd.sec)) { sfx('deny'); toast('Clear every stage of Section ' + cd.sec + ' (' + SECTIONS[cd.sec - 1].name + ') first.'); return; }
@@ -4489,7 +4489,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     PVP_OPP = o; startBattle(PVP_IDX);
   }
   function drawPvpCard(c, W, H, focus) {
-    const open = S.cleared >= 10;
     rr(c, -W / 2 - 6, -6, W + 12, H + 12, 10, focus ? '#ff6a5a' : '#111', null);
     c.save(); c.beginPath(); c.rect(-W / 2, 0, W, H); c.clip();
     const g = c.createLinearGradient(-W / 2, 0, W / 2, H); g.addColorStop(0, '#2a0a0a'); g.addColorStop(.55, '#c0392b'); g.addColorStop(1, '#ffd2a0'); c.fillStyle = g; c.fillRect(-W / 2, 0, W, H);
@@ -4500,7 +4499,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, 'PvP Arena', 0, 120, 56, '#fff', 'center', '#000', HEAD); text(c, 'VS', 0, 200, 44, '#ffd24a', 'center', '#3a0a0a', HEAD);
     rr(c, -W / 2 + 22, H - 84, W - 44, 50, 4, 'rgba(255,246,205,.9)', '#6b4a0c', 2);
     const d = G.pvpd && G.pvpd.me; text(c, d ? 'Rating ' + d.rating + (d.rank ? '  ·  #' + d.rank : '') : 'Fight other players\' bakers!', 0, H - 59, d ? 30 : 24, '#fff', 'center', '#3a2416', HEAD);
-    if (!open) { rr(c, -W / 2, 0, W, H, 6, 'rgba(10,10,10,.68)', null); text(c, '🔒', 0, H / 2 - 30, 60, '#fff', 'center'); text(c, 'Clear Map 2 to open', 0, H / 2 + 34, 24, '#fff', 'center', '#000'); }
   }
   function drawPvp(c) {
     const g = c.createLinearGradient(0, 58, 0, 648); g.addColorStop(0, '#2a0f0f'); g.addColorStop(.5, '#5a1f1a'); g.addColorStop(1, '#1a0a0a'); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
@@ -5932,7 +5930,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2304';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-1746';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
