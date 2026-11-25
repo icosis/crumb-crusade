@@ -5009,11 +5009,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const t = dropTarget(); if (!t) return;
     const L = lineupOf(S).slice(), from = L.indexOf(d.id);
     if (t.kind === 'bench') { if (from < 0) return; L[from] = null; }
-    else if (from >= 0) { [L[from], L[t.i]] = [L[t.i], L[from]]; }
+    else if (from >= 0) { setLineup(reorderPlan(L, d.id, t.i)); return; }   // moving a baker already in the lineup: the others shift along (no swap)
     else { const ins = insertPlan(L, t.i, d.id); if (ins) { setLineup(ins); return; } L[t.i] = d.id; }   // a new baker pushes the others aside; with a full lineup it replaces the one it lands on
     setLineup(L);
   }
   // Put `id` into slot i of a lineup that still has a free slot: the bakers in the way slide one place toward the nearest gap.
+  // Move a baker that is already in the lineup to slot i: the bakers in between slide one place over
+  function reorderPlan(L, id, i) {
+    const arr = L.filter(Boolean), from = arr.indexOf(id); if (from < 0) return L;
+    arr.splice(from, 1); arr.splice(Math.min(i, arr.length), 0, id);
+    while (arr.length < L.length) arr.push(null); return arr;
+  }
   function insertPlan(L, i, id) {
     if (L.includes(id) || !L.includes(null)) return null;
     i = Math.min(i, L.filter(Boolean).length);                         // dropping on an empty slot far along just goes to the end of the row
@@ -5201,7 +5207,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (id === EQSEL && !lifted) { rr(c, x - 3, y - 3, SW + 6, SH + 6, 9, null, '#fff', 4); }
       c.globalAlpha = 1;
     };
-    const Lv = (dragging && tgt && tgt.kind === 'slot' && insertPlan(L, tgt.i, G.dnd.id)) || L;   // live preview: the others slide aside to make room
+    const Lv = (dragging && tgt && tgt.kind === 'slot' && (L.includes(G.dnd.id) ? reorderPlan(L, G.dnd.id, tgt.i) : insertPlan(L, tgt.i, G.dnd.id))) || L;   // live preview: the others slide aside to make room
     for (let i = 0; i < LINEUP; i++) {
       const x = slotX(i), y = slotY(i), hot = tgt && tgt.kind === 'slot' && tgt.i === i;
       if (Lv[i]) slotTile(Lv[i], x, y, i);
@@ -5602,9 +5608,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2027';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2032';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
