@@ -5089,9 +5089,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       ld: (c, x, y) => badge(c, x, y, 'Long', 'Dist.'),
       weaken: (c, x, y) => { sword(c, x - 2, y - 2, 1); chev(c, x + 9, y + 8, false); chev(c, x + 9, y + 13, false); },
       freeze: (c, x, y) => { ring(c, x, y + 2, 12); st(c, [x - 3, y - 14, x + 3, y - 14]); st(c, [x, y + 2, x, y - 6]); st(c, [x, y + 2, x + 5, y + 5]); },
-      slow: (c, x, y) => { dstar(c, x, y, 10, 17, 12); disc(c, x - 2, y - 2, 6); st(c, [x - 8, y + 9, x + 8, y + 9]); },
+      slow: (c, x, y) => { for (const dy of [-8, 0, 8]) st(c, [x - 17, y + dy, x - 9, y + dy]);   // a person running to the right with speed lines behind
+        disc(c, x + 6, y - 11, 4); st(c, [x + 5, y - 6, x + 1, y + 3]); st(c, [x + 1, y + 3, x + 9, y + 7, x + 9, y + 14]); st(c, [x + 1, y + 3, x - 5, y + 9, x - 9, y + 14]); st(c, [x + 4, y - 4, x + 12, y - 1]); st(c, [x + 4, y - 4, x - 3, y - 2]); },
       only: (c, x, y) => { ring(c, x, y, 12); st(c, [x - 17, y, x - 8, y]); st(c, [x + 8, y, x + 17, y]); st(c, [x, y - 17, x, y - 8]); st(c, [x, y + 8, x, y + 17]); dot(c, x, y, 4.5, K); },
-      strong: (c, x, y) => { poly(c, [x - 11, y - 9, x + 5, y - 9, x + 11, y - 3, x + 11, y + 11, x - 11, y + 11], W, K, 2.6); dk(c, [x - 3, y - 9, x - 3, y]); dk(c, [x + 3, y - 4, x + 3, y + 4]); },
+      strong: (c, x, y) => { const th = pts => { line(c, pts, K, 13); line(c, pts, W, 8.5); };   // a flexed bicep
+        th([x - 9, y - 5, x - 9, y + 9]); th([x - 9, y + 9, x + 10, y + 9]); ell(c, x + 2, y + 1, 9, 7, W, K, 2.6); disc(c, x - 9, y - 9, 5.5); dk(c, [x - 1, y - 1, x + 6, y + 1]); },
       resist: (c, x, y) => shield(c, x, y, 1.1),
       tough: (c, x, y) => { shield(c, x, y + 2, 1.05); kf(c, [x - 12, y - 12, x - 8, y - 18, x - 4, y - 12]); kf(c, [x + 12, y - 12, x + 8, y - 18, x + 4, y - 12]); st(c, [x - 6, y, x + 6, y]); },
       massive: (c, x, y) => { star(c, x, y, 9, 17, 10); dstar(c, x, y, 7, 9, 4.5); },
@@ -5588,7 +5590,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2013';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2019';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
