@@ -3660,8 +3660,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       rr(c, x, y, 50, 50, 10, g3, '#111', 3); c.save(); c.beginPath(); c.rect(x + 4, y + 4, 42, 42); c.clip(); portrait(c, id, x + 25, y + 46, 34, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore();
       text(c, 'i', x + 42, y + 12, 15, '#fff', 'center', '#111', HEAD); hit(x, y, 50, 50, () => openInfo('unit', id)); }
     // info panel: description + stats (green = after the next level)
-    { const ab = ABIL_FILTERS.filter(q => q[3](d)), x0 = showMid ? 790 : 580, n = Math.max(0, Math.min(ab.length, Math.floor((1180 - x0) / 58)));   // the same gold symbols as the filter; hover for the name
-      for (let k = 0; k < n; k++) goldIcon(c, x0 + k * 58, 430, 52, ab[k][1], false, ab[k][2], ab[k][0]); }
     // trait chips next to the buttons, then the same bottom panel as the Equip screen (description + stat boxes; green = after the next level)
     { const ax = 1190, ay = 523, hv = inside(ax - 18, ay - 14, 36, 28); text(c, G.upAbil ? '⌃' : '⌄', ax, ay, 30, hv ? '#fff' : '#e8e1d0', 'center', null, HEAD); hit(ax - 22, ay - 18, 44, 36, () => { G.upAbil = !G.upAbil; sfx('click'); }); }
     if (G.upAbil) { abilityPanel(c, id, d); return; }
@@ -3701,13 +3699,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   const ABIL_SHORT = { 'Area attack': 'Area', 'Single target': 'Single', 'Long range': 'Long', 'Mid range': 'Mid', 'Close range': 'Close', 'Slows foes': 'Slow', 'Projectile': 'Shot' };
   function abilityPanel(c, id, d) {
-    const list = [];
-    for (const t of coreTraits(d)) if (!['Fast mover', 'Slow mover', 'Hard to push', 'Boss'].includes(t.label)) list.push([ABIL_SHORT[t.label] || t.sym || t.label.split(' ')[0], t.color, false, t.label]);
-    for (const b of traitBadges(d)) if (b.kind !== 'core') list.push([b.sym, b.color, false, b.tip]);
-    for (const k of talentsOf(id)) if (talLv(S, id, k) > 0) list.push([TAL_DEFS[k].sym, TAL_DEFS[k].color, true, TAL_DEFS[k].name]);
+    const list = ABIL_FILTERS.filter(q => q[3](d)).map(q => ({ g: q }));   // the same gold symbols as the Equip filter; hover for the name
+    for (const k of talentsOf(id)) if (talLv(S, id, k) > 0) list.push({ t: k });
     const shown = list.slice(0, 12), ax0 = 640 - (shown.length * 50) / 2 + 60;
     text(c, 'Ability', ax0 - 20, 560, 28, '#ffd23a', 'right', '#3a2416', HEAD);
-    shown.forEach((a2, i) => { const x = ax0 + i * 50; abilitySquare(c, x, 538, 44, a2[0], a2[1], a2[2]); if (inside(x, 538, 44, 44)) G.abTip = a2[3]; });
+    shown.forEach((a2, i) => { const x = ax0 + i * 50;
+      if (a2.g) goldIcon(c, x, 538, 44, a2.g[1], false, a2.g[2], a2.g[0]);
+      else { const T = TAL_DEFS[a2.t]; abilitySquare(c, x, 538, 44, T.sym, T.color, true); if (inside(x, 538, 44, 44)) G.abTip = T.name; } });
     const ox = ax0;
     text(c, 'Talent Orbs', ox - 20, 614, 26, '#ffd23a', 'right', '#3a2416', HEAD);
     const eq = S.orbEq && S.orbEq[id];
@@ -5590,7 +5588,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2003';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2013';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
