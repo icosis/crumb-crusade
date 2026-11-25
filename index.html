@@ -607,6 +607,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   STAGES.forEach(st => { st.mag = snapMag(st.mag); }); SPECIALS.forEach(st => { st.mag = snapMag(st.mag); });
   // Battle indexes: normal stages 0-24, Legend stages SP_BASE + k, Heavenly Tower floor f = TOWER_BASE + f, Section 2/3 stages from SEC_STRIDE
   const TOWER_BASE = 500, TOWER_MAX = 499;
+  const PVP_IDX = 199;              // battle index of the PvP arena (between the Legend stages and the Heavenly Tower)
+  let PVP_OPP = null;               // the opponent being fought: { id, name, rating, pw, team: [{ u, lv, p, e }] }
   const TOWER_BOSSES = ['ratking', 'queen', 'crow', 'crazed'], TOWER_THEMES = ['kitchen', 'pantry', 'sink', 'night', 'garden', 'cellar', 'roof'];
   // Floor f borrows the (tested) pest line-up of main stage 3 + 0.7 f, capped at the last stage, and grows stronger every floor.
   function towerStage(f) {
@@ -657,7 +659,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   const SP_STAGE = SPECIALS[0];
   const isSpecial = i => i >= SP_BASE && i < SEC_STRIDE;
-  const stageOf = i => (isSpecial(i) ? (i >= TOWER_BASE ? towerStage(i - TOWER_BASE) : SPECIALS[i - SP_BASE]) : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
+  const stageOf = i => (isSpecial(i) ? (i === PVP_IDX ? pvpStage() : i >= TOWER_BASE ? towerStage(i - TOWER_BASE) : SPECIALS[i - SP_BASE]) : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
   // Legend stages stay locked until the Crumb Rebellion (Section 2) is unlocked, i.e. every Section 1 stage is cleared;
   // after that each one also needs its own stage count, as before.
   const legendOpen = save => secOpen(save, 1);
@@ -1634,6 +1636,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         if (countSide(B, -1) < MAX_FOES) { spawnFoe(B, w); w.left--; w.timer = (w.e || 0) * rand(.85, 1.15); } else w.timer = .5;
       }
     }
+    if (B.st.kind === 'pvp') pvpStep(B, dt);
     for (let i = 0; i < B.units.length; i++) { stepUnit(B, B.units[i], dt); if (B.over) break; }
     if (!B.over && B.ripples) stepWaves(B, dt);
     if (B.pin && !B.over) {
@@ -1779,7 +1782,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2565,9 +2568,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (first) return MAPS.some(m => m.last === baseOf(i)) ? 1 + secOf(i) : Math.random() < TICKET_FIRST_CHANCE ? 1 : 0;
     return Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
   }
+  function finishPvp(B, win) {   // arena fight: a few crumbs, and the rating result goes to the server
+    const crumbs = win ? 600 : 100; S.crumbs += crumbs; persist(); if (win) markDirty();
+    G.result = { win, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: 0, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: 0, pvp: { opp: PVP_OPP ? PVP_OPP.name : '' } };
+    if (PVP_OPP) pvpReport(PVP_OPP.id, win);
+  }
   function finishBattle() {
     const B = G.battle, i = B.idx, win = B.over === 'win';
     if (typeof setTimeout === "function") setTimeout(() => { try { lbSubmit(false); } catch (e) {} }, 1500);   // keep the online leaderboard up to date
+    if (B.st.kind === 'pvp') { finishPvp(B, win); return; }
     let crumbs, first = false, unlocked = [], grain = 0;
     if (win) {
       crumbs = stageReward(i);
@@ -2666,6 +2675,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const warpA = u.warpT > 0 ? Math.abs(u.warpT - .35) / .35 : 1;
     c.globalAlpha = warpA * (u.dodgeT > 0 ? .55 : 1);
     c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(sx, gy + 2, Math.max(4, d.r * (1 - u.hop / 80)), 6, 0, 0, TAU); c.fill();
+    if (u.side < 0 && UNITS[u.type]) { c.strokeStyle = 'rgba(226,60,50,.9)'; c.lineWidth = 3; c.beginPath(); c.ellipse(sx, gy + 2, d.r + 6, 9, 0, 0, TAU); c.stroke(); }   // PvP: the other player's bakers stand on a red ring
     if (u.slowT > 0) { c.strokeStyle = 'rgba(255,120,190,.8)'; c.lineWidth = 3; c.beginPath(); c.ellipse(sx, gy + 2, d.r + 4, 8, 0, 0, TAU); c.stroke(); }
     let pose = 0;
     if (u.state === 'windup') pose = -.4 * Math.sin(Math.min(1, u.t / d.windup) * Math.PI / 2);
@@ -3031,7 +3041,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const r = G.result, p = overlayPanel(c, 560, (r.unlocked.length ? 460 : 370) + (r.treasure ? 46 : 0) + (r.orb ? 46 : 0));
       text(c, r.win ? 'VICTORY!' : 'BURNT OUT...', 640, p.y + 62, 54, r.win ? '#e2483a' : '#6d5f50', 'center', OUT, HEAD);
       // headline under VICTORY: an unlock (new section / new map) gets its own red line, with the usual note underneath
-      const sub = r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
+      const sub = r.pvp ? (r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
       const unlock = r.newSec >= 0 ? 'SECTION ' + (r.newSec + 1) + ' UNLOCKED: ' + SECTIONS[r.newSec].name + '  ·  Lv cap ' + lvCap(S) : r.newMap >= 0 ? 'NEW MAP UNLOCKED: ' + MAPS[r.newMap].name + ' (' + MAPS[r.newMap].diff + ')' : '';
       if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
       else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
@@ -3069,8 +3079,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         btn(c, p.x + 150, yy + 16, 260, 60, 'Retry', () => startBattle(B.idx));
       } else {
         // like Battle Cats: a big Ok that goes back to the map (or the Legend Stages list)
-        btn(c, p.x + 30, yy + 16, 280, 64, 'Ok', () => { go(backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 34 });
-        text(c, backSp ? 'back to Legend Stages' : 'back to the map', p.x + 170, yy + 94, 13, '#7c5432', 'center');
+        btn(c, p.x + 30, yy + 16, 280, 64, 'Ok', () => { go(r.pvp ? 'pvp' : backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 34 });
+        text(c, r.pvp ? 'back to the Arena' : backSp ? 'back to Legend Stages' : 'back to the map', p.x + 170, yy + 94, 13, '#7c5432', 'center');
         btn(c, p.x + 326, yy + 16, 200, 64, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
       }
     } else if (G.paused) {
@@ -3078,7 +3088,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'PAUSED', 640, p.y + 60, 46, OUT, 'center', null, HEAD);
       btn(c, p.x + 60, p.y + 110, 300, 64, 'Resume', () => { G.paused = false; sfx('click'); });
       if (inTutorial(G.battle.idx)) text(c, 'Win this first stage to continue!', 640, p.y + 228, 20, '#7c5432', 'center');
-      else btn(c, p.x + 60, p.y + 196, 300, 64, isSpecial(G.battle.idx) ? 'Retreat' : 'Retreat to map', () => go(isSpecial(G.battle.idx) ? 'special' : 'map'), { color: '#f3d49a' });
+      else btn(c, p.x + 60, p.y + 196, 300, 64, isSpecial(G.battle.idx) ? 'Retreat' : 'Retreat to map', () => go(G.battle.idx === PVP_IDX ? 'pvp' : isSpecial(G.battle.idx) ? 'special' : 'map'), { color: '#f3d49a' });
     }
   }
 
@@ -3489,10 +3499,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawChapters(c) {
     const g = c.createLinearGradient(0, 58, 0, 648); g.addColorStop(0, '#0d0d0d'); g.addColorStop(.45, '#3c3c3c'); g.addColorStop(1, '#151515');
     c.fillStyle = g; c.fillRect(0, 0, VW, VH);
-    const cards = SECTIONS.map((s, k) => ({ sec: k })).concat([{ special: true }]);
+    const cards = SECTIONS.map((s, k) => ({ sec: k })).concat([{ special: true }, { pvp: true }]);
     const car = carousel('ch', cards.length);
     if (!car.init) { car.init = true; let k = 0; for (let j = SECTIONS.length - 1; j > 0; j--) if (secOpen(S, j)) { k = j; break; } car.target = car.pos = inLegend() ? SECTIONS.length : S.lastSec != null && secOpen(S, S.lastSec) ? S.lastSec : k; }
     const cur = Math.round(car.target), enter = cd => {
+      if (cd.pvp) { if (S.cleared < 10) { sfx('deny'); toast('Clear Map 2 (stage 2-5) to open the PvP Arena.'); return; } G.pvpd = null; go('pvp'); return; }
       if (cd.special && !legendOpen(S)) { sfx('deny'); toast('Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).'); return; }
       if (cd.special) { S.lastArea = 'special'; persist(); go('prep'); toast('Press Start!! to play Legend Stages'); return; }
       if (!secOpen(S, cd.sec)) { sfx('deny'); toast('Clear every stage of Section ' + cd.sec + ' (' + SECTIONS[cd.sec - 1].name + ') first.'); return; }
@@ -3501,10 +3512,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     baseTop(c, 'Stage Select');
     pageDots(c, cards.length, cur, 84);
     // label over the centre card
-    { const cd = cards[cur], name = cd.special ? 'Events' : SECTIONS[cd.sec].short, col = cd.special ? '#a98bff' : SECTIONS[cd.sec].color;
-      dot(c, 520, 152, 34, '#111'); dot(c, 520, 152, 28, col); text(c, cd.special ? '★' : String(cd.sec + 1), 520, 154, 30, '#fff', 'center', OUT, HEAD);
+    { const cd = cards[cur], name = cd.pvp ? 'PvP' : cd.special ? 'Events' : SECTIONS[cd.sec].short, col = cd.pvp ? '#ff6a5a' : cd.special ? '#a98bff' : SECTIONS[cd.sec].color;
+      dot(c, 520, 152, 34, '#111'); dot(c, 520, 152, 28, col); text(c, cd.pvp ? '⚔' : cd.special ? '★' : String(cd.sec + 1), 520, 154, 30, '#fff', 'center', OUT, HEAD);
       text(c, name, 566, 140, 24, '#fff', 'left', '#000');
-      text(c, cd.special ? 'Awakening · True Form · Crumb Farm' : 'Stages cleared ' + Math.min(secCleared(S, cd.sec), STAGES.length) + ' / ' + STAGES.length, 566, 170, 15, '#d8d8d8', 'left', '#000'); }
+      text(c, cd.pvp ? 'Fight other players\' teams · Rating ladder' : cd.special ? 'Awakening · True Form · Crumb Farm' : 'Stages cleared ' + Math.min(secCleared(S, cd.sec), STAGES.length) + ' / ' + STAGES.length, 566, 170, 15, '#d8d8d8', 'left', '#000'); }
     // cards, far ones first so the centre card is on top
     const order = cards.map((cd, i) => i).sort((a, b) => Math.abs(b - car.pos) - Math.abs(a - car.pos));
     for (const i of order) {
@@ -3523,6 +3534,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     baseBottom(c, () => goBack('title'));   // opened from PLAY there is no history, so Back returns to the title screen; from the base it returns to the base
   }
   function chapterCard(c, cd, W, H, focus) {
+    if (cd.pvp) { drawPvpCard(c, W, H, focus); return; }
     const sp = !!cd.special, col = sp ? '#a98bff' : SECTIONS[cd.sec].color, open = sp ? legendOpen(S) : secOpen(S, cd.sec);
     const cl = sp ? 0 : Math.min(secCleared(S, cd.sec), STAGES.length), done = !sp && cl >= STAGES.length;
     rr(c, -W / 2 - 6, -6, W + 12, H + 12, 10, focus ? col : '#111', null);
@@ -4197,6 +4209,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     rr(c, 64, 84, 222, 42, 21, '#0e0e0e', null);
     const rk = userRank(S); text(c, String(rk.total), 175, 106, 32, '#ffd24a', 'center', null, HEAD);
     hit(-30, 76, 330, 58, () => { G.rankOpen = true; G.rankScroll = null; sfx('click'); });
+    { const bx = 372, by = 105, hv = inside(bx - 30, by - 30, 60, 60);   // the trophy button: Leaderboards
+      dot(c, bx, by + 4, 29, 'rgba(0,0,0,.35)'); dot(c, bx, by, 29, '#111'); dot(c, bx, by, 25, hv ? '#ffe97a' : '#ffd23a');
+      c.save(); c.translate(bx, by - 2); poly(c, [-11, -12, 11, -12, 9, 2, 4, 6, 4, 10, 9, 10, 9, 14, -9, 14, -9, 10, -4, 10, -4, 6, -9, 2], '#fff3b0', OUT, 2.5); line(c, [-11, -8, -17, -8, -15, 0, -9, 1], OUT, 2.5); line(c, [11, -8, 17, -8, 15, 0, 9, 1], OUT, 2.5); c.restore();
+      text(c, 'Ranks', bx, by + 40, 14, '#fff', 'center', '#2b1a0e', HEAD); hit(bx - 30, by - 30, 60, 60, () => lbOpen()); }
     if (rankReady()) { const fl = .6 + Math.sin(G.time * 8) * .4; c.globalAlpha = fl; rr(c, 250, 64, 70, 30, 10, '#e2483a', '#fff', 3); text(c, 'Pts!', 285, 80, 17, '#fff', 'center', null, HEAD); c.globalAlpha = 1; }
   }
   // the three small icons under the yellow buttons
@@ -4424,6 +4440,106 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (LB.me) baseBtn(c, x + 20, y + h - 76, 220, 56, 'Change name', () => lbAskName(false), { size: 24 }); else baseBtn(c, x + 20, y + h - 76, 260, 56, 'Join the boards', () => lbAskName(true), { size: 24 });
     baseBtn(c, x + w - 200, y + h - 76, 180, 56, 'Close', close, { size: 26 });
   }
+  // =====================================================================
+  // PVP ARENA (asynchronous): you fight the saved team of another player. Their team is played by a simple computer opponent that
+  // follows the same rules as you (wallet, cooldowns); the result moves both players on a rating ladder kept on the leaderboard server.
+  // =====================================================================
+  function pvpStage() { return { key: 'pvp', kind: 'pvp', name: 'Arena: ' + (PVP_OPP ? PVP_OPP.name : '?'), diff: 'PvP', theme: 'night', len: 2300, hp: 8000, mag: 1, need: 0, reward: 1500, waves: [] }; }
+  function pvpTeamNow() { return lineupOf(S).filter(Boolean).map(id => ({ u: id, lv: unitLv(S, id), p: plusOf(S, id), e: isEvolved(S, id) ? 1 : 0 })); }
+  function pvpPower(team) { return team.reduce((a, m) => a + (m.lv + m.p) * 10, 0); }
+  function pvpInit(B) {
+    const o = PVP_OPP || { team: [] }, fake = defaultSave(); fake.cleared = 99; B.pv = { money: 100, rech: {}, team: [], t: 0, think: 0 };
+    for (const m of o.team) if (UNITS[m.u]) { fake.owned[m.u] = 1; fake.levels[m.u] = Math.min(m.lv, UNIT_MAX_LV); fake.plus[m.u] = m.p || 0; if (m.e) fake.evolved[m.u] = 1; }
+    for (const m of o.team) if (UNITS[m.u]) { const d = defFor(fake, m.u), st = unitStats(m.u, fake); B.pv.team.push({ id: m.u, def: Object.assign({}, d, { bounty: Math.round(d.cost * .25) }), hp: st.hp, dmg: st.dmg, cost: d.cost, rech: d.recharge }); }
+    if (!B.pv.team.length) { const d = UNITS.bun; B.pv.team.push({ id: 'bun', def: Object.assign({}, d, { bounty: 12 }), hp: d.hp, dmg: d.dmg, cost: d.cost, rech: d.recharge }); }
+    return B.pv;
+  }
+  // the opponent's turn: money like a player's wallet, then deploy what it can afford (big units when rich, cheap ones when few are out)
+  function pvpStep(B, dt) {
+    const P = B.pv || pvpInit(B); P.t += dt;
+    const wl = Math.min(8, 1 + Math.floor(P.t / 40)), capm = WALLET_CAP[wl - 1];
+    if (P.money < capm) P.money = Math.min(capm, P.money + WALLET_INCOME[wl - 1] * dt);
+    P.think -= dt; if (P.think > 0) return; P.think = .5 + Math.random() * .6;
+    if (countSide(B, -1) >= 24) return;
+    const ready = P.team.filter(m => (P.rech[m.id] || 0) <= P.t && P.money >= m.cost); if (!ready.length) return;
+    const few = countSide(B, -1) < 3; ready.sort((a, b) => few ? a.cost - b.cost : b.cost - a.cost);
+    const m = ready[Math.random() < .3 ? Math.floor(Math.random() * ready.length) : 0];
+    P.money -= m.cost; P.rech[m.id] = P.t + m.rech; spawn(B, -1, m.id, m.def, m.hp, m.dmg);
+  }
+  // after a fight: tell the server, show the rating change on the result screen
+  async function pvpReport(oppId, win) {
+    const r = G.result; if (!apiBase() || !LB.me || !r) return;
+    try { const j = await lbCall('POST', '/api/pvp/result', { id: LB.me.id, token: LB.me.token, opp: oppId, win }); r.pvp = Object.assign(r.pvp || {}, { rating: j.rating, delta: j.delta, cooldown: !!j.cooldown }); G.pvpd = null; }
+    catch (e) { r.pvp = Object.assign(r.pvp || {}, { err: true }); }
+  }
+  async function pvpLoad() {
+    if (!apiBase() || !LB.me) return; const d = G.pvpd = { st: 'loading', me: null, opps: [], board: [] };
+    try {
+      const [me, op, bd] = await Promise.all([lbCall('GET', '/api/pvp/me?id=' + LB.me.id), lbCall('GET', '/api/pvp/opponents?id=' + LB.me.id), lbCall('GET', '/api/pvp/board')]);
+      if (G.pvpd === d) { d.me = me; d.opps = op.opponents || []; d.board = bd.top || []; d.st = 'ok'; }
+    } catch (e) { if (G.pvpd === d) { d.st = 'err'; d.why = String((e && e.message) || e).slice(0, 80); } }
+  }
+  async function pvpSaveTeam() {
+    const t = pvpTeamNow(); if (!t.length) { sfx('deny'); toast('Equip some bakers first.'); return; }
+    try { await lbCall('POST', '/api/team', { id: LB.me.id, token: LB.me.token, team: t, pw: pvpPower(t) }); toast('Your arena team is saved. Other players can now fight it!'); sfx('click'); pvpLoad(); }
+    catch (e) { toast('Could not save: ' + e.message); }
+  }
+  function pvpFight(o) {
+    if (!lineupOf(S).some(Boolean)) { sfx('deny'); toast('Equip at least one baker first!'); return; }
+    PVP_OPP = o; startBattle(PVP_IDX);
+  }
+  function drawPvpCard(c, W, H, focus) {
+    const open = S.cleared >= 10;
+    rr(c, -W / 2 - 6, -6, W + 12, H + 12, 10, focus ? '#ff6a5a' : '#111', null);
+    c.save(); c.beginPath(); c.rect(-W / 2, 0, W, H); c.clip();
+    const g = c.createLinearGradient(-W / 2, 0, W / 2, H); g.addColorStop(0, '#2a0a0a'); g.addColorStop(.55, '#c0392b'); g.addColorStop(1, '#ffd2a0'); c.fillStyle = g; c.fillRect(-W / 2, 0, W, H);
+    c.globalAlpha = .18; for (let k = 0; k < 9; k++) { c.save(); c.translate(0, 150); c.rotate(k * TAU / 9 + .2); poly(c, [0, 0, 600, -70, 600, 70], '#fff', null); c.restore(); } c.globalAlpha = 1;
+    c.globalAlpha = .9; portrait(c, 'tart', -W / 4, 300, 230, { walk: G.time * 3, pose: 0, hurt: false, t: G.time }); c.save(); c.translate(W / 4, 0); c.scale(-1, 1); portrait(c, 'dragon', 0, 300, 230, { walk: G.time * 3 + 1, pose: 0, hurt: false, t: G.time }); c.restore(); c.globalAlpha = 1;
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(-W / 2, 0, W, H); c.restore();
+    text(c, 'Versus', -W / 2 + 16, 30, 26, '#fff', 'left', '#000');
+    text(c, 'PvP Arena', 0, 120, 56, '#fff', 'center', '#000', HEAD); text(c, 'VS', 0, 200, 44, '#ffd24a', 'center', '#3a0a0a', HEAD);
+    rr(c, -W / 2 + 22, H - 84, W - 44, 50, 4, 'rgba(255,246,205,.9)', '#6b4a0c', 2);
+    const d = G.pvpd && G.pvpd.me; text(c, d ? 'Rating ' + d.rating + (d.rank ? '  ·  #' + d.rank : '') : 'Fight other players\' bakers!', 0, H - 59, d ? 30 : 24, '#fff', 'center', '#3a2416', HEAD);
+    if (!open) { rr(c, -W / 2, 0, W, H, 6, 'rgba(10,10,10,.68)', null); text(c, '🔒', 0, H / 2 - 30, 60, '#fff', 'center'); text(c, 'Clear Map 2 to open', 0, H / 2 + 34, 24, '#fff', 'center', '#000'); }
+  }
+  function drawPvp(c) {
+    const g = c.createLinearGradient(0, 58, 0, 648); g.addColorStop(0, '#2a0f0f'); g.addColorStop(.5, '#5a1f1a'); g.addColorStop(1, '#1a0a0a'); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
+    baseTop(c, 'PvP Arena');
+    const on = !!apiBase(), D = G.pvpd, me = D && D.me;
+    if (!on) { text(c, 'Online play is not switched on for this copy of the game.', 640, 330, 24, '#fff', 'center'); baseBottom(c, () => goBack()); return; }
+    if (!LB.me) {
+      text(c, 'Join the leaderboards to fight other players.', 640, 290, 28, '#fff', 'center'); text(c, 'You pick a display name (not your real name). Nothing else is shared except your team and scores.', 640, 330, 17, '#e0c8c0', 'center');
+      baseBtn(c, 500, 370, 280, 72, 'Join', () => { lbAskName(true); setTimeout(pvpLoad, 2500); }, { size: 40 }); baseBottom(c, () => goBack()); return;
+    }
+    if (!D) pvpLoad();
+    // ---- left: you ----
+    rr(c, 30, 76, 380, 566, 16, 'rgba(0,0,0,.35)', '#111', 3);
+    text(c, LB.me.name, 220, 110, 26, '#ffd24a', 'center', '#000', HEAD);
+    if (me) { text(c, 'Rating ' + me.rating, 220, 156, 38, '#fff', 'center', '#000', HEAD); text(c, (me.rank ? '#' + me.rank + '  ·  ' : '') + me.wins + ' W  ' + me.losses + ' L', 220, 192, 20, '#f0d8d0', 'center'); }
+    else text(c, D && D.st === 'err' ? 'Could not reach the server' : 'Loading…', 220, 160, 22, '#f0d8d0', 'center');
+    text(c, 'Your arena team', 220, 236, 20, '#fff', 'center', '#000', HEAD);
+    const now = pvpTeamNow();
+    now.slice(0, 10).forEach((m, i) => { const x = 62 + (i % 5) * 68, y = 252 + Math.floor(i / 5) * 76; rr(c, x, y, 62, 68, 8, '#e8d8c8', '#111', 2); c.save(); c.beginPath(); c.rect(x, y, 62, 68); c.clip(); portrait(c, m.u, x + 31, y + 62, 54, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); });
+    text(c, 'Power ' + pvpPower(now) + (me && me.hasTeam ? '   ·   saved: ' + pvpPower(me.team || []) : ''), 220, 420, 16, '#f0d8d0', 'center');
+    baseBtn(c, 50, 436, 340, 64, me && me.hasTeam ? 'Update my team' : 'Save my team', () => pvpSaveTeam(), { size: 30 });
+    text(c, 'Others fight the team you save. Fight on any day.', 220, 520, 14, '#d8bfb8', 'center');
+    text(c, 'Top players', 220, 552, 18, '#fff', 'center', '#000', HEAD);
+    (D && D.board || []).slice(0, 3).forEach((r, i) => fitLine(c, '#' + r.rank + '  ' + r.name + '  ' + r.rating, 130, 574 + i * 20, 260, 15, '#f0d8d0', 'left'));
+    // ---- right: opponents ----
+    text(c, 'Pick an opponent', 830, 100, 26, '#fff', 'center', '#000', HEAD);
+    btn(c, 1090, 82, 150, 36, 'Refresh ⟳', () => { sfx('click'); pvpLoad(); }, { size: 16, r: 14, color: '#ffe7c0' });
+    if (D && D.st === 'ok' && !D.opps.length) { text(c, 'No other players have saved a team yet.', 830, 300, 22, '#f0d8d0', 'center'); text(c, 'Save yours and ask a friend to do the same!', 830, 336, 18, '#d8bfb8', 'center'); }
+    if (D && D.st === 'err') { text(c, 'Could not reach the server.', 830, 300, 22, '#ffb3a8', 'center'); if (D.why) text(c, '(' + D.why + ')', 830, 330, 15, '#e0c8c0', 'center'); }
+    (D && D.opps || []).slice(0, 5).forEach((o, i) => {
+      const y = 132 + i * 100, hv = inside(430, y, 810, 90);
+      rr(c, 430, y, 810, 90, 14, hv ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.35)', '#111', 3);
+      fitLine(c, o.name, 450, y + 28, 200, 24, '#fff', 'left'); text(c, 'Rating ' + o.rating + '   ·   Power ' + o.pw, 450, y + 62, 16, '#f0d8d0', 'left');
+      o.team.slice(0, 10).forEach((m, k) => { if (!UNITS[m.u]) return; const x = 690 + k * 36; c.save(); c.beginPath(); c.rect(x, y + 14, 34, 62); c.clip(); portrait(c, m.u, x + 17, y + 72, 46, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); });
+      baseBtn(c, 1060, y + 14, 160, 62, 'Fight!', () => pvpFight(o), { size: 30 });
+    });
+    baseBottom(c, () => goBack());
+  }
+  function pvpSetOpp(o) { PVP_OPP = o; }
   function drawMenuPopup(c) {
     c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH);
     hit(0, 0, VW, VH, () => {});                                        // swallow clicks on the base behind
@@ -4447,7 +4563,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       ['Pest Guide', (cc, ix, iy) => bugIcon(cc, ix, iy), () => { G.indexFrom = 'prep'; go('index'); }, 0],
       ['Treasure', (cc, ix, iy) => chestIcon(cc, ix, iy + 6, .9), () => go('treasure'), tNew],
       ['Save Code', (cc, ix, iy) => diskIcon(cc, ix, iy), () => openSaveBox(), 0],
-      ['Leaderboards', (cc, ix, iy) => { rr(cc, ix - 24, iy + 2, 14, 22, 3, '#c98d4e', OUT, 2.5); rr(cc, ix - 8, iy - 14, 16, 38, 3, '#ffd23a', OUT, 2.5); rr(cc, ix + 10, iy + 8, 14, 16, 3, '#bfbfbf', OUT, 2.5); }, () => lbOpen(), 0],
     ];
     items.forEach((it, i) => {
       const bx = x + 40 + (i % 2) * 280, by = y + 116 + Math.floor(i / 2) * 120, bw = 260, bh = 96, hv = inside(bx, by, bw, bh);
@@ -5639,7 +5754,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function draw() {
     const c = ctx; c.setTransform(scale, 0, 0, scale, 0, 0); c.globalAlpha = 1;
     UI.btns.length = 0; G.chipTip = null;
-    if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else drawBattle(c);
+    if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else if (G.screen === 'pvp') drawPvp(c); else drawBattle(c);
     if (G.pick) drawPick(c);
     drawChipTip(c);
     if (G.msgBox) drawMsgBox(c);
@@ -5817,9 +5932,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2236';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2304';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
