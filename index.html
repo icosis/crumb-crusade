@@ -2610,6 +2610,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (newMap >= 0) G.map = newMap;
     if (newSec >= 0) { G.sec = newSec; G.map = null; }
     G.result = { win, crumbs, first, unlocked, tickets, treasure, newMap, grain, newSec, sugar, orb, nt, np, cherry };
+    if (win && isSpecial(i) && i < TOWER_BASE && stageOf(i).kind === 'daily') { G.result.dailyScore = dailyPoints(B); lbSubmitDaily(G.result.dailyScore); }
   }
   // Trials: pick the few bakers that may fight (the rest stay home)
   function drawPick(c) {
@@ -3030,7 +3031,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const r = G.result, p = overlayPanel(c, 560, (r.unlocked.length ? 460 : 370) + (r.treasure ? 46 : 0) + (r.orb ? 46 : 0));
       text(c, r.win ? 'VICTORY!' : 'BURNT OUT...', 640, p.y + 62, 54, r.win ? '#e2483a' : '#6d5f50', 'center', OUT, HEAD);
       // headline under VICTORY: an unlock (new section / new map) gets its own red line, with the usual note underneath
-      const sub = r.win ? (r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
+      const sub = r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
       const unlock = r.newSec >= 0 ? 'SECTION ' + (r.newSec + 1) + ' UNLOCKED: ' + SECTIONS[r.newSec].name + '  ·  Lv cap ' + lvCap(S) : r.newMap >= 0 ? 'NEW MAP UNLOCKED: ' + MAPS[r.newMap].name + ' (' + MAPS[r.newMap].diff + ')' : '';
       if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
       else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
@@ -4357,7 +4358,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // =====================================================================
   const API_URL = 'https://crumb-crusade-leaderboard.icosis.workers.dev';   // put your leaderboard server's address here, e.g. 'https://play.example.com'. Empty = online features switched off.
   const apiBase = () => { try { const q = new URLSearchParams(location.search).get('api'); if (q) return q.replace(/\/+$/, ''); } catch (e) {} return API_URL; };
-  const LB_BOARDS = [['tower', 'Heavenly Tower', v => 'Floor ' + v], ['stages', 'Stages Cleared', v => v + ' / 75'], ['rank', 'User Rank', v => String(v)]];
+  const LB_BOARDS = [['tower', 'Heavenly Tower', v => 'Floor ' + v], ['stages', 'Stages Cleared', v => v + ' / 75'], ['rank', 'User Rank', v => String(v)], ['daily', "Today's Twist", v => v + ' pts']];
   const LB = { me: null, sent: '', t: 0, busy: false };
   try { LB.me = JSON.parse(localStorage.getItem('cc_online') || 'null'); } catch (e) {}
   const lbSaveMe = () => { try { if (LB.me) localStorage.setItem('cc_online', JSON.stringify(LB.me)); else localStorage.removeItem('cc_online'); } catch (e) {} };
@@ -4378,9 +4379,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     catch (e) { if (e.status === 403) { LB.me = null; lbSaveMe(); } }   // the server forgot me: join again next time
     LB.busy = false;
   }
+  // Daily Twist score: faster wins and a healthier oven score more (at most about 1100); one board per day
+  const dailyPoints = B => Math.max(1, 1000 - Math.round(B.time)) + Math.round(100 * clamp(B.pbase.hp / B.pbase.maxHp, 0, 1));
+  async function lbSubmitDaily(pts) {
+    if (!apiBase() || !LB.me) return;
+    try { await lbCall('POST', '/api/daily', { id: LB.me.id, token: LB.me.token, day: dayKey(), value: pts }); } catch (e) { if (e.status === 403) { LB.me = null; lbSaveMe(); } }
+  }
   async function lbLoad(board) {
     G.lb = { board, st: 'loading', rows: [], me: null, total: 0 }; const mine = G.lb;
-    try { const j = await lbCall('GET', '/api/board/' + board + (LB.me ? '?id=' + LB.me.id : '')); if (G.lb === mine) { mine.rows = j.top || []; mine.me = j.me; mine.total = j.total || 0; mine.st = 'ok'; } }
+    try { const j = await lbCall('GET', board === 'daily' ? '/api/daily?day=' + dayKey() + (LB.me ? '&id=' + LB.me.id : '') : '/api/board/' + board + (LB.me ? '?id=' + LB.me.id : '')); if (G.lb === mine) { mine.rows = j.top || []; mine.me = j.me; mine.total = j.total || 0; mine.st = 'ok'; } }
     catch (e) { if (G.lb === mine) { mine.st = 'err'; mine.why = (e && e.status ? 'server said ' + e.status + ': ' : '') + String((e && e.message) || e).slice(0, 80); } }
   }
   function lbOpen() { G.lbOpen = true; sfx('click'); const go2 = () => lbLoad((G.lb && G.lb.board) || 'tower'); if (apiBase()) { if (LB.me) lbSubmit(true).then(go2); else go2(); } }
@@ -4400,8 +4407,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const close = () => { G.lbOpen = false; sfx('click'); };
     dot(c, x + w - 10, y + 6, 30, '#111'); dot(c, x + w - 10, y + 6, 26, '#ffd23a'); text(c, '✕', x + w - 10, y + 7, 30, '#fff', 'center', '#4a2f12', HEAD); hit(x + w - 40, y - 24, 60, 60, close);
     if (!on) { wrapLines(c, 'The leaderboards need a small server. Set API_URL in game.js to its address (see the server folder), then rebuild.', w - 120, 22).forEach((ln, i) => text(c, ln, x + w / 2, y + 220 + i * 34, 22, '#fff', 'center')); return; }
-    LB_BOARDS.forEach((b, i) => { const bw = 236, bx = x + 20 + i * (bw + 12), act = i === bi, hv = inside(bx, y + 96, bw, 44);
-      rr(c, bx, y + 96, bw, 44, 22, act ? '#ffd23a' : hv ? '#6b8587' : '#2c3f40', act ? '#4a2f12' : '#111', 3); text(c, b[1], bx + bw / 2, y + 119, 20, act ? OUT : '#fff', 'center', null, HEAD); hit(bx, y + 96, bw, 44, () => { sfx('click'); lbLoad(b[0]); }); });
+    LB_BOARDS.forEach((b, i) => { const bw = 174, bx = x + 20 + i * (bw + 8), act = i === bi, hv = inside(bx, y + 96, bw, 44);
+      rr(c, bx, y + 96, bw, 44, 22, act ? '#ffd23a' : hv ? '#6b8587' : '#2c3f40', act ? '#4a2f12' : '#111', 3); fitLine(c, b[1], bx + bw / 2, y + 119, bw - 16, 18, act ? OUT : '#fff', 'center'); hit(bx, y + 96, bw, 44, () => { sfx('click'); lbLoad(b[0]); }); });
     const L = G.lb || { st: 'loading', rows: [] }, fmt = LB_BOARDS[bi][2];
     if (L.st === 'loading') text(c, 'Loading…', x + w / 2, y + 300, 26, '#cfe', 'center');
     else if (L.st === 'err') { text(c, 'Could not reach the leaderboard server.', x + w / 2, y + 270, 22, '#ffb3a8', 'center'); if (L.why) text(c, '(' + L.why + ')', x + w / 2, y + 300, 15, '#cfe', 'center'); text(c, apiBase().replace(/^https?:\/\//, ''), x + w / 2, y + 324, 14, '#9fb6b4', 'center'); baseBtn(c, x + w / 2 - 90, y + 344, 180, 52, 'Retry', () => lbLoad(cur), { size: 26 }); }
@@ -5810,9 +5817,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2232';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2236';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
