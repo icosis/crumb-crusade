@@ -4363,7 +4363,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const lbSaveMe = () => { try { if (LB.me) localStorage.setItem('cc_online', JSON.stringify(LB.me)); else localStorage.removeItem('cc_online'); } catch (e) {} };
   const lbScores = () => ({ tower: S.tower || 0, stages: (S.cleared || 0) + secCleared(S, 1) + secCleared(S, 2), rank: userRank(S).total });
   async function lbCall(method, path, body) {
-    const r = await fetch(apiBase() + path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const r = await fetch(apiBase() + path, { method, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });   // no custom headers: a "simple" request, so no CORS pre-check is needed
     const j = await r.json().catch(() => null); if (!r.ok) { const e = new Error((j && j.error) || 'error ' + r.status); e.status = r.status; throw e; } return j;
   }
   async function lbJoin(name) {
@@ -4381,7 +4381,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   async function lbLoad(board) {
     G.lb = { board, st: 'loading', rows: [], me: null, total: 0 }; const mine = G.lb;
     try { const j = await lbCall('GET', '/api/board/' + board + (LB.me ? '?id=' + LB.me.id : '')); if (G.lb === mine) { mine.rows = j.top || []; mine.me = j.me; mine.total = j.total || 0; mine.st = 'ok'; } }
-    catch (e) { if (G.lb === mine) mine.st = 'err'; }
+    catch (e) { if (G.lb === mine) { mine.st = 'err'; mine.why = (e && e.status ? 'server said ' + e.status + ': ' : '') + String((e && e.message) || e).slice(0, 80); } }
   }
   function lbOpen() { G.lbOpen = true; sfx('click'); const go2 = () => lbLoad((G.lb && G.lb.board) || 'tower'); if (apiBase()) { if (LB.me) lbSubmit(true).then(go2); else go2(); } }
   function lbAskName(first) {
@@ -4404,7 +4404,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       rr(c, bx, y + 96, bw, 44, 22, act ? '#ffd23a' : hv ? '#6b8587' : '#2c3f40', act ? '#4a2f12' : '#111', 3); text(c, b[1], bx + bw / 2, y + 119, 20, act ? OUT : '#fff', 'center', null, HEAD); hit(bx, y + 96, bw, 44, () => { sfx('click'); lbLoad(b[0]); }); });
     const L = G.lb || { st: 'loading', rows: [] }, fmt = LB_BOARDS[bi][2];
     if (L.st === 'loading') text(c, 'Loading…', x + w / 2, y + 300, 26, '#cfe', 'center');
-    else if (L.st === 'err') { text(c, 'Could not reach the leaderboard server.', x + w / 2, y + 290, 22, '#ffb3a8', 'center'); baseBtn(c, x + w / 2 - 90, y + 320, 180, 52, 'Retry', () => lbLoad(cur), { size: 26 }); }
+    else if (L.st === 'err') { text(c, 'Could not reach the leaderboard server.', x + w / 2, y + 270, 22, '#ffb3a8', 'center'); if (L.why) text(c, '(' + L.why + ')', x + w / 2, y + 300, 15, '#cfe', 'center'); text(c, apiBase().replace(/^https?:\/\//, ''), x + w / 2, y + 324, 14, '#9fb6b4', 'center'); baseBtn(c, x + w / 2 - 90, y + 344, 180, 52, 'Retry', () => lbLoad(cur), { size: 26 }); }
     else if (!L.rows.length) text(c, 'Nobody is on this board yet. Be the first!', x + w / 2, y + 300, 22, '#fff', 'center');
     else L.rows.slice(0, 10).forEach((r, i) => {
       const ry = y + 156 + i * 40, mine = LB.me && r.id === LB.me.id;
@@ -5810,7 +5810,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2225';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2232';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
