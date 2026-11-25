@@ -2532,7 +2532,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -2567,6 +2567,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function finishBattle() {
     const B = G.battle, i = B.idx, win = B.over === 'win';
+    if (typeof setTimeout === "function") setTimeout(() => { try { lbSubmit(false); } catch (e) {} }, 1500);   // keep the online leaderboard up to date
     let crumbs, first = false, unlocked = [], grain = 0;
     if (win) {
       crumbs = stageReward(i);
@@ -4271,6 +4272,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     baseBottom(c, () => go('title'));
     if (G.menuOpen) drawMenuPopup(c);
     if (G.goalsOpen) drawGoalsPopup(c);
+    if (G.lbOpen) drawLeaderboard(c);
     if (G.rankOpen) drawRankPopup(c);
   }
 
@@ -4349,6 +4351,72 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     });
   }
   // ---- Menu popup (on the Bakery Base): guides, treasure, save, help ----
+  // =====================================================================
+  // ONLINE LEADERBOARDS (needs the little server in /server; the game works fine without it).
+  // Only a display name and three scores are ever sent. No save code, no e-mail, nothing else.
+  // =====================================================================
+  const API_URL = '';   // put your leaderboard server's address here, e.g. 'https://play.example.com'. Empty = online features switched off.
+  const apiBase = () => { try { const q = new URLSearchParams(location.search).get('api'); if (q) return q.replace(/\/+$/, ''); } catch (e) {} return API_URL; };
+  const LB_BOARDS = [['tower', 'Heavenly Tower', v => 'Floor ' + v], ['stages', 'Stages Cleared', v => v + ' / 75'], ['rank', 'User Rank', v => String(v)]];
+  const LB = { me: null, sent: '', t: 0, busy: false };
+  try { LB.me = JSON.parse(localStorage.getItem('cc_online') || 'null'); } catch (e) {}
+  const lbSaveMe = () => { try { if (LB.me) localStorage.setItem('cc_online', JSON.stringify(LB.me)); else localStorage.removeItem('cc_online'); } catch (e) {} };
+  const lbScores = () => ({ tower: S.tower || 0, stages: (S.cleared || 0) + secCleared(S, 1) + secCleared(S, 2), rank: userRank(S).total });
+  async function lbCall(method, path, body) {
+    const r = await fetch(apiBase() + path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => null); if (!r.ok) { const e = new Error((j && j.error) || 'error ' + r.status); e.status = r.status; throw e; } return j;
+  }
+  async function lbJoin(name) {
+    const j = await lbCall('POST', '/api/join', { name }); LB.me = { id: j.id, token: j.token, name: j.name }; lbSaveMe(); LB.sent = ''; return j;
+  }
+  // send my scores (only when something changed, and not more than every 15 s unless forced)
+  async function lbSubmit(force) {
+    if (!apiBase() || !LB.me || LB.busy) return; const sc = lbScores(), key = JSON.stringify(sc);
+    if (!force && (key === LB.sent || Date.now() - LB.t < 15000)) return;
+    LB.busy = true; LB.t = Date.now();
+    try { const j = await lbCall('POST', '/api/score', { id: LB.me.id, token: LB.me.token, name: LB.me.name, scores: sc }); LB.sent = key; if (j.name) { LB.me.name = j.name; lbSaveMe(); } }
+    catch (e) { if (e.status === 403) { LB.me = null; lbSaveMe(); } }   // the server forgot me: join again next time
+    LB.busy = false;
+  }
+  async function lbLoad(board) {
+    G.lb = { board, st: 'loading', rows: [], me: null, total: 0 }; const mine = G.lb;
+    try { const j = await lbCall('GET', '/api/board/' + board + (LB.me ? '?id=' + LB.me.id : '')); if (G.lb === mine) { mine.rows = j.top || []; mine.me = j.me; mine.total = j.total || 0; mine.st = 'ok'; } }
+    catch (e) { if (G.lb === mine) mine.st = 'err'; }
+  }
+  function lbOpen() { G.lbOpen = true; sfx('click'); const go2 = () => lbLoad((G.lb && G.lb.board) || 'tower'); if (apiBase()) { if (LB.me) lbSubmit(true).then(go2); else go2(); } }
+  function lbAskName(first) {
+    let n; try { n = window.prompt('Pick a display name for the leaderboards (up to 16 letters or numbers). Please do not use your real name.', LB.me ? LB.me.name : ''); } catch (e) { n = null; }
+    if (!n || !n.trim()) return;
+    if (first || !LB.me) lbJoin(n).then(() => lbSubmit(true)).then(() => lbLoad((G.lb && G.lb.board) || 'tower')).catch(e => toast('Could not join: ' + e.message));
+    else { LB.me.name = n.trim().slice(0, 16); lbSaveMe(); lbSubmit(true).then(() => lbLoad((G.lb && G.lb.board) || 'tower')); }
+  }
+  function drawLeaderboard(c) {
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
+    const x = 250, y = 40, w = 780, h = 640, on = !!apiBase(), cur = (G.lb && G.lb.board) || 'tower', bi = Math.max(0, LB_BOARDS.findIndex(b => b[0] === cur));
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#3f5a5c', '#111', 5);
+    const hg = c.createLinearGradient(0, y, 0, y + 80); hg.addColorStop(0, '#c98d4e'); hg.addColorStop(1, '#7d5129'); rr(c, x + 5, y + 5, w - 10, 76, 20, hg, null);
+    text(c, 'Leaderboards', x + 36, y + 36, 34, '#fff', 'left', '#2b1a0e', HEAD);
+    text(c, on ? (LB.me ? 'Playing as ' + LB.me.name : 'Join to put your name on the boards') : 'Online play is not switched on for this copy of the game', x + 36, y + 64, 16, '#fff3d6', 'left');
+    const close = () => { G.lbOpen = false; sfx('click'); };
+    dot(c, x + w - 10, y + 6, 30, '#111'); dot(c, x + w - 10, y + 6, 26, '#ffd23a'); text(c, '✕', x + w - 10, y + 7, 30, '#fff', 'center', '#4a2f12', HEAD); hit(x + w - 40, y - 24, 60, 60, close);
+    if (!on) { wrapLines(c, 'The leaderboards need a small server. Set API_URL in game.js to its address (see the server folder), then rebuild.', w - 120, 22).forEach((ln, i) => text(c, ln, x + w / 2, y + 220 + i * 34, 22, '#fff', 'center')); return; }
+    LB_BOARDS.forEach((b, i) => { const bw = 236, bx = x + 20 + i * (bw + 12), act = i === bi, hv = inside(bx, y + 96, bw, 44);
+      rr(c, bx, y + 96, bw, 44, 22, act ? '#ffd23a' : hv ? '#6b8587' : '#2c3f40', act ? '#4a2f12' : '#111', 3); text(c, b[1], bx + bw / 2, y + 119, 20, act ? OUT : '#fff', 'center', null, HEAD); hit(bx, y + 96, bw, 44, () => { sfx('click'); lbLoad(b[0]); }); });
+    const L = G.lb || { st: 'loading', rows: [] }, fmt = LB_BOARDS[bi][2];
+    if (L.st === 'loading') text(c, 'Loading…', x + w / 2, y + 300, 26, '#cfe', 'center');
+    else if (L.st === 'err') { text(c, 'Could not reach the leaderboard server.', x + w / 2, y + 290, 22, '#ffb3a8', 'center'); baseBtn(c, x + w / 2 - 90, y + 320, 180, 52, 'Retry', () => lbLoad(cur), { size: 26 }); }
+    else if (!L.rows.length) text(c, 'Nobody is on this board yet. Be the first!', x + w / 2, y + 300, 22, '#fff', 'center');
+    else L.rows.slice(0, 10).forEach((r, i) => {
+      const ry = y + 156 + i * 40, mine = LB.me && r.id === LB.me.id;
+      rr(c, x + 20, ry, w - 40, 36, 10, mine ? '#fff3d6' : i % 2 ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.16)', mine ? '#ffd23a' : null, 3);
+      text(c, '#' + r.rank, x + 56, ry + 19, 20, mine ? OUT : r.rank <= 3 ? '#ffd24a' : '#fff', 'center', null, HEAD);
+      fitLine(c, r.name, x + 110, ry + 19, 380, 20, mine ? OUT : '#fff', 'left'); text(c, fmt(r.value), x + w - 40, ry + 19, 20, mine ? OUT : '#9be37a', 'right', null, HEAD);
+    });
+    if (L.st === 'ok' && L.me && L.me.rank > 10) text(c, 'You: #' + L.me.rank + ' of ' + L.total + '  ·  ' + fmt(L.me.value), x + w / 2, y + 576, 20, '#fff3d6', 'center', null, HEAD);
+    else if (L.st === 'ok') text(c, L.total + ' player' + (L.total === 1 ? '' : 's') + ' on this board', x + w / 2, y + 576, 16, '#b9d4cf', 'center');
+    if (LB.me) baseBtn(c, x + 20, y + h - 76, 220, 56, 'Change name', () => lbAskName(false), { size: 24 }); else baseBtn(c, x + 20, y + h - 76, 260, 56, 'Join the boards', () => lbAskName(true), { size: 24 });
+    baseBtn(c, x + w - 200, y + h - 76, 180, 56, 'Close', close, { size: 26 });
+  }
   function drawMenuPopup(c) {
     c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH);
     hit(0, 0, VW, VH, () => {});                                        // swallow clicks on the base behind
@@ -4372,6 +4440,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       ['Pest Guide', (cc, ix, iy) => bugIcon(cc, ix, iy), () => { G.indexFrom = 'prep'; go('index'); }, 0],
       ['Treasure', (cc, ix, iy) => chestIcon(cc, ix, iy + 6, .9), () => go('treasure'), tNew],
       ['Save Code', (cc, ix, iy) => diskIcon(cc, ix, iy), () => openSaveBox(), 0],
+      ['Leaderboards', (cc, ix, iy) => { rr(cc, ix - 24, iy + 2, 14, 22, 3, '#c98d4e', OUT, 2.5); rr(cc, ix - 8, iy - 14, 16, 38, 3, '#ffd23a', OUT, 2.5); rr(cc, ix + 10, iy + 8, 14, 16, 3, '#bfbfbf', OUT, 2.5); }, () => lbOpen(), 0],
     ];
     items.forEach((it, i) => {
       const bx = x + 40 + (i % 2) * 280, by = y + 116 + Math.floor(i / 2) * 120, bw = 260, bh = 96, hv = inside(bx, by, bw, bh);
@@ -5741,9 +5810,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2127';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2141';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
