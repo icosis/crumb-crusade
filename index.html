@@ -5059,60 +5059,66 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     delete CAR['eq:filter']; EQSEL = null; sfx('click');
   }
   // a gold-framed square ability icon (Battle Cats style); selected ones get a green ring
-  // Battle Cats-style symbols for the Ability filter: white shapes with a dark outline, drawn around (x, y)
+  // Battle Cats-style symbols for the Ability filter (shapes follow the Battle Cats ability icons): white / black shapes drawn around (x, y)
   const GLYPH = (() => {
     const K = '#2b1a0e', W = '#fff';
-    const st = (c, pts) => { line(c, pts, K, 7); line(c, pts, W, 3.6); };                                   // outlined stroke
-    const fl = (c, pts) => poly(c, pts, W, K, 2.6);                                                           // outlined filled polygon
+    const st = (c, pts) => { line(c, pts, K, 7); line(c, pts, W, 3.6); };                                   // outlined white stroke
+    const dk = (c, pts) => line(c, pts, K, 4);                                                                // plain dark stroke
+    const fl = (c, pts) => poly(c, pts, W, K, 2.6);                                                           // outlined white polygon
+    const kf = (c, pts) => poly(c, pts, K, null, 0);                                                          // solid dark polygon
     const ring = (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, TAU); c.lineWidth = 7; c.strokeStyle = K; c.stroke(); c.lineWidth = 3.6; c.strokeStyle = W; c.stroke(); };
     const disc = (c, x, y, r) => { dot(c, x, y, r + 2.4, K); dot(c, x, y, r, W); };
-    const star = (c, x, y, n, ro, ri) => { const p = []; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, r = i % 2 ? ri : ro; p.push(x + Math.cos(a) * r, y + Math.sin(a) * r); } fl(c, p); };
+    const burstPts = (x, y, n, ro, ri, a0) => { const p = []; for (let i = 0; i < n * 2; i++) { const a = (a0 || -Math.PI / 2) + i * Math.PI / n, r = i % 2 ? ri : ro; p.push(x + Math.cos(a) * r, y + Math.sin(a) * r); } return p; };
+    const star = (c, x, y, n, ro, ri) => fl(c, burstPts(x, y, n, ro, ri));                                    // white spiky burst
+    const dstar = (c, x, y, n, ro, ri) => kf(c, burstPts(x, y, n, ro, ri));                                   // dark spiky burst
     const shield = (c, x, y, s) => fl(c, [x - 12 * s, y - 14 * s, x + 12 * s, y - 14 * s, x + 12 * s, y + 2 * s, x, y + 16 * s, x - 12 * s, y + 2 * s]);
     const arrow = (c, x1, y1, x2, y2) => { st(c, [x1, y1, x2, y2]); const a = Math.atan2(y2 - y1, x2 - x1), h = 9; st(c, [x2 - Math.cos(a - .6) * h, y2 - Math.sin(a - .6) * h, x2, y2, x2 - Math.cos(a + .6) * h, y2 - Math.sin(a + .6) * h]); };
-    const wave = (c, x, y, amp, n) => { const p = []; for (let i = 0; i <= 16; i++) p.push(x - 17 + i * 34 / 16, y + Math.sin(i / 16 * Math.PI * 2 * n) * amp); st(c, p); };
-    const saw = (c, x, y, amp, n) => { const p = []; for (let i = 0; i <= n * 2; i++) p.push(x - 17 + i * 34 / (n * 2), y + (i % 2 ? amp : -amp)); st(c, p); };
+    const chev = (c, x, y, up) => st(c, [x - 6, y + (up ? 4 : -4), x, y + (up ? -3 : 4), x + 6, y + (up ? 4 : -4)]);
     const sword = (c, x, y, s) => { st(c, [x - 11 * s, y + 13 * s, x + 11 * s, y - 11 * s]); st(c, [x - 11 * s, y + 4 * s, x - 3 * s, y + 12 * s]); };
-    const heart = (c, x, y) => { disc(c, x - 6, y - 5, 7); disc(c, x + 6, y - 5, 7); fl(c, [x - 13, y - 2, x + 13, y - 2, x, y + 15]); disc(c, x - 5, y - 5, 5); disc(c, x + 5, y - 5, 5); };
-    const slash = (c, x, y) => { ring(c, x, y, 13); st(c, [x - 10, y + 10, x + 10, y - 10]); };
+    const flame = (c, x, y, h, w) => fl(c, [x - w, y, x - w * 1.1, y - h * .45, x - w * .2, y - h * .6, x, y - h, x + w * .35, y - h * .55, x + w * 1.1, y - h * .4, x + w, y]);
+    const base = (c, x, y, rx) => { ell(c, x, y, rx, 4, W, K, 2.4); };
+    const skull = (c, x, y, col, eye) => { dot(c, x, y - 2, 8, col); fl2(c, [x - 4, y + 4, x + 4, y + 4, x + 4, y + 10, x - 4, y + 10], col); dot(c, x - 3, y - 3, 2.3, eye); dot(c, x + 3, y - 3, 2.3, eye); };
+    const fl2 = (c, pts, col) => poly(c, pts, col, null, 0);
+    const spiral = (c, x, y, r, turns) => { const p = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = t * Math.PI * 2 * turns, rr = r * (.15 + .85 * t); p.push(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } st(c, p); };
+    const badge = (c, x, y, l1, l2) => { dstar(c, x, y, 11, 20, 15); if (l2) { text(c, l1, x, y - 5, 11, W, 'center', K, HEAD); text(c, l2, x, y + 6, 11, W, 'center', K, HEAD); } else text(c, l1, x, y + 1, 13, W, 'center', K, HEAD); };
     return {
-      single: (c, x, y) => { ring(c, x, y, 12); disc(c, x, y, 5); },
-      area: (c, x, y) => { disc(c, x, y - 8, 6); disc(c, x - 10, y + 7, 6); disc(c, x + 10, y + 7, 6); },
-      long: (c, x, y) => { arrow(c, x - 15, y, x + 15, y); st(c, [x - 15, y - 8, x - 15, y + 8]); },
-      omni: (c, x, y) => { ring(c, x, y, 7); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) st(c, [x + dx * 11, y + dy * 11, x + dx * 17, y + dy * 17]); },
-      ld: (c, x, y) => { st(c, [x - 17, y, x - 11, y]); st(c, [x - 6, y, x + 2, y]); arrow(c, x + 6, y, x + 17, y); },
-      slow: (c, x, y) => { ring(c, x, y, 13); st(c, [x, y, x, y - 8]); st(c, [x, y, x + 6, y + 3]); },
-      freeze: (c, x, y) => { for (const a of [0, Math.PI / 3, 2 * Math.PI / 3]) st(c, [x + Math.cos(a) * 15, y + Math.sin(a) * 15, x - Math.cos(a) * 15, y - Math.sin(a) * 15]); },
-      weaken: (c, x, y) => { st(c, [x, y - 14, x, y + 12]); st(c, [x - 9, y + 3, x, y + 14, x + 9, y + 3]); },
-      curse: (c, x, y) => { disc(c, x, y - 3, 11); fl(c, [x - 6, y + 4, x + 6, y + 4, x + 6, y + 14, x - 6, y + 14]); dot(c, x - 4, y - 4, 3, K); dot(c, x + 4, y - 4, 3, K); },
-      kb: (c, x, y) => { arrow(c, x + 15, y, x - 11, y); st(c, [x + 15, y - 8, x + 15, y + 8]); },
-      warp: (c, x, y) => { ring(c, x, y, 14); ring(c, x, y, 7); disc(c, x, y, 2); },
-      strong: (c, x, y) => { shield(c, x, y, 1); st(c, [x, y - 6, x, y + 6]); st(c, [x - 5, y - 1, x, y - 7, x + 5, y - 1]); },
-      massive: (c, x, y) => { sword(c, x, y, 1.1); st(c, [x + 4, y - 14, x + 14, y - 4]); },
-      insane: (c, x, y) => { sword(c, x - 4, y + 1, .95); sword(c, x + 4, y + 1, .95); star(c, x, y - 10, 5, 5, 2.2); },
+      single: (c, x, y) => badge(c, x, y, 'Single'),
+      area: (c, x, y) => badge(c, x, y, 'Area'),
+      long: (c, x, y) => badge(c, x, y, 'Long-', 'Range'),
+      omni: (c, x, y) => badge(c, x, y, 'All'),
+      ld: (c, x, y) => badge(c, x, y, 'Long', 'Dist.'),
+      weaken: (c, x, y) => { sword(c, x - 2, y - 2, 1); chev(c, x + 9, y + 8, false); chev(c, x + 9, y + 13, false); },
+      freeze: (c, x, y) => { ring(c, x, y + 2, 12); st(c, [x - 3, y - 14, x + 3, y - 14]); st(c, [x, y + 2, x, y - 6]); st(c, [x, y + 2, x + 5, y + 5]); },
+      slow: (c, x, y) => { dstar(c, x, y, 10, 17, 12); disc(c, x - 2, y - 2, 6); st(c, [x - 8, y + 9, x + 8, y + 9]); },
+      only: (c, x, y) => { ring(c, x, y, 12); st(c, [x - 17, y, x - 8, y]); st(c, [x + 8, y, x + 17, y]); st(c, [x, y - 17, x, y - 8]); st(c, [x, y + 8, x, y + 17]); dot(c, x, y, 4.5, K); },
+      strong: (c, x, y) => { poly(c, [x - 11, y - 9, x + 5, y - 9, x + 11, y - 3, x + 11, y + 11, x - 11, y + 11], W, K, 2.6); dk(c, [x - 3, y - 9, x - 3, y]); dk(c, [x + 3, y - 4, x + 3, y + 4]); },
       resist: (c, x, y) => shield(c, x, y, 1.1),
-      tough: (c, x, y) => { shield(c, x, y, 1.15); st(c, [x - 8, y - 4, x + 8, y - 4]); st(c, [x - 8, y + 3, x + 8, y + 3]); },
-      only: (c, x, y) => { ring(c, x, y, 13); ring(c, x, y, 6); disc(c, x, y, 2.5); },
-      crit: (c, x, y) => star(c, x, y, 8, 16, 7),
-      savage: (c, x, y) => { star(c, x, y, 10, 17, 9); },
+      tough: (c, x, y) => { shield(c, x, y + 2, 1.05); kf(c, [x - 12, y - 12, x - 8, y - 18, x - 4, y - 12]); kf(c, [x + 12, y - 12, x + 8, y - 18, x + 4, y - 12]); st(c, [x - 6, y, x + 6, y]); },
+      massive: (c, x, y) => { star(c, x, y, 9, 17, 10); dstar(c, x, y, 7, 9, 4.5); },
+      insane: (c, x, y) => { star(c, x - 4, y + 2, 9, 14, 8); star(c, x + 5, y - 4, 8, 12, 7); dstar(c, x + 5, y - 4, 6, 6, 3); },
+      kb: (c, x, y) => { ell(c, x - 3, y, 10, 11, W, K, 2.8); st(c, [x + 10, y - 7, x + 17, y - 7]); st(c, [x + 10, y, x + 17, y]); st(c, [x + 10, y + 7, x + 17, y + 7]); },
+      warp: (c, x, y) => { dot(c, x, y, 15, K); spiral(c, x, y, 12, 2); },
+      curse: (c, x, y) => { spiral(c, x - 2, y + 3, 11, 1.7); flame(c, x + 9, y - 6, 12, 4); },
+      dodge: (c, x, y) => { dstar(c, x, y, 10, 17, 12); st(c, [x - 7, y - 7, x + 7, y + 7]); st(c, [x - 7, y + 7, x + 7, y - 7]); },
+      strengthen: (c, x, y) => { sword(c, x - 3, y + 2, .95); chev(c, x + 10, y - 2, true); chev(c, x + 10, y + 5, true); },
+      survive: (c, x, y) => { disc(c, x - 6, y - 5, 7); disc(c, x + 6, y - 5, 7); fl(c, [x - 13, y - 2, x + 13, y - 2, x, y + 15]); disc(c, x - 5, y - 5, 5); disc(c, x + 5, y - 5, 5); },
+      based: (c, x, y) => { fl(c, [x - 14, y + 13, x - 14, y - 2, x - 7, y - 2, x - 7, y - 9, x - 2, y - 9, x - 2, y - 2, x + 2, y - 2, x + 2, y - 9, x + 7, y - 9, x + 7, y - 2, x + 14, y - 2, x + 14, y + 13]); dstar(c, x + 8, y - 11, 7, 7, 3); },
+      crit: (c, x, y) => { dstar(c, x, y, 9, 17, 10); star(c, x - 6, y - 5, 5, 6, 2.6); star(c, x + 6, y + 6, 5, 5, 2.2); },
+      savage: (c, x, y) => { star(c, x, y, 10, 17, 10); dstar(c, x, y, 8, 10, 5); disc(c, x, y, 2.5); },
       mkill: (c, x, y) => { star(c, x, y, 6, 15, 10); disc(c, x, y, 5); dot(c, x, y, 2, K); },
-      zkill: (c, x, y) => { fl(c, [x - 4, y - 14, x + 4, y - 14, x + 4, y - 5, x + 13, y - 5, x + 13, y + 3, x + 4, y + 3, x + 4, y + 14, x - 4, y + 14, x - 4, y + 3, x - 13, y + 3, x - 13, y - 5, x - 4, y - 5]); },
-      soul: (c, x, y) => { disc(c, x, y - 4, 11); fl(c, [x - 11, y - 4, x + 11, y - 4, x + 11, y + 13, x + 5, y + 8, x, y + 13, x - 5, y + 8, x - 11, y + 13]); dot(c, x - 4, y - 5, 2.5, K); dot(c, x + 4, y - 5, 2.5, K); },
-      bbreak: (c, x, y) => { ring(c, x, y, 13); st(c, [x - 2, y - 14, x + 3, y - 5, x - 4, y + 2, x + 2, y + 14]); },
-      spierce: (c, x, y) => { shield(c, x, y, 1.05); arrow(c, x - 15, y - 2, x + 15, y - 2); },
-      based: (c, x, y) => { fl(c, [x - 14, y + 13, x - 14, y - 2, x - 7, y - 2, x - 7, y - 9, x - 2, y - 9, x - 2, y - 2, x + 2, y - 2, x + 2, y - 9, x + 7, y - 9, x + 7, y - 2, x + 14, y - 2, x + 14, y + 13]); },
-      money: (c, x, y) => { disc(c, x, y, 13); text(c, '$', x, y + 1, 19, K, 'center', null, HEAD); },
-      dodge: (c, x, y) => { st(c, [x - 14, y - 9, x - 6, y, x - 14, y + 9]); st(c, [x - 2, y - 9, x + 6, y, x - 2, y + 9]); st(c, [x + 10, y - 9, x + 17, y, x + 10, y + 9]); },
-      survive: (c, x, y) => heart(c, x, y),
-      strengthen: (c, x, y) => { arrow(c, x, y + 13, x, y - 13); st(c, [x - 9, y + 13, x + 9, y + 13]); },
-      multi: (c, x, y) => { for (const dx of [-9, 0, 9]) st(c, [x + dx - 4, y - 12, x + dx + 4, y + 12]); },
-      wave: (c, x, y) => wave(c, x, y, 8, 2),
-      mwave: (c, x, y) => wave(c, x, y, 4, 2),
-      surge: (c, x, y) => saw(c, x, y, 10, 3),
-      msurge: (c, x, y) => saw(c, x, y, 5, 3),
-      csurge: (c, x, y) => { saw(c, x, y - 6, 6, 3); arrow(c, x + 14, y + 10, x - 14, y + 10); },
-      wblock: (c, x, y) => { wave(c, x - 4, y, 7, 1.5); st(c, [x + 12, y - 14, x + 12, y + 14]); },
-      wshield: (c, x, y) => { shield(c, x, y, 1.1); st(c, [x - 7, y, x - 3, y - 4, x + 3, y + 4, x + 7, y]); },
-      immune: (c, x, y) => slash(c, x, y),
+      zkill: (c, x, y) => { dstar(c, x, y, 12, 18, 13); skull(c, x, y + 1, W, K); },
+      soul: (c, x, y) => { star(c, x, y, 12, 18, 13); skull(c, x, y + 1, K, W); },
+      bbreak: (c, x, y) => { fl(c, burstPts(x, y, 3, 15, 15, 0)); ring(c, x, y, 12); st(c, [x - 2, y - 12, x + 3, y - 4, x - 4, y + 2, x + 2, y + 12]); },
+      spierce: (c, x, y) => { dstar(c, x, y, 14, 17, 14); disc(c, x, y, 10); st(c, [x - 8, y + 6, x, y - 2, x + 8, y - 7]); },
+      money: (c, x, y) => { fl(c, [x - 5, y - 13, x + 5, y - 13, x + 3, y - 8, x + 12, y + 2, x + 10, y + 13, x - 10, y + 13, x - 12, y + 2, x - 3, y - 8]); text(c, '$', x, y + 4, 17, K, 'center', null, HEAD); },
+      mwave: (c, x, y) => { base(c, x, y + 11, 15); flame(c, x - 8, y + 10, 12, 4.5); flame(c, x, y + 10, 16, 5); flame(c, x + 8, y + 10, 11, 4.5); },
+      wave: (c, x, y) => { base(c, x, y + 12, 16); flame(c, x - 9, y + 11, 20, 5); flame(c, x, y + 11, 27, 6); flame(c, x + 9, y + 11, 20, 5); },
+      surge: (c, x, y) => { base(c, x, y + 11, 14); flame(c, x, y + 10, 26, 8); },
+      msurge: (c, x, y) => { base(c, x, y + 11, 14); flame(c, x, y + 10, 15, 6); },
+      csurge: (c, x, y) => { flame(c, x - 5, y + 9, 22, 7); ring(c, x + 9, y - 4, 6); dot(c, x + 9, y - 4, 2, K); },
+      wblock: (c, x, y) => { rr(c, x - 15, y - 12, 30, 17, 3, K, null); text(c, 'STOP', x, y - 3, 12, W, 'center', null, HEAD); st(c, [x - 12, y + 12, x - 6, y + 12, x - 4, y + 8, x + 4, y + 12, x + 12, y + 12]); },
+      wshield: (c, x, y) => { rr(c, x - 15, y - 14, 30, 18, 3, K, null); text(c, 'STOP', x, y - 5, 12, W, 'center', null, HEAD); flame(c, x - 7, y + 14, 12, 4); flame(c, x + 6, y + 14, 14, 5); },
+      immune: (c, x, y) => { ring(c, x, y, 13); st(c, [x - 10, y + 10, x + 10, y - 10]); },
     };
   })();
   function goldIcon(c, x, y, sz, label, on, tip, key) {
@@ -5582,7 +5588,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1948';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1952';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
