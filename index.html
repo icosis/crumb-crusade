@@ -3633,14 +3633,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const d = defFor(S, id), lv = unitLv(S, id), evo = isEvolved(S, id), tfReady = tfAble(S, id), st = unitStats(id, S), cherryLv = lv >= TF_LV;   // the main level past 30 costs a Golden Cherry each
     const maxed = lv >= natCap(S, id) || lv >= UNIT_MAX_LV, nx = maxed ? null : unitStats(id, S, lv + 1);
     // big yellow button: Level Up / True Form / level cap / MAX
-    if (lv >= UNIT_MAX_LV) { /* fully levelled: no button */ }
+    if (lv >= UNIT_MAX_LV) { if (!isNormalU(id)) baseBtn(c, 88, 414, 360, 84, 'Level Cap UP!', () => showMsg('Max Level for Current Version has been reached.'), { size: 34, dim: true }); }
     else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { /* can't level further: no button, no text */ }
     else if (isNormalU(id) && lv >= lvCap(S)) { /* Golden Cherries can't be used on Normal bakers: no button, no text */ }
     else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached.'); }, { dim: true }),
       text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv), noC = cherryLv && (S.cherry || 0) < 1;
       upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Max Level for Current Version has been reached. Each level past Lv' + TF_LV + ' needs 1 Golden Cherry (you have ' + (S.cherry || 0) + ').'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv) S.cherry--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
-      if (cherryLv) text(c, '+ 1 cherry', 330, 479, 18, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12'); }
+      if (cherryLv) text(c, '+ 1 cherry', 330, 479, 18, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12');
+      else if (!isNormalU(id)) text(c, 'Level Cap UP!', 330, 479, 16, '#fff', 'left', '#4a2f12'); }   // Golden Cherries work on this baker: say so at every level
     // Talents oval, Orb and Info
     const tals = talentsOf(id), showMid = tfReady || (evo && tals.length > 0);
     if (showMid) {   // the oval: Evolve once the baker is ready for its True Form, Talents after it has one
@@ -5523,7 +5524,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1350';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1824';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
