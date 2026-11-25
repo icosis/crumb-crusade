@@ -2410,7 +2410,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -3698,21 +3698,22 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, label, x + sz / 2, y + sz / 2 + 1, fs, '#fff', 'center', '#111', HEAD);
   }
   const ABIL_SHORT = { 'Area attack': 'Area', 'Single target': 'Single', 'Long range': 'Long', 'Mid range': 'Mid', 'Close range': 'Close', 'Slows foes': 'Slow', 'Projectile': 'Shot' };
-  function abilityPanel(c, id, d) {
+  function abilityPanel(c, id, d, oy) {
+    oy = oy || 0;
     const list = ABIL_FILTERS.filter(q => q[3](d)).map(q => ({ g: q }));   // the same gold symbols as the Equip filter; hover for the name
     for (const k of talentsOf(id)) if (talLv(S, id, k) > 0) list.push({ t: k });
     const shown = list.slice(0, 12), ax0 = 640 - (shown.length * 50) / 2 + 60;
-    text(c, 'Ability', ax0 - 20, 560, 28, '#ffd23a', 'right', '#3a2416', HEAD);
+    text(c, 'Ability', ax0 - 20, 560 + oy, 28, '#ffd23a', 'right', '#3a2416', HEAD);
     shown.forEach((a2, i) => { const x = ax0 + i * 50;
-      if (a2.g) goldIcon(c, x, 538, 44, a2.g[1], false, a2.g[2], a2.g[0]);
-      else { const T = TAL_DEFS[a2.t]; abilitySquare(c, x, 538, 44, T.sym, T.color, true); if (inside(x, 538, 44, 44)) G.abTip = T.name; } });
+      if (a2.g) goldIcon(c, x, 538 + oy, 44, a2.g[1], false, a2.g[2], a2.g[0]);
+      else { const T = TAL_DEFS[a2.t]; abilitySquare(c, x, 538 + oy, 44, T.sym, T.color, true); if (inside(x, 538 + oy, 44, 44)) G.abTip = T.name; } });
     const ox = ax0;
-    text(c, 'Talent Orbs', ox - 20, 614, 26, '#ffd23a', 'right', '#3a2416', HEAD);
+    text(c, 'Talent Orbs', ox - 20, 614 + oy, 26, '#ffd23a', 'right', '#3a2416', HEAD);
     const eq = S.orbEq && S.orbEq[id];
-    if (!orbSlot(id)) text(c, 'no orb slot', ox, 614, 16, '#b9a68c');
-    else if (!orbOk(S, id)) text(c, 'opens with the True Form', ox, 614, 16, '#b9a68c');
-    else if (eq) orbIcon(c, ox + 22, 612, 22, eq);
-    else { dot(c, ox + 22, 612, 22, 'rgba(0,0,0,.3)'); text(c, '–', ox + 22, 613, 20, '#b9a68c', 'center'); }
+    if (!orbSlot(id)) text(c, 'no orb slot', ox, 614 + oy, 16, '#b9a68c');
+    else if (!orbOk(S, id)) text(c, 'opens with the True Form', ox, 614 + oy, 16, '#b9a68c');
+    else if (eq) orbIcon(c, ox + 22, 612 + oy, 22, eq);
+    else { dot(c, ox + 22, 612 + oy, 22, 'rgba(0,0,0,.3)'); text(c, '–', ox + 22, 613 + oy, 20, '#b9a68c', 'center'); }
   }
   // ---- Talents popup: a row of cards (Talent Orb first, then each talent); the centre one is active ----
   function drawTalentPopup(c) {
@@ -5093,7 +5094,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         disc(c, x + 6, y - 11, 4); st(c, [x + 5, y - 6, x + 1, y + 3]); st(c, [x + 1, y + 3, x + 9, y + 7, x + 9, y + 14]); st(c, [x + 1, y + 3, x - 5, y + 9, x - 9, y + 14]); st(c, [x + 4, y - 4, x + 12, y - 1]); st(c, [x + 4, y - 4, x - 3, y - 2]); },
       only: (c, x, y) => { ring(c, x, y, 12); st(c, [x - 17, y, x - 8, y]); st(c, [x + 8, y, x + 17, y]); st(c, [x, y - 17, x, y - 8]); st(c, [x, y + 8, x, y + 17]); dot(c, x, y, 4.5, K); },
       strong: (c, x, y) => { const th = pts => { line(c, pts, K, 13); line(c, pts, W, 8.5); };   // a flexed bicep
-        th([x - 9, y - 5, x - 9, y + 9]); th([x - 9, y + 9, x + 10, y + 9]); ell(c, x + 2, y + 1, 9, 7, W, K, 2.6); disc(c, x - 9, y - 9, 5.5); dk(c, [x - 1, y - 1, x + 6, y + 1]); },
+        th([x + 9, y - 5, x + 9, y + 9]); th([x + 9, y + 9, x - 10, y + 9]); ell(c, x - 2, y + 1, 9, 7, W, K, 2.6); disc(c, x + 9, y - 9, 5.5); dk(c, [x + 1, y - 1, x - 6, y + 1]); },
       resist: (c, x, y) => shield(c, x, y, 1.1),
       tough: (c, x, y) => { shield(c, x, y + 2, 1.05); kf(c, [x - 12, y - 12, x - 8, y - 18, x - 4, y - 12]); kf(c, [x + 12, y - 12, x + 8, y - 18, x + 4, y - 12]); st(c, [x - 6, y, x + 6, y]); },
       massive: (c, x, y) => { star(c, x, y, 9, 17, 10); dstar(c, x, y, 7, 9, 4.5); },
@@ -5242,7 +5243,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // ---- right of the cards: Unit Info (or Open) and an Equip / Remove button, as in Battle Cats ----
     if (onFolder) baseBtn(c, 980, 335, 290, 64, 'Open', () => openFolder(sel), { size: 34 });
     else if (sel) {
-      baseBtn(c, 980, 335, 224, 64, 'Unit Info', () => openInfo('unit', sel), { size: 30 });
+      baseBtn(c, 980, 335, 224, 64, G.eqInfo ? 'Close' : 'Unit Info', () => { G.eqInfo = !G.eqInfo; sfx('click'); }, { size: 30 });
       { const hv = inside(1212, 335, 58, 64), on = fltOn();   // the Filter button sits where Battle Cats puts its cat-with-star button
         rr(c, 1212, 341, 58, 64, 12, 'rgba(0,0,0,.35)', null); rr(c, 1212, 335, 58, 64, 12, hv ? '#ffe97a' : on ? '#9be3ff' : '#ffd23a', '#111', 4);
         poly(c, [1225, 351, 1257, 351, 1246, 366, 1246, 380, 1236, 376, 1236, 366], '#fff', '#4a2f12', 3); text(c, 'Filter', 1241, 393, 12, '#4a2f12', 'center', null, HEAD);
@@ -5255,7 +5256,18 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       baseBtn(c, 708, 660, 232, 50, 'Combos' + (nAct ? '  ★' + nAct : ''), () => { G.comboOpen = true; sfx('click'); }, { size: 26 }); }
     if (dragging) { c.save(); c.globalAlpha = .9; portrait(c, G.dnd.id, G.mx, G.my + 30, 64, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); }
     if (G.comboOpen) drawComboPopup(c);
+    if (G.eqInfo && sel && UNITS[sel]) drawEqInfo(c, sel);
     if (G.fltOpen) drawFilterPopup(c);
+  }
+  // Unit Info on Equip: the same brown box as on Upgrade, covering the lineup slots above (tap it to close)
+  function drawEqInfo(c, id) {
+    const d = defFor(S, id), x = 20, y = 94, w = 1240, h = 222;
+    rr(c, x, y + 6, w, h, 14, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, h, 14, '#6e4a2c', '#3a2416', 3);
+    hit(x, y, w, h, () => { G.eqInfo = false; sfx('click'); });
+    text(c, nameOf(S, id) + '   Lv ' + unitLv(S, id) + (plusOf(S, id) ? ' +' + plusOf(S, id) : ''), 640, y + 26, 26, '#ffd23a', 'center', '#3a2416', HEAD);
+    const ls = wrapLines(c, descOf(S, id), 1120, 24).slice(0, 2); ls.forEach((ln, i) => text(c, ln, 640, y + 58 + i * 27, 24, '#fff', 'center'));
+    abilityPanel(c, id, d, y + 104 - 538);
+    text(c, '⌃', x + w - 34, y + 24, 30, '#e8e1d0', 'center', null, HEAD);
   }
   // Combos: tap one you own every baker of to put them all in your lineup
   function equipCombo(cb) {
@@ -5590,7 +5602,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2019';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2027';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
