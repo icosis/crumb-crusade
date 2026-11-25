@@ -82,6 +82,97 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // ---- special unit (Battle Cats "Awakened Bahamut" style): earned by beating the Awakening stage, not from the gacha ----
     bakemut:   { name: 'Bakemut', desc: 'Dragon knight of the old oven. Slow, heavy area slashes.', role: 'heavy', cost: 3000, hp: 5000, dmg: 1100, range: 180, speed: 40, windup: .5, interval: 3.2, recharge: 70, kb: 3, r: 46, h: 190, up: 480, unlock: 99, special: true, curve: 'UR', area: true },
   };
+  // =====================================================================
+  // EVENT BANNERS (Battle Cats' Uber Fest style series): each banner is a themed set of new bakers that only drop from that banner.
+  // Every unit copies the role, stat shape, cooldown and ability set of the kind of unit its Battle Cats counterpart is (no Battle Cats names or art).
+  // =====================================================================
+  const BANNERS = [
+    { id: 'flambe',   name: 'Flambé Crew',     blurb: 'Blasts, waves and surges!',        col: ['#5a1a0a', '#e2540e', '#ffd24a'], tag: '#ff8a3c' },
+    { id: 'midnight', name: 'Midnight Bakers', blurb: 'Dark pastries hunt the dark!',     col: ['#0e0a24', '#3b3a8a', '#9a8cff'], tag: '#8f86ff' },
+    { id: 'pixie',    name: 'Fairy Cakes',     blurb: 'Freeze, weaken, curse and slow!',  col: ['#3a1a4a', '#d86ab8', '#ffe0f4'], tag: '#ff9fc8' },
+  ];
+  const BANNER_BY = {}; for (const b of BANNERS) BANNER_BY[b.id] = b;
+  // p: [id, banner, rarity, name, desc, role, cost, hp, dmg, range, speed, windup, interval, recharge, kb, up, extra (traits / abilities), art spec, evolved name, true-form name, [evolved text, true-form text]]
+  const PACK_ROWS = [
+    // ---------------- Flambé Crew ----------------
+    ['brulee', 'flambe', 'SR', 'Brûlée Knight', 'Tough bruiser. Cracks its caramel shell on Red pests and sends small waves.', 'bruiser', 820, 2100, 240, 62, 54, .35, 1.7, 22, 3, 300,
+      { traits: ['sweet'], massive: ['red'], wave: { ch: .3, lv: 1, mini: true } },
+      { shape: 'wide', bw: 27, bh: 52, ly: 14, col: '#b8742f', hi: '#e8b563', acc: '#7a1f12', top: 'crown', weapon: 'blade' }, 'Crème Brûlée Duke', 'Torched Brûlée Lord', ['Caramel shell hardened. The spoon is now a siege weapon.', 'Torched Brûlée Lord: dessert so hot the pests apologise on contact.']],
+    ['alaska', 'flambe', 'UR', 'Baked Alaska Bomber', 'Heavy area blasts that raise surges. Strong vs Floating and Angel pests.', 'heavy', 1850, 3400, 560, 175, 36, .7, 3.6, 48, 2, 420,
+      { traits: ['sweet'], strong: ['floating', 'angel'], surge: { ch: .25, lv: 2, min: 120, max: 260 }, area: true },
+      { shape: 'tier', bw: 34, bh: 70, ly: 16, col: '#fff3e0', hi: '#ffd2a0', acc: '#e2540e', top: 'flame', weapon: 'cannon', aura: '#ffb347' }, 'Alaska Inferno', 'Alaska Supernova', ['Ice outside, napalm inside. Nobody asked for the combination.', 'Alaska Supernova: serves a cold dessert and a hot apocalypse in one plate.']],
+    ['souffle', 'flambe', 'UR', 'Soufflé Seraph', 'Floating sniper. Its blasts land from far away and Massive vs Alien pests.', 'sniper', 1650, 1500, 780, 230, 44, .6, 4.6, 42, 3, 400,
+      { traits: ['pastry'], massive: ['alien'], ld: [100, 320] },
+      { shape: 'blob', bw: 26, bh: 44, ly: 0, hover: 34, col: '#fff0b8', hi: '#ffffff', acc: '#e2540e', top: 'halo', wings: true, aura: '#ffe27a' }, 'Soufflé Archangel', 'Soufflé Empyrean', ['Rises beautifully, then drops everything on you.', 'Soufflé Empyrean: so light that gravity is only a suggestion.']],
+    ['jubilee', 'flambe', 'UR', 'Jubilee Juggernaut', 'Slow giant. Stops enemy waves cold and shrugs off Red and Alien pests.', 'tank', 2100, 6000, 400, 60, 30, .6, 3, 55, 1, 440,
+      { traits: ['sweet'], resist: ['red', 'alien'], wblock: true, area: true },
+      { shape: 'tall', bw: 32, bh: 78, ly: 14, col: '#9c1d33', hi: '#d94a5e', acc: '#ffd24a', top: 'horns', weapon: 'staff', aura: '#ff5a5a' }, 'Jubilee Behemoth', 'Jubilee Colossus', ['Cherries on top, cast iron underneath.', 'Jubilee Colossus: the kind of wall that waves ask directions around.']],
+    // ---------------- Midnight Bakers ----------------
+    ['licorice', 'midnight', 'SR', 'Licorice Lurker', 'Fast attacker with Critical hits. Strong vs Black pests.', 'attacker', 680, 1100, 300, 55, 70, .3, 1.3, 15, 4, 280,
+      { traits: ['sweet'], strong: ['black'], crit: .2 },
+      { shape: 'tall', bw: 20, bh: 56, ly: 14, col: '#2a2236', hi: '#5a4a72', acc: '#a98bff', top: 'hat', weapon: 'blade' }, 'Licorice Stalker', 'Licorice Nightblade', ['Twists in the dark and strikes like a very black rope.', 'Licorice Nightblade: the shadow that nibbles back.']],
+    ['eclipse', 'midnight', 'UR', 'Eclipse Gateau', 'Heavy hitter. Criticals pierce Metal and Massive vs Aku pests.', 'attacker', 1750, 2800, 820, 140, 42, .5, 3.4, 45, 3, 430,
+      { traits: ['sweet'], massive: ['aku'], strong: ['metal'], crit: .3 },
+      { shape: 'tier', bw: 30, bh: 66, ly: 14, col: '#1c1630', hi: '#4a3a7a', acc: '#ffe27a', top: 'crown', weapon: 'whisk', aura: '#8f86ff' }, 'Eclipse Gateau Lord', 'Total Eclipse Gateau', ['Slices the light and the pests in equal parts.', 'Total Eclipse Gateau: for one dessert, the sun takes a day off.']],
+    ['phantom', 'midnight', 'UR', 'Shadow Strudel Phantom', 'Slippery rusher. Dodges attacks and Zombie Killer keeps zombies down.', 'rusher', 1400, 2000, 250, 90, 100, .2, 1.1, 38, 4, 410,
+      { traits: ['pastry'], strong: ['zombie', 'relic'], dodge: { ch: .35, t: 2.2 }, zkill: true, multi: 3 },
+      { shape: 'blob', bw: 24, bh: 48, ly: 0, hover: 12, col: '#3a2f55', hi: '#7a6aa8', acc: '#ffffff', top: 'antenna', aura: '#b39dff', mood: 'grit' }, 'Phantom Strudel', 'Strudel Wraith', ['Now you see it. Now you see crumbs.', 'Strudel Wraith: scarier than haunted bakeries, and tastier.']],
+    ['oreo', 'midnight', 'UR', 'Obsidian Overlord', 'Dark heavy. Breaks Aku shields and Massive vs Aku and Black pests. Can Survive a lethal hit.', 'heavy', 2300, 5200, 700, 150, 34, .7, 3.8, 58, 2, 450,
+      { traits: ['sweet'], massive: ['aku', 'black'], spierce: .6, survive: .35, area: true },
+      { shape: 'wide', bw: 36, bh: 70, ly: 16, col: '#15131f', hi: '#3d3a5c', acc: '#f2f2ea', top: 'horns', weapon: 'staff', aura: '#6a6fd6' }, 'Obsidian Warlord', 'Obsidian Emperor', ['Two cookies, one cream filling, zero mercy.', 'Obsidian Emperor: the throne room is just a very dark kitchen.']],
+    // ---------------- Fairy Cakes ----------------
+    ['meringue', 'pixie', 'SR', 'Meringue Wisp', 'Floaty support. Slows foes and is Strong vs Red pests.', 'support', 540, 700, 120, 150, 56, .4, 2.5, 14, 3, 260,
+      { traits: ['sweet'], strong: ['red'], slow: 2.5 },
+      { shape: 'blob', bw: 20, bh: 38, ly: 0, hover: 24, col: '#fff7fb', hi: '#ffffff', acc: '#ff9fc8', top: 'bow', wings: true, aura: '#ffd6f0' }, 'Meringue Fairy', 'Meringue Queen', ['Light as air, fluffy as a threat.', 'Meringue Queen: crowned in sugar and absolutely not for sale.']],
+    ['fondant', 'pixie', 'UR', 'Frost Fondant Pixie', 'Freezes foes and deals Massive damage to Red pests.', 'support', 1500, 1800, 380, 160, 46, .5, 3, 40, 3, 400,
+      { traits: ['sweet'], massive: ['red'], freeze: { ch: .35, t: 2.5 }, area: true },
+      { shape: 'blob', bw: 24, bh: 42, ly: 0, hover: 26, col: '#bfe6ff', hi: '#ffffff', acc: '#5aa8e8', top: 'crown', wings: true, weapon: 'staff', aura: '#a8d8ff' }, 'Frost Fondant Sprite', 'Frost Fondant Empress', ['Sugar-glass wings and a winter attitude.', 'Frost Fondant Empress: the cold shoulder, made literal.']],
+    ['spice', 'pixie', 'UR', 'Spice Gale Sprite', 'Weakens foes and knocks them back. Strong vs Floating pests.', 'support', 1450, 1700, 340, 150, 52, .45, 2.8, 38, 3, 400,
+      { traits: ['pastry'], strong: ['floating'], weaken: { ch: .4, t: 4, to: .4 }, kbc: .3, area: true },
+      { shape: 'blob', bw: 24, bh: 42, ly: 0, hover: 26, col: '#e8a34f', hi: '#ffd28a', acc: '#a8421e', top: 'leaf', wings: true, weapon: 'staff', aura: '#ffb347' }, 'Spice Gale Sage', 'Spice Gale Tempest', ['Cinnamon in a hurricane. Everyone leaves smelling nice.', 'Spice Gale Tempest: a whole weather system of seasoning.']],
+    ['cursebloom', 'pixie', 'UR', 'Candied Cursebloom', 'Curses and warps foes. Strong vs Relic pests.', 'support', 1550, 1900, 330, 170, 44, .55, 3.2, 42, 3, 410,
+      { traits: ['sweet'], strong: ['relic'], curse: { ch: .3, t: 4 }, warp: { ch: .2, dist: 200 } },
+      { shape: 'blob', bw: 24, bh: 42, ly: 0, hover: 26, col: '#7a2a8a', hi: '#d06ae0', acc: '#ffe0f4', top: 'leaf', wings: true, weapon: 'staff', aura: '#d86ab8', mood: 'o' }, 'Candied Cursebloom Witch', 'Candied Cursebloom Queen', ['Sweet to look at. Terrible to be hexed by.', 'Candied Cursebloom Queen: every petal comes with a very small curse.']],
+  ];
+  const PACK = PACK_ROWS.map(r => ({ id: r[0], banner: r[1], rarity: r[2], name: r[3], desc: r[4], role: r[5], cost: r[6], hp: r[7], dmg: r[8], range: r[9], speed: r[10], windup: r[11], interval: r[12], recharge: r[13], kb: r[14], up: r[15], extra: r[16], art: r[17], evo1: r[18], evo2: r[19], forms: r[20] }));
+  for (const p of PACK) {
+    const sp = p.art, h = Math.round((sp.hover ? sp.hover * .5 : 0) + sp.bh + (sp.ly || 0) + 14);
+    UNITS[p.id] = Object.assign({ name: p.name, desc: p.desc, role: p.role, cost: p.cost, hp: p.hp, dmg: p.dmg, range: p.range, speed: p.speed, windup: p.windup, interval: p.interval, recharge: p.recharge, kb: p.kb,
+      r: Math.round(sp.bw * .9), h, up: p.up, unlock: 99, gacha: true, rarity: p.rarity, banner: p.banner, back: .3 }, sp.hover ? { hover: sp.hover } : {}, p.extra);
+  }
+  // one generic baker drawing for all of them, driven by the spec (body shape, colours, topper, weapon, wings, hover, aura)
+  function bakerArt(sp) {
+    const bw = sp.bw, bh = sp.bh, ly = sp.ly || 0, cy = -ly - (sp.hover || 0) - bh / 2, y0 = cy - bh / 2;
+    return (c, a) => {
+      const t = a.t || 0;
+      if (!sp.hover) legs(c, -bw * .4, bw * .4, -ly, ly * .8, a.walk, 6);
+      c.translate(a.pose * 12, bob(a) + (sp.hover ? Math.sin(t * 5) * 3 : 0)); c.rotate(a.pose * .18);
+      if (sp.aura) { c.save(); c.globalAlpha = .5; for (let k = 0; k < 4; k++) { const an = t * 1.5 + k * 1.57, sx = Math.cos(an) * (bw + 12), sy = cy + Math.sin(an) * (bh / 2 + 6); text(c, '✦', sx, sy, 10 + (k % 2) * 4, sp.aura, 'center'); } c.restore(); }
+      if (sp.wings) { const fl = Math.sin(t * 8) * 8; for (const s of [-1, 1]) poly(c, [s * bw * .5, cy - 4, s * (bw + 22), cy - 26 + fl, s * (bw + 10), cy + 2], sp.hi, OUT, 2.5); }
+      if (sp.shape === 'blob') { ell(c, 0, cy, bw, bh / 2, sp.col); ell(c, -bw * .25, cy - bh * .22, bw * .55, bh * .16, sp.hi, null); }
+      else if (sp.shape === 'tall') { rr(c, -bw, y0, bw * 2, bh, bw * .6, sp.col, OUT, 3); ell(c, -bw * .3, y0 + bh * .16, bw * .5, bh * .09, sp.hi, null); }
+      else if (sp.shape === 'wide') { poly(c, [-bw * .7, y0, bw * .7, y0, bw, cy + bh / 2, -bw, cy + bh / 2], sp.col, OUT, 3); ell(c, 0, y0 + 6, bw * .6, 5, sp.hi, null); }
+      else { ell(c, 0, cy + bh * .26, bw, bh * .26, sp.col); ell(c, 0, cy - bh * .02, bw * .8, bh * .25, sp.hi); ell(c, 0, cy - bh * .3, bw * .55, bh * .2, sp.acc); }
+      const top = sp.top;
+      if (top === 'crown') poly(c, [-bw * .45, y0 + 3, -bw * .45, y0 - 12, -bw * .2, y0 - 4, 0, y0 - 16, bw * .2, y0 - 4, bw * .45, y0 - 12, bw * .45, y0 + 3], sp.acc, OUT, 2.5);
+      else if (top === 'horns') for (const s of [-1, 1]) poly(c, [s * bw * .2, y0 + 3, s * bw * .6, y0 - 22, s * bw * .6, y0 + 2], sp.acc, OUT, 2.5);
+      else if (top === 'flame') { const fl = Math.sin(t * 9) * 2; poly(c, [-9, y0 + 2, -11, y0 - 12 + fl, -3, y0 - 7, 0, y0 - 26 - fl, 4, y0 - 8, 11, y0 - 14 + fl, 9, y0 + 2], '#ff9d2e', OUT, 2.5); poly(c, [-3, y0 + 2, -2, y0 - 8, 2, y0 - 14 - fl, 4, y0 + 2], '#ffe27a', null); }
+      else if (top === 'halo') ell(c, 0, y0 - 12, bw * .5, 5, null, sp.acc, 3.5);
+      else if (top === 'hat') { rr(c, -bw * .5, y0 - 18, bw, 20, 4, sp.acc, OUT, 2.5); rr(c, -bw * .7, y0 - 1, bw * 1.4, 5, 2, sp.acc, OUT, 2.5); }
+      else if (top === 'bow') for (const s of [-1, 1]) poly(c, [0, y0 + 1, s * 14, y0 - 10, s * 14, y0 + 8], sp.acc, OUT, 2.5);
+      else if (top === 'antenna') { line(c, [0, y0 + 2, 0, y0 - 16], OUT, 3); dot(c, 0, y0 - 18, 5, sp.acc); }
+      else if (top === 'leaf') for (const s of [-1, 1]) ell(c, s * 8, y0 - 6, 8, 4, sp.acc);
+      face(c, bw * .3, cy - bh * .08, Math.min(11, bw * .42), sp.mood || 'happy', a.hurt);
+      const w = sp.weapon; if (w) {
+        c.save(); c.translate(bw * .95, cy + bh * .12); c.rotate(-.5 + a.pose * 1.3);
+        if (w === 'blade') { line(c, [0, 0, 34, -6], OUT, 7); line(c, [0, 0, 34, -6], '#f2f2ea', 3.5); line(c, [4, -8, 4, 8], OUT, 4); }
+        else if (w === 'staff') { line(c, [-4, 14, 8, -34], OUT, 5); dot(c, 8, -36, 7, sp.acc); dot(c, 8, -36, 3.5, '#fff'); }
+        else if (w === 'cannon') { rr(c, 0, -8, 34, 16, 5, '#5b4a3a', OUT, 3); if (a.pose > 0) { dot(c, 40 + a.pose * 14, 0, 7 + a.pose * 6, '#ffb347'); dot(c, 40 + a.pose * 14, 0, 4, '#fff3b0'); } }
+        else if (w === 'whisk') { line(c, [0, 0, 24, -8], OUT, 5); for (const k of [-1, 0, 1]) ell(c, 32 + Math.abs(k) * -2, -8 + k * 5, 9, 4, null, OUT, 2); }
+        c.restore();
+      }
+    };
+  }
   const UNIT_ORDER = Object.keys(UNITS);
   const isOwned = (save, id) => (UNITS[id].special ? !!(save.awakened && save.awakened[id]) : UNITS[id].gacha ? !!(save.owned && save.owned[id]) : UNITS[id].unlock <= save.cleared);
   const stageLabel = i => { if (isSpecial(i)) return i >= TOWER_BASE ? 'Floor ' + (i - TOWER_BASE) : 'SP'; const sec = secOf(i), b = baseOf(i), m = MAPS.findIndex(mp => b >= mp.first && b <= mp.last); return (sec ? 'S' + (sec + 1) + ' ' : '') + (m + 1) + '-' + (b - MAPS[m].first + 1); };
@@ -639,6 +730,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     phoenix: ['Burns bright, rises again, smells of caramel.', 'Toffee Firebird: reborn from the ashes of a very good dessert.'],
     bakemut: ['Oven Knight. Visits the front line so you do not have to.', 'Awakened Bakemut: it does not walk into battle, it arrives.'],
   };
+  for (const p of PACK) { EVO1_NAMES[p.id] = p.evo1; EVO_NAMES[p.id] = p.evo2; FORM_DESC[p.id] = p.forms; }
   const descOf = (save, id) => { const f = UNITS[id] ? formOf(save, id) : 0, fd = f && FORM_DESC[id] && FORM_DESC[id][f - 1]; return fd || (defFor(save, id).desc || ''); };
   const nameOf = (save, id) => { const f = UNITS[id] ? formOf(save, id) : 0; return f === 2 ? EVO_NAMES[id] || UNITS[id].name : f === 1 ? EVO1_NAMES[id] || UNITS[id].name : UNITS[id].name; };
   // ---- upgrade prices ----
@@ -1549,15 +1641,16 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (slot >= 0 && !k.includes(id)) { k[slot] = id; save.lineup = k; }
   }
   // ---- gacha (Battle Cats rates): rare 70% / super rare 25% / uber rare 4.7% / legend rare 0.3%; an 11-draw costs 10 tickets, no guarantee ----
-  function rollGacha(rnd, minSR, minUR) {
+  function rollGacha(rnd, minSR, minUR, banner) {
     const x = rnd(), L = RARITY.LR.rate, U = L + RARITY.UR.rate, Sr = U + RARITY.SR.rate;
     let r = x < L ? 'LR' : x < U ? 'UR' : x < Sr ? 'SR' : 'R';
     if (minSR && r === 'R') r = 'SR';
     if (minUR && (r === 'R' || r === 'SR')) r = 'UR';
-    const pool = UNIT_ORDER.filter(id => UNITS[id].rarity === r);
+    const bp = banner ? UNIT_ORDER.filter(id => UNITS[id].rarity === r && UNITS[id].banner === banner) : [];   // an event banner swaps in its own bakers for the rarities it has
+    const pool = bp.length ? bp : UNIT_ORDER.filter(id => UNITS[id].rarity === r && !UNITS[id].banner);
     return pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))];
   }
-  function gachaPull(save, n, rnd) {
+  function gachaPull(save, n, rnd, banner) {
     rnd = rnd || Math.random;
     n = Math.max(1, Math.floor(n) || 1); const cost = n, draws = n + Math.floor(n / 10);        // every 10 draws bought come with 1 free (so 10 -> 11)
     if ((save.tickets || 0) >= cost) save.tickets -= cost;                    // tickets are used first (like Battle Cats)
@@ -1569,7 +1662,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (!save.pity) save.pity = { sr: 0, ur: 0 };
     const pity = save.pity;
     for (let i = 0; i < draws; i++) {
-      const id = rollGacha(rnd, pity.sr >= PITY_SR - 1, pity.ur >= PITY_UR - 1), rarity = UNITS[id].rarity, out = { id, rarity };
+      const id = rollGacha(rnd, pity.sr >= PITY_SR - 1, pity.ur >= PITY_UR - 1, banner), rarity = UNITS[id].rarity, out = { id, rarity };
       pity.sr = rarity === 'R' ? pity.sr + 1 : 0; pity.ur = rarity === 'UR' || rarity === 'LR' ? 0 : pity.ur + 1;   // bad-luck counters
       out.isNew = !save.owned[id] && !save.capsule.includes(id);   // first copy ever: shown as NEW
       save.capsule.push(id);                                          // every pull goes into the Capsule; the player decides what to do with it
@@ -1658,7 +1751,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2179,6 +2272,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       eyeBad(c, 14, -20, 2.6, a.hurt, '#8fe3ff');
     },
   };
+  for (const p of PACK) ART[p.id] = bakerArt(p.art);
   const defOf = id => UNITS[id] || FOES[id] || ART_DEFS[id];
   const artFor = id => (tfOn(S, id) && TF_DEF[id] ? TRUE_FORMS[id].art : id);
   function evoAura(c, d) {
@@ -4422,7 +4516,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
 
   // ---------------- gacha ----------------
   function doPull(n) {
-    const res = gachaPull(S, n, Math.random);
+    const res = gachaPull(S, n, Math.random, BANNER_BY[G.gachaTab] ? G.gachaTab : null);
     if (!res) { sfx('deny'); toast('Not enough tickets or Sugar Cubes (' + SUGAR_PULL + ' per draw).'); return; }
     missStats(S).pulls += res.length; persist(); markDirty(); G.gacha = { res, n, t0: G.time, tick: 0, snd: {}, skipAll: false };
   }
@@ -4468,24 +4562,25 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---------------- capsule screens (Normal Capsules / Rare Capsules), Battle Cats layout ----------------
   // banner tabs on top, arrows to flip between capsules, big art in the middle, Storage bottom-left, Try once! / Try 10 times! bottom-right
   function drawGacha(c) {
-    const normal = G.gachaTab === 'normal', flip = () => { G.gachaTab = normal ? 'rare' : 'normal'; G.nres = null; sfx('click'); };
+    const normal = G.gachaTab === 'normal', bn = BANNER_BY[G.gachaTab] || null, tabs = ['normal', 'rare'].concat(BANNERS.map(b => b.id)), flip = dir => { G.gachaTab = tabs[(Math.max(0, tabs.indexOf(G.gachaTab)) + (dir || 1) + tabs.length) % tabs.length]; G.nres = null; sfx('click'); };
     // background
     const g = c.createLinearGradient(0, 58, 0, 648);
     if (normal) { g.addColorStop(0, '#2a3c3f'); g.addColorStop(.55, '#4a6c70'); g.addColorStop(1, '#a9dde6'); }
+    else if (bn) { g.addColorStop(0, bn.col[0]); g.addColorStop(.6, bn.col[1]); g.addColorStop(1, bn.col[2]); }
     else { g.addColorStop(0, '#3a2a5a'); g.addColorStop(.6, '#7a3f9a'); g.addColorStop(1, '#e07ad8'); }
     c.fillStyle = g; c.fillRect(0, 0, VW, VH);
     c.globalAlpha = .08; for (let k = 0; k < 10; k++) { c.save(); c.translate(640, 330); c.rotate(k * TAU / 10 + G.time * .03); poly(c, [0, 0, 900, -90, 900, 90], '#fff', null); c.restore(); } c.globalAlpha = 1;
-    baseTop(c, normal ? 'Normal Capsules' : 'Rare Capsules');
+    baseTop(c, normal ? 'Normal Capsules' : bn ? bn.name : 'Rare Capsules');
     // banner tab (one per capsule) + info button
     { const x = 14, y = 70, w = 270, h = 52, col = normal ? ['#f4f4f4', '#9aa3a0'] : ['#ffe45e', '#e8a000'];
       const tg = c.createLinearGradient(0, y, 0, y + h); tg.addColorStop(0, col[0]); tg.addColorStop(1, col[1]);
       rr(c, x - 4, y - 4, w + 8, h + 8, 30, '#ff4fd8', null); rr(c, x, y, w, h, 26, tg, '#2b1a0e', 3);
-      text(c, normal ? 'Normal Capsule' : 'Baker Banner', x + 108, y + h / 2 + 1, 22, '#fff', 'center', '#2b4a55', HEAD);
-      portrait(c, normal ? 'bun' : 'dragon', x + 234, y + h - 4, 44); }
+      text(c, normal ? 'Normal Capsule' : bn ? bn.name : 'Baker Banner', x + 108, y + h / 2 + 1, bn && bn.name.length > 14 ? 19 : 22, '#fff', 'center', '#2b4a55', HEAD);
+      portrait(c, normal ? 'bun' : bn ? UNIT_ORDER.find(id => UNITS[id].banner === bn.id && UNITS[id].rarity === 'UR') : 'dragon', x + 234, y + h - 4, 44); }
     dot(c, 1236, 96, 26, '#1f3a12'); dot(c, 1236, 96, 22, '#5fbf3a'); text(c, 'i', 1236, 97, 30, '#ffe135', 'center', '#1f3a12', HEAD);
     hit(1210, 70, 52, 52, () => toast(normal ? 'Normal Capsule: 60% +1 plus level for a normal baker, 40% +1 plus level for a Power Up (not Pin Range). Prizes go to Storage.' : 'Rare rates: Rare 70% · Super Rare 25% · Uber Rare 4.7% · Legend Rare 0.3%. Pulls go to Storage.'));
     // arrows: flip between the two capsules
-    for (const [x, dir] of [[44, -1], [1236, 1]]) { const h = inside(x - 30, 260, 60, 110); poly(c, [x + dir * 22, 315, x - dir * 18, 262, x - dir * 18, 368], h ? '#ffe45e' : '#f6c343', '#5a3a0a', 3); hit(x - 30, 260, 60, 110, flip); }
+    for (const [x, dir] of [[44, -1], [1236, 1]]) { const h = inside(x - 30, 260, 60, 110); poly(c, [x + dir * 22, 315, x - dir * 18, 262, x - dir * 18, 368], h ? '#ffe45e' : '#f6c343', '#5a3a0a', 3); hit(x - 30, 260, 60, 110, () => flip(dir)); }
     // centre art
     if (normal) {
       const bob = Math.sin(G.time * 2) * 6, cx = 640, cy = 360 + bob;
@@ -4503,13 +4598,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const bg2 = c.createLinearGradient(x, y, x + w, y + h); bg2.addColorStop(0, '#1d2a6a'); bg2.addColorStop(.5, '#4a7ad8'); bg2.addColorStop(1, '#ffd24a'); c.fillStyle = bg2; c.fillRect(x, y, w, h);
       c.translate(x + w / 2, y + h / 2); c.globalAlpha = .25; for (let k = 0; k < 14; k++) { c.rotate(TAU / 14); poly(c, [0, 0, 600, -40, 600, 40], '#fff', null); } c.globalAlpha = 1; c.setTransform(c.getTransform());
       c.restore(); c.save(); rrPath(c, x, y, w, h, 16); c.clip();
-      const stars = UNIT_ORDER.filter(id => UNITS[id].rarity === 'UR' || UNITS[id].rarity === 'LR');
+      const stars = bn ? UNIT_ORDER.filter(id => UNITS[id].banner === bn.id) : UNIT_ORDER.filter(id => (UNITS[id].rarity === 'UR' || UNITS[id].rarity === 'LR') && !UNITS[id].banner);
       stars.forEach((id, k) => { const px = x + 70 + k * (w - 140) / Math.max(1, stars.length - 1); c.save(); c.globalAlpha = .9; portrait(c, id, px, y + h - 8, k % 2 ? 120 : 150, { walk: G.time * 3 + k, pose: 0, hurt: false, t: G.time }); c.restore(); });
       c.restore();
-      text(c, 'Uber Rare & Legend Rare bakers inside!', x + w / 2, y + 40, 20, '#ff5a5a', 'center', '#fff', HEAD);
+      if (bn) { text(c, 'EVENT BANNER  ·  ' + stars.length + ' new bakers!', x + w / 2, y + 40, 20, '#ff5a5a', 'center', '#fff', HEAD); text(c, bn.name.toUpperCase(), x + w / 2, y + 118, bn.name.length > 12 ? 58 : 70, bn.tag, 'center', '#fff', HEAD);
+        rr(c, x + w / 2 - 190, y + h - 62, 380, 44, 22, 'rgba(255,255,255,.85)', '#3b5bd8', 3); text(c, bn.blurb, x + w / 2, y + h - 40, 20, '#3b5bd8', 'center', null, HEAD); }
+      else { text(c, 'Uber Rare & Legend Rare bakers inside!', x + w / 2, y + 40, 20, '#ff5a5a', 'center', '#fff', HEAD);
       text(c, 'BAKER', x + w / 2 - 6, y + 118, 70, '#3b5bd8', 'right', '#fff', HEAD);
       text(c, 'BANNER', x + w / 2 + 6, y + 118, 70, '#ffd24a', 'left', '#3a2416', HEAD);
-      rr(c, x + w / 2 - 170, y + h - 62, 340, 44, 22, 'rgba(255,255,255,.85)', '#3b5bd8', 3); text(c, 'Rate UP for Legend Rares!', x + w / 2, y + h - 40, 20, '#3b5bd8', 'center', null, HEAD);
+      rr(c, x + w / 2 - 170, y + h - 62, 340, 44, 22, 'rgba(255,255,255,.85)', '#3b5bd8', 3); text(c, 'Rate UP for Legend Rares!', x + w / 2, y + h - 40, 20, '#3b5bd8', 'center', null, HEAD); }
       text(c, 'Rare 70%  ·  Super Rare 25%  ·  Uber Rare 4.7%  ·  Legend Rare 0.3%', 640, 462, 20, '#ff9ff0', 'center', '#3a1a4a', HEAD);
       { const p = S.pity || { sr: 0, ur: 0 }; text(c, 'Bad-luck protection:  Super Rare+ within ' + (PITY_SR - p.sr) + ' draws  ·  Uber Rare+ within ' + (PITY_UR - p.ur), 640, 488, 15, '#ffd6f6', 'center', '#3a1a4a'); }
     }
@@ -5608,9 +5705,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-2032';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-2046';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
 })();
 
