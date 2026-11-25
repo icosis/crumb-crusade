@@ -5059,12 +5059,69 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     delete CAR['eq:filter']; EQSEL = null; sfx('click');
   }
   // a gold-framed square ability icon (Battle Cats style); selected ones get a green ring
-  function goldIcon(c, x, y, sz, label, on, tip) {
+  // Battle Cats-style symbols for the Ability filter: white shapes with a dark outline, drawn around (x, y)
+  const GLYPH = (() => {
+    const K = '#2b1a0e', W = '#fff';
+    const st = (c, pts) => { line(c, pts, K, 7); line(c, pts, W, 3.6); };                                   // outlined stroke
+    const fl = (c, pts) => poly(c, pts, W, K, 2.6);                                                           // outlined filled polygon
+    const ring = (c, x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, TAU); c.lineWidth = 7; c.strokeStyle = K; c.stroke(); c.lineWidth = 3.6; c.strokeStyle = W; c.stroke(); };
+    const disc = (c, x, y, r) => { dot(c, x, y, r + 2.4, K); dot(c, x, y, r, W); };
+    const star = (c, x, y, n, ro, ri) => { const p = []; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, r = i % 2 ? ri : ro; p.push(x + Math.cos(a) * r, y + Math.sin(a) * r); } fl(c, p); };
+    const shield = (c, x, y, s) => fl(c, [x - 12 * s, y - 14 * s, x + 12 * s, y - 14 * s, x + 12 * s, y + 2 * s, x, y + 16 * s, x - 12 * s, y + 2 * s]);
+    const arrow = (c, x1, y1, x2, y2) => { st(c, [x1, y1, x2, y2]); const a = Math.atan2(y2 - y1, x2 - x1), h = 9; st(c, [x2 - Math.cos(a - .6) * h, y2 - Math.sin(a - .6) * h, x2, y2, x2 - Math.cos(a + .6) * h, y2 - Math.sin(a + .6) * h]); };
+    const wave = (c, x, y, amp, n) => { const p = []; for (let i = 0; i <= 16; i++) p.push(x - 17 + i * 34 / 16, y + Math.sin(i / 16 * Math.PI * 2 * n) * amp); st(c, p); };
+    const saw = (c, x, y, amp, n) => { const p = []; for (let i = 0; i <= n * 2; i++) p.push(x - 17 + i * 34 / (n * 2), y + (i % 2 ? amp : -amp)); st(c, p); };
+    const sword = (c, x, y, s) => { st(c, [x - 11 * s, y + 13 * s, x + 11 * s, y - 11 * s]); st(c, [x - 11 * s, y + 4 * s, x - 3 * s, y + 12 * s]); };
+    const heart = (c, x, y) => { disc(c, x - 6, y - 5, 7); disc(c, x + 6, y - 5, 7); fl(c, [x - 13, y - 2, x + 13, y - 2, x, y + 15]); disc(c, x - 5, y - 5, 5); disc(c, x + 5, y - 5, 5); };
+    const slash = (c, x, y) => { ring(c, x, y, 13); st(c, [x - 10, y + 10, x + 10, y - 10]); };
+    return {
+      single: (c, x, y) => { ring(c, x, y, 12); disc(c, x, y, 5); },
+      area: (c, x, y) => { disc(c, x, y - 8, 6); disc(c, x - 10, y + 7, 6); disc(c, x + 10, y + 7, 6); },
+      long: (c, x, y) => { arrow(c, x - 15, y, x + 15, y); st(c, [x - 15, y - 8, x - 15, y + 8]); },
+      omni: (c, x, y) => { ring(c, x, y, 7); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) st(c, [x + dx * 11, y + dy * 11, x + dx * 17, y + dy * 17]); },
+      ld: (c, x, y) => { st(c, [x - 17, y, x - 11, y]); st(c, [x - 6, y, x + 2, y]); arrow(c, x + 6, y, x + 17, y); },
+      slow: (c, x, y) => { ring(c, x, y, 13); st(c, [x, y, x, y - 8]); st(c, [x, y, x + 6, y + 3]); },
+      freeze: (c, x, y) => { for (const a of [0, Math.PI / 3, 2 * Math.PI / 3]) st(c, [x + Math.cos(a) * 15, y + Math.sin(a) * 15, x - Math.cos(a) * 15, y - Math.sin(a) * 15]); },
+      weaken: (c, x, y) => { st(c, [x, y - 14, x, y + 12]); st(c, [x - 9, y + 3, x, y + 14, x + 9, y + 3]); },
+      curse: (c, x, y) => { disc(c, x, y - 3, 11); fl(c, [x - 6, y + 4, x + 6, y + 4, x + 6, y + 14, x - 6, y + 14]); dot(c, x - 4, y - 4, 3, K); dot(c, x + 4, y - 4, 3, K); },
+      kb: (c, x, y) => { arrow(c, x + 15, y, x - 11, y); st(c, [x + 15, y - 8, x + 15, y + 8]); },
+      warp: (c, x, y) => { ring(c, x, y, 14); ring(c, x, y, 7); disc(c, x, y, 2); },
+      strong: (c, x, y) => { shield(c, x, y, 1); st(c, [x, y - 6, x, y + 6]); st(c, [x - 5, y - 1, x, y - 7, x + 5, y - 1]); },
+      massive: (c, x, y) => { sword(c, x, y, 1.1); st(c, [x + 4, y - 14, x + 14, y - 4]); },
+      insane: (c, x, y) => { sword(c, x - 4, y + 1, .95); sword(c, x + 4, y + 1, .95); star(c, x, y - 10, 5, 5, 2.2); },
+      resist: (c, x, y) => shield(c, x, y, 1.1),
+      tough: (c, x, y) => { shield(c, x, y, 1.15); st(c, [x - 8, y - 4, x + 8, y - 4]); st(c, [x - 8, y + 3, x + 8, y + 3]); },
+      only: (c, x, y) => { ring(c, x, y, 13); ring(c, x, y, 6); disc(c, x, y, 2.5); },
+      crit: (c, x, y) => star(c, x, y, 8, 16, 7),
+      savage: (c, x, y) => { star(c, x, y, 10, 17, 9); },
+      mkill: (c, x, y) => { star(c, x, y, 6, 15, 10); disc(c, x, y, 5); dot(c, x, y, 2, K); },
+      zkill: (c, x, y) => { fl(c, [x - 4, y - 14, x + 4, y - 14, x + 4, y - 5, x + 13, y - 5, x + 13, y + 3, x + 4, y + 3, x + 4, y + 14, x - 4, y + 14, x - 4, y + 3, x - 13, y + 3, x - 13, y - 5, x - 4, y - 5]); },
+      soul: (c, x, y) => { disc(c, x, y - 4, 11); fl(c, [x - 11, y - 4, x + 11, y - 4, x + 11, y + 13, x + 5, y + 8, x, y + 13, x - 5, y + 8, x - 11, y + 13]); dot(c, x - 4, y - 5, 2.5, K); dot(c, x + 4, y - 5, 2.5, K); },
+      bbreak: (c, x, y) => { ring(c, x, y, 13); st(c, [x - 2, y - 14, x + 3, y - 5, x - 4, y + 2, x + 2, y + 14]); },
+      spierce: (c, x, y) => { shield(c, x, y, 1.05); arrow(c, x - 15, y - 2, x + 15, y - 2); },
+      based: (c, x, y) => { fl(c, [x - 14, y + 13, x - 14, y - 2, x - 7, y - 2, x - 7, y - 9, x - 2, y - 9, x - 2, y - 2, x + 2, y - 2, x + 2, y - 9, x + 7, y - 9, x + 7, y - 2, x + 14, y - 2, x + 14, y + 13]); },
+      money: (c, x, y) => { disc(c, x, y, 13); text(c, '$', x, y + 1, 19, K, 'center', null, HEAD); },
+      dodge: (c, x, y) => { st(c, [x - 14, y - 9, x - 6, y, x - 14, y + 9]); st(c, [x - 2, y - 9, x + 6, y, x - 2, y + 9]); st(c, [x + 10, y - 9, x + 17, y, x + 10, y + 9]); },
+      survive: (c, x, y) => heart(c, x, y),
+      strengthen: (c, x, y) => { arrow(c, x, y + 13, x, y - 13); st(c, [x - 9, y + 13, x + 9, y + 13]); },
+      multi: (c, x, y) => { for (const dx of [-9, 0, 9]) st(c, [x + dx - 4, y - 12, x + dx + 4, y + 12]); },
+      wave: (c, x, y) => wave(c, x, y, 8, 2),
+      mwave: (c, x, y) => wave(c, x, y, 4, 2),
+      surge: (c, x, y) => saw(c, x, y, 10, 3),
+      msurge: (c, x, y) => saw(c, x, y, 5, 3),
+      csurge: (c, x, y) => { saw(c, x, y - 6, 6, 3); arrow(c, x + 14, y + 10, x - 14, y + 10); },
+      wblock: (c, x, y) => { wave(c, x - 4, y, 7, 1.5); st(c, [x + 12, y - 14, x + 12, y + 14]); },
+      wshield: (c, x, y) => { shield(c, x, y, 1.1); st(c, [x - 7, y, x - 3, y - 4, x + 3, y + 4, x + 7, y]); },
+      immune: (c, x, y) => slash(c, x, y),
+    };
+  })();
+  function goldIcon(c, x, y, sz, label, on, tip, key) {
     const hv = inside(x, y, sz, sz), g = c.createLinearGradient(0, y, 0, y + sz); g.addColorStop(0, hv ? '#f0dc6a' : '#d8c24a'); g.addColorStop(1, '#8d7814');
     rr(c, x, y, sz, sz, 9, '#111', on ? '#3fe05a' : null, on ? 4 : 0); rr(c, x + 4, y + 4, sz - 8, sz - 8, 6, g, '#4a3c08', 2);
     c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(x + 7, y + 7, sz - 14, 8);
-    c.font = 'bold 15px ' + HEAD; let fs = 15; while (fs > 8 && c.measureText(label).width > sz - 12) { fs--; c.font = 'bold ' + fs + 'px ' + HEAD; }
-    text(c, label, x + sz / 2, y + sz / 2 + 2, fs, '#fff', 'center', '#2b1a0e', HEAD);
+    if (key && GLYPH[key]) GLYPH[key](c, x + sz / 2, y + sz / 2 + 1);   // a symbol like Battle Cats; text only when there is none
+    else { c.font = 'bold 15px ' + HEAD; let fs = 15; while (fs > 8 && c.measureText(label).width > sz - 12) { fs--; c.font = 'bold ' + fs + 'px ' + HEAD; }
+      text(c, label, x + sz / 2, y + sz / 2 + 2, fs, '#fff', 'center', '#2b1a0e', HEAD); }
     if (hv && tip && y > 0) G.chipTip = { x: x + sz / 2, y, label: tip };
   }
   function drawFilterPopup(c) {
@@ -5086,7 +5143,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     let y = vy0 - SC.y + 8;
     sect('Rarity', y, H1 - 16); FILTER_RARITY.forEach(([k, name], i) => pill(colX + (i % 3) * 200, y + Math.floor(i / 3) * 56 + 6, 188, name, !!(G.flt && G.flt.rar.includes(k)), () => fltToggle('rar', k))); y += H1;
     sect('Target', y, H2 - 16); FILTER_TARGET.forEach(([k, name], i) => pill(colX + (i % 4) * 150, y + Math.floor(i / 4) * 56 + 6, 140, name, !!(G.flt && G.flt.tgt.includes(k)), () => fltToggle('tgt', k))); y += H2;
-    sect('Ability', y, H3 - 16); abil.forEach((a, i) => { const ix = colX - 40 + (i % 11) * 58, iy = y + Math.floor(i / 11) * 66 + 6, hovIn = iy + 56 > vy0 && iy < vy1; goldIcon(c, ix, iy, 52, a[1], !!(G.flt && G.flt.abil.includes(a[0])), hovIn ? a[2] : null); push(ix, iy, 52, 52, () => fltToggle('abil', a[0])); });
+    sect('Ability', y, H3 - 16); abil.forEach((a, i) => { const ix = colX - 40 + (i % 11) * 58, iy = y + Math.floor(i / 11) * 66 + 6, hovIn = iy + 56 > vy0 && iy < vy1; goldIcon(c, ix, iy, 52, a[1], !!(G.flt && G.flt.abil.includes(a[0])), hovIn ? a[2] : null, a[0]); push(ix, iy, 52, 52, () => fltToggle('abil', a[0])); });
     c.restore();
     if (SC.max > 0) { const th = Math.max(40, view * view / (view + SC.max)), ty = vy0 + (view - th) * (SC.y / SC.max); rr(c, px + pw - 20, vy0, 8, view, 4, 'rgba(0,0,0,.25)', null); rr(c, px + pw - 20, ty, 8, th, 4, '#8a8a8a', null); }
     // bottom bar: how many bakers match, Clear, Close
@@ -5525,7 +5582,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1940';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1948';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
