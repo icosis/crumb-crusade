@@ -155,6 +155,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     zombie:   { name: 'Zombie',   color: '#a6d28a', desc: 'Rotten pests that burrow and come back to life.' },
     relic:    { name: 'Relic',    color: '#7fc8a9', desc: 'Ancient pests whose bite curses bakers.' },
     aku:      { name: 'Aku',      color: '#6a6fd6', desc: 'Shadow pests wrapped in a dark shield.' },
+    traitless: { name: 'Traitless', color: '#f2f2ea', desc: 'Plain pests with no colour at all.' },
     boss:     { name: 'Boss',     color: '#dda8f0', desc: 'Huge and dangerous.' },
     bread:    { name: 'Bread',    color: '#e0a45a', desc: 'Hearty and filling.' },
     pastry:   { name: 'Pastry',   color: '#f3d49a', desc: 'Flaky and buttery.' },
@@ -291,7 +292,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const explodeChance = (lv, id) => (!lv ? 0 : EXPLODE_STEP[id] ? Math.min(1, EXPLODE_STEP[id] * lv) : .05 + .02 * lv);   // usually Lv1 7% ... Lv10 25%
   for (const id of Object.keys(FOE_TRAITS)) Object.assign(FOES[id], FOE_TRAITS[id]);
   for (const id of Object.keys(FOE_SWING)) Object.assign(FOES[id], FOE_SWING[id]);
-  const hasAny = (list, traits) => !!(list && traits && list.some(t => traits.includes(t)));
+  const hasAny = (list, traits) => { if (!list || !list.length) return false; const tr = traits && traits.length ? traits : ['traitless']; return list.some(t => tr.includes(t)); };   // a foe with no traits counts as 'traitless' (Battle Cats' white enemies)
   // ---- Talent Orbs (Battle Cats style): one orb slot per True Form gacha unit. An orb is tied to a pest colour:
   //   Attack orb = more damage to that colour, Defense orb = less damage taken from it. Grades D C B A S.
   //   Orbs drop from wins (Section 1 Map 3+, more and better in Sections 2-3) and can be bought in the Shop.
@@ -4653,7 +4654,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---------------- info screen (units and pests) ----------------
   // ---- trait badges: tiny round symbols that read at a glance (A = area, S = single, L = long range, Z = slows,
   //      coloured letter = effective vs that colour; gold ring = massive; hollow with coloured ring = resists) ----
-  const TRAIT_ABBR = { red: 'R', black: 'B', floating: 'F', metal: 'M', boss: 'X', angel: 'An', alien: 'Al', zombie: 'Zo', relic: 'Re', aku: 'Ak' };
+  const TRAIT_ABBR = { red: 'R', black: 'B', floating: 'F', metal: 'M', boss: 'X', traitless: 'Tl', angel: 'An', alien: 'Al', zombie: 'Zo', relic: 'Re', aku: 'Ak' };
   function traitBadges(d) {
     const out = [{ sym: d.area ? 'A' : 'S', color: d.area ? '#ffb36b' : '#9bb7ff', kind: 'core', tip: d.area ? 'Area attack' : 'Single target' }];
     if (d.range >= 150) out.push({ sym: 'L', color: '#c9b6ff', kind: 'core', tip: 'Long range' });
@@ -5035,7 +5036,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   // ---- Equip filter (like Battle Cats': Rarity / Target / Ability, a scrolling panel) ----
   const FILTER_RARITY = [['B', 'Normal'], ['R', 'Rare'], ['SR', 'Super Rare'], ['UR', 'Uber Rare'], ['LR', 'Legend Rare'], ['SP', 'Special']];
-  const FILTER_TARGET = [['red', 'Red'], ['floating', 'Floating'], ['black', 'Black'], ['metal', 'Metal'], ['angel', 'Angel'], ['alien', 'Alien'], ['zombie', 'Zombies'], ['relic', 'Relic'], ['aku', 'Aku']];
+  const FILTER_TARGET = [['red', 'Red'], ['floating', 'Floating'], ['black', 'Black'], ['metal', 'Metal'], ['angel', 'Angel'], ['alien', 'Alien'], ['zombie', 'Zombies'], ['relic', 'Relic'], ['aku', 'Aku'], ['traitless', 'Traitless']];
   // [key, short text drawn on the gold-framed square, full name, test]
   const ABIL_FILTERS = [
     ['single', 'Single', 'Single target', d => !d.area], ['area', 'Area', 'Area attack', d => !!d.area], ['long', 'Long', 'Long range', d => d.range >= 150], ['omni', 'All', 'Omni strike', d => !!(d.ld && d.ld[0] < 0)], ['ld', 'LD', 'Long distance', d => !!(d.ld && d.ld[0] >= 0)],
@@ -5524,7 +5525,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1124-1824';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1124-1940';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
