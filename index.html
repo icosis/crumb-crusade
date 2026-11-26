@@ -223,6 +223,18 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     UR: { name: 'Uber Rare',   color: '#e0559a', light: '#ffc4ec', dark: '#3a0f33', rate: .047 },
     LR: { name: 'Legend Rare', color: '#a98bff', light: '#e2d8ff', dark: '#1c1240', rate: .003 },
   };
+  // Golden Cherries (levels past Lv30) and Golden Grain (True Forms) come in one kind per rarity, so a Legend Rare baker needs the scarce Legend Rare kind.
+  const TIERS = ['R', 'SR', 'UR', 'LR', 'SP'];
+  const TIER_NAME = { R: 'Rare', SR: 'Super Rare', UR: 'Uber Rare', LR: 'Legend Rare', SP: 'Special' };
+  const TIER_COLOR = { R: RARITY.R.color, SR: RARITY.SR.color, UR: RARITY.UR.color, LR: RARITY.LR.color, SP: '#c9b6ff' };
+  const TIER_PRICE = { cherry: { R: 80, SR: 150, UR: 300, LR: 600, SP: 400 }, grain: { R: 150, SR: 250, UR: 400, LR: 700, SP: 500 } };   // Sugar Cubes in the Shop
+  const tierOf = id => { const u = UNITS[id]; return !u ? null : u.special ? 'SP' : u.rarity || null; };   // Normal bakers have none (no cherries, free True Form)
+  const cherryN = (sv, t) => (t && sv && sv.cherries && sv.cherries[t]) || 0;
+  const grainN = (sv, t) => (t && sv && sv.grains && sv.grains[t]) || 0;
+  const tierSum = o => (o && typeof o === 'object' ? TIERS.reduce((a, t) => a + (o[t] || 0), 0) : +o || 0);
+  function giveTiers(sv, field, o) { if (!o || typeof o !== 'object') return; sv[field] = sv[field] || {}; for (const t of TIERS) if (o[t]) sv[field][t] = (sv[field][t] || 0) + o[t]; }
+  function mergeTiers(into, o) { for (const t of TIERS) if (o && o[t]) into[t] = (into[t] || 0) + o[t]; return into; }
+  const tierWords = (o, one, many) => TIERS.filter(t => o && o[t]).map(t => o[t] + ' ' + TIER_NAME[t] + ' ' + (o[t] === 1 ? one : many)).join(' + ');
   // Each baker's job on the team, shown as a coloured tag next to its name.
   const ROLES = {
     tank:     { label: 'TANK',        color: '#7fb3d5' }, swarm:   { label: 'CHEAP SPAM',  color: '#bfe6a0' },
@@ -578,8 +590,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const SHOP_ITEMS = {
     radar: { name: 'Treasure Radar', price: 300, desc: 'Your next win on a stage finds its treasure at Superior.' },
     rich:  { name: 'Rich Bun',       price: 100, desc: 'Your next battle starts with +1500 dough.' },
-    grain: { name: 'Golden Grain',   price: 250, desc: 'One Golden Grain for True Forms.', instant: true },
-    cherry: { name: 'Golden Cherry', price: 120, desc: 'One level past Lv30 for a baker.', instant: true },
+    grain: { name: 'Golden Grain',   price: 250, desc: 'One Golden Grain for a True Form of that rarity.', instant: true },
+    cherry: { name: 'Golden Cherry', price: 120, desc: 'One level past Lv30 for a baker of that rarity.', instant: true },
     orb:   { name: 'Orb Capsule',    price: 200, desc: 'One random Talent Orb (Attack or Defense, any pest colour).', instant: true },
   };
   // Legend stages (Battle Cats style event stages), opened from the ★ SPECIAL button on the map:
@@ -596,11 +608,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     { key: 'awaken2', kind: 'awaken', unit: 'valkyrie', sec: 1, ord: -2, name: 'The Fallen Valkyrie', diff: 'Awakening', theme: 'roof', len: 2500, hp: 120000, mag: 11, need: 0, reward: 30000, waves: [
       { u: 'wasp', t: 2, e: 2.4 }, { u: 'roach', t: 7, e: 10 }, { u: 'beetle', t: 12, e: 14 }, { u: 'mouse', t: 20, e: 22 },
       { u: 'crow', hp: .95, t: 0 }, { u: 'queen', hp: .5, t: 0 }] },
-    { key: 'grain1', kind: 'grain', name: 'Golden Field', diff: 'Easy', theme: 'garden', len: 1900, hp: 6000, mag: 1.6, need: 10, reward: 1500, grain: 1, waves: [
+    { key: 'grain1', kind: 'grain', name: 'Golden Field', diff: 'Easy', theme: 'garden', len: 1900, hp: 6000, mag: 1.6, need: 10, reward: 1500, grains: { R: 2 }, waves: [
       { u: 'fly', t: 2, e: 3 }, { u: 'wasp', t: 8, e: 10 }, { u: 'ant', t: 4, e: 4 }, { u: 'mouse', hp: .5, t: 0, roar: true }] },
-    { key: 'grain2', kind: 'grain', name: 'Golden Field', diff: 'Hard', theme: 'garden', len: 2200, hp: 15000, mag: 3.6, need: 15, reward: 3000, grain: 2, waves: [
+    { key: 'grain2', kind: 'grain', name: 'Golden Field', diff: 'Hard', theme: 'garden', len: 2200, hp: 15000, mag: 3.6, need: 15, reward: 3000, grains: { R: 1, SR: 2 }, waves: [
       { u: 'fly', t: 2, e: 2.6 }, { u: 'wasp', t: 6, e: 8 }, { u: 'beetle', t: 12, e: 14 }, { u: 'mouse', t: 20, e: 26 }, { u: 'crow', hp: .6, t: 0 }] },
-    { key: 'grain3', kind: 'grain', name: 'Golden Field', diff: 'Insane', theme: 'roof', len: 2400, hp: 26000, mag: 6.2, need: 20, reward: 6000, grain: 4, waves: [
+    { key: 'grain3', kind: 'grain', name: 'Golden Field', diff: 'Insane', theme: 'roof', len: 2400, hp: 26000, mag: 6.2, need: 20, reward: 6000, grains: { SR: 1, UR: 2 }, waves: [
       { u: 'fly', t: 2, e: 2 }, { u: 'wasp', t: 5, e: 6 }, { u: 'beetle', t: 10, e: 11 }, { u: 'mouse', t: 16, e: 20 }, { u: 'crow', hp: .85, t: 0 }, { u: 'crow', hp: .35, t: 0 }] },
     { key: 'crumb1', kind: 'crumb', name: 'Crumb Rush', diff: 'Easy', theme: 'kitchen', len: 1800, hp: 5000, mag: 1.3, need: 5, reward: 7000, waves: [
       { u: 'goldbug', t: 3, e: 7 }, { u: 'ant', t: 2, e: 5 }, { u: 'goldbug', hp: .5, t: 0, e: 2, n: 3 }] },
@@ -795,8 +807,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const unitUpCost = (id, lv) => Math.round(unitUpBase(id) * lv * (1 + upCurve(id).grow * lv) / 5) * 5;
   const evoCost = id => Math.round(unitUpBase(id) * 200 / 50) * 50;
   // Golden Grain (Battle Cats' Catfruit) needed for a True Form, on top of crumbs. Earned in the Golden Field legend stages.
-  const GRAIN_COST = { N: 3, R: 4, SR: 6, UR: 10, LR: 15 };
-  const grainCost = id => (UNITS[id].special ? 15 : GRAIN_COST[UNITS[id].rarity || 'N']);
+  const GRAIN_COST = { N: 3, R: 3, SR: 4, UR: 6, LR: 8 };
+  const grainCost = id => (UNITS[id].special ? 8 : GRAIN_COST[UNITS[id].rarity || 'N']);
 
   // ---- treasures (one per stage; Battle Cats grades Inferior / Normal / Superior; each gives a small permanent bonus) ----
   const TREASURE_GRADES = [null, { name: 'Inferior', color: '#c98a4b' }, { name: 'Normal', color: '#c3ccd6' }, { name: 'Superior', color: '#ffd24a' }];
@@ -859,7 +871,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // SAVE
   // =====================================================================
   const SAVE_KEY = 'crumb-crusade-save-v1';
-  function defaultSave() { return { lbMe: null, teams: [], teamIdx: 0, cherry: 0, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
+  function defaultSave() { return { lbMe: null, teams: [], teamIdx: 0, cherries: {}, grains: {}, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
   let NO_PERSIST = !HAS_DOM;
   // Storage layers, tried in order. Some editors (w3editor, sandboxed iframes) block or wipe
   // localStorage, so we also mirror to window.name, which survives a refresh in the same tab.
@@ -961,7 +973,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         if (j.spDone && typeof j.spDone === 'object') for (const sp of SPECIALS) if (j.spDone[sp.key]) s.spDone[sp.key] = 1;
         if (j.orbs && typeof j.orbs === 'object') for (const k of Object.keys(j.orbs)) { const n = Math.floor(+j.orbs[k] || 0); const nk = orbNorm(k); if (n > 0 && nk) s.orbs[nk] = Math.min(999, (s.orbs[nk] || 0) + n); }
         if (j.orbEq && typeof j.orbEq === 'object') for (const id of Object.keys(j.orbEq)) if (UNITS[id] && orbNorm(j.orbEq[id])) s.orbEq[id] = orbNorm(j.orbEq[id]);
-        s.cpu = !!j.cpu; s.grain = Math.max(0, Math.floor(+j.grain || 0)); s.cherry = Math.max(0, Math.floor(+j.cherry || 0)); s.np = Math.max(0, Math.floor(+j.np || 0));
+        s.cpu = !!j.cpu; s.cherries = {}; s.grains = {}; for (const t of TIERS) { s.cherries[t] = Math.max(0, Math.floor(+(j.cherries && j.cherries[t]) || 0)); s.grains[t] = Math.max(0, Math.floor(+(j.grains && j.grains[t]) || 0)); }
+        { const g0 = Math.max(0, Math.floor(+j.grain || 0)), c0 = Math.max(0, Math.floor(+j.cherry || 0)); if (g0 || c0) for (const t of TIERS) { s.cherries[t] += c0; s.grains[t] += g0; } }   // an older save: its one kind of grain / cherry becomes one of each kind s.np = Math.max(0, Math.floor(+j.np || 0));
         if (j.tal && typeof j.tal === 'object') { s.tal = {}; for (const id of Object.keys(j.tal)) if (UNITS[id] && j.tal[id] && typeof j.tal[id] === 'object') for (const k of Object.keys(j.tal[id])) if (TAL_DEFS[k] && k !== 'explode') { const n = clamp(Math.floor(+j.tal[id][k] || 0), 0, TALENT_MAX); if (n) { s.tal[id] = s.tal[id] || {}; s.tal[id][k] = n; } } }
         if (j.talents && typeof j.talents === 'object') for (const id of Object.keys(j.talents)) if (UNITS[id] && UNITS[id].talent) { const t = Math.floor(+j.talents[id] || 0); if (t > 0) s.talents[id] = Math.min(TALENT_MAX, t); }
         if (j.awakened && typeof j.awakened === 'object') for (const id of Object.keys(j.awakened)) if (UNITS[id] && UNITS[id].special) s.awakened[id] = 1;
@@ -2430,7 +2443,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Bosses are huge and rare, so they are still drawn live. Memory is capped (least-recently-used out).
   const WALK_FR = 8, POSE_STEP = .2, T_FR = 8, SPR_BUDGET = 6e6;      // budget in pixels (~24 MB)
   const T_PERIOD = { mosquito: TAU / 40, moth: TAU / 10, bakemut: TAU / 3, bakemut_tf: TAU / 3, mouse: TAU / 4, donut: TAU / 3, cake: TAU / 14, macaron: TAU / 3, dragon: TAU / 3, cinnabun: TAU / 3, phoenix: TAU / 6, fly: TAU / 48, wasp: TAU / 44, hornet: TAU / 44, firefly: TAU / 40 };
-  const SPR = new Map(), ART_BOX = {}; let SPR_PX = 0;
+  // Tight drawing bounds per art id, measured once by a script (artBox below can still measure any id that is missing). Measuring on the fly cost 15-45 ms per baker, which made scrolling the Upgrade / Equip cards stutter.
+  const ART_BOX_PRE = {"bun":{"x0":-42,"y0":-58,"x1":53,"y1":11},"loaf":{"x0":-44,"y0":-87,"x1":52,"y1":11},"pretzel":{"x0":-51,"y0":-82,"x1":68,"y1":11},"ant":{"x0":-42,"y0":-57,"x1":48,"y1":9},"fly":{"x0":-40,"y0":-45,"x1":36,"y1":11},"beetle":{"x0":-50,"y0":-68,"x1":66,"y1":9},"mouse":{"x0":-68,"y0":-87,"x1":83,"y1":11},"baguette":{"x0":-65,"y0":-115,"x1":126,"y1":11},"muffin":{"x0":-55,"y0":-76,"x1":54,"y1":11},"croissant":{"x0":-32,"y0":-60,"x1":47,"y1":10},"donut":{"x0":-40,"y0":-74,"x1":87,"y1":16},"cake":{"x0":-74,"y0":-203,"x1":91,"y1":13},"cookie":{"x0":-40,"y0":-58,"x1":50,"y1":11},"pie":{"x0":-46,"y0":-75,"x1":53,"y1":11},"eclair":{"x0":-62,"y0":-115,"x1":122,"y1":11},"waffle":{"x0":-49,"y0":-90,"x1":98,"y1":11},"macaron":{"x0":-38,"y0":-72,"x1":87,"y1":5},"pancake":{"x0":-53,"y0":-114,"x1":62,"y1":12},"tart":{"x0":-50,"y0":-105,"x1":63,"y1":11},"dragon":{"x0":-116,"y0":-144,"x1":159,"y1":12},"scone":{"x0":-39,"y0":-68,"x1":48,"y1":11},"churro":{"x0":-61,"y0":-103,"x1":112,"y1":11},"cupcake":{"x0":-41,"y0":-94,"x1":62,"y1":11},"strudel":{"x0":-47,"y0":-93,"x1":75,"y1":12},"cinnabun":{"x0":-38,"y0":-113,"x1":86,"y1":9},"gingerbread":{"x0":-79,"y0":-142,"x1":93,"y1":13},"phoenix":{"x0":-101,"y0":-125,"x1":129,"y1":13},"bakemut":{"x0":-140,"y0":-210,"x1":164,"y1":12},"brulee":{"x0":-43,"y0":-93,"x1":78,"y1":11},"alaska":{"x0":-69,"y0":-123,"x1":102,"y1":29},"souffle":{"x0":-68,"y0":-109,"x1":83,"y1":-16},"jubilee":{"x0":-67,"y0":-127,"x1":99,"y1":11},"licorice":{"x0":-39,"y0":-100,"x1":72,"y1":11},"eclipse":{"x0":-64,"y0":-107,"x1":89,"y1":11},"phantom":{"x0":-58,"y0":-95,"x1":67,"y1":6},"oreo":{"x0":-71,"y0":-122,"x1":102,"y1":11},"meringue":{"x0":-62,"y0":-88,"x1":75,"y1":-6},"fondant":{"x0":-66,"y0":-98,"x1":91,"y1":-8},"spice":{"x0":-66,"y0":-93,"x1":91,"y1":-8},"cursebloom":{"x0":-66,"y0":-93,"x1":91,"y1":-8},"ember":{"x0":-36,"y0":-97,"x1":48,"y1":11},"cinder":{"x0":-39,"y0":-68,"x1":47,"y1":11},"mille":{"x0":-71,"y0":-127,"x1":105,"y1":24},"dusk":{"x0":-39,"y0":-83,"x1":48,"y1":11},"raven":{"x0":-40,"y0":-97,"x1":52,"y1":11},"reaper":{"x0":-65,"y0":-129,"x1":83,"y1":11},"sprinkle":{"x0":-59,"y0":-81,"x1":72,"y1":-8},"floss":{"x0":-61,"y0":-83,"x1":86,"y1":-8},"aurora":{"x0":-75,"y0":-125,"x1":102,"y1":-21},"squire":{"x0":-32,"y0":-67,"x1":65,"y1":19},"valkyrie":{"x0":-66,"y0":-104,"x1":80,"y1":-1},"roach":{"x0":-45,"y0":-59,"x1":49,"y1":9},"wasp":{"x0":-58,"y0":-54,"x1":57,"y1":9},"ratking":{"x0":-68,"y0":-106,"x1":83,"y1":11},"goldbug":{"x0":-50,"y0":-68,"x1":66,"y1":9},"mosquito":{"x0":-39,"y0":-39,"x1":48,"y1":10},"termite":{"x0":-39,"y0":-35,"x1":46,"y1":9},"spider":{"x0":-44,"y0":-52,"x1":41,"y1":9},"snail":{"x0":-40,"y0":-63,"x1":53,"y1":9},"metalbug":{"x0":-50,"y0":-68,"x1":66,"y1":9},"grub":{"x0":-45,"y0":-36,"x1":54,"y1":8},"hornet":{"x0":-69,"y0":-54,"x1":57,"y1":14},"tick":{"x0":-39,"y0":-43,"x1":47,"y1":9},"firefly":{"x0":-44,"y0":-43,"x1":38,"y1":11},"flea":{"x0":-36,"y0":-44,"x1":44,"y1":11},"scorpion":{"x0":-46,"y0":-74,"x1":57,"y1":9},"moth":{"x0":-52,"y0":-57,"x1":38,"y1":9},"queen":{"x0":-44,"y0":-69,"x1":41,"y1":9},"crow":{"x0":-88,"y0":-78,"x1":94,"y1":12},"crazed":{"x0":-140,"y0":-210,"x1":164,"y1":12},"bakemut_tf":{"x0":-142,"y0":-210,"x1":180,"y1":15}};
+  const SPR = new Map(), ART_BOX = Object.assign({}, ART_BOX_PRE); let SPR_PX = 0;
   const wrapIdx = (v, n) => ((v % n) + n) % n;
   function artBox(id) {                                       // tight bounds of the drawing, measured once per type
     if (ART_BOX[id]) return ART_BOX[id];
@@ -2670,20 +2685,21 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function finishPvp(B, win) {   // arena fight: a few crumbs, and the rating result goes to the server
     const crumbs = win ? 600 : 100; S.crumbs += crumbs; persist(); if (win) markDirty();
-    G.result = { win, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: 0, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: 0, pvp: { opp: PVP_OPP ? PVP_OPP.name : '' } };
+    G.result = { win, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: null, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: null, pvp: { opp: PVP_OPP ? PVP_OPP.name : '' } };
     if (PVP_OPP) pvpReport(PVP_OPP.id, win);
   }
+  const TOWER_CHERRY = { 10: { R: 2 }, 20: { SR: 2 }, 30: { UR: 2 }, 40: { UR: 2 }, 50: { LR: 2 } }, TOWER_GRAIN = { 30: { UR: 1 }, 40: { UR: 2 }, 50: { LR: 3 } }, MAP_CHERRY = { 1: { R: 2 }, 2: { SR: 2, UR: 1 } };
   function finishBattle() {
     const B = G.battle, i = B.idx, win = B.over === 'win';
     if (typeof setTimeout === "function") setTimeout(() => { try { lbSubmit(false); } catch (e) {} }, 1500);   // keep the online leaderboard up to date
     if (B.st.kind === 'pvp') { finishPvp(B, win); return; }
-    let crumbs, first = false, unlocked = [], grain = 0;
+    let crumbs, first = false, unlocked = [], grain = {}, cherry = {};
     if (win) {
       crumbs = stageReward(i);
       if (isSpecial(i)) {
         const sp = stageOf(i);
-        if (sp.kind === 'grain') { grain = sp.grain; S.grain = (S.grain || 0) + grain; }
-        if (sp.kind === 'awaken' && sp.unit && !(S.awakened && S.awakened[sp.unit])) { first = true; crumbs *= 2; S.awakened = S.awakened || {}; S.awakened[sp.unit] = 1; S.levels[sp.unit] = Math.max(S.levels[sp.unit] || 1, 10); unlocked = [sp.unit]; }
+        if (sp.kind === 'grain') mergeTiers(grain, sp.grains);
+        if (sp.kind === 'awaken' && sp.unit && !(S.awakened && S.awakened[sp.unit])) { first = true; crumbs *= 2; S.awakened = S.awakened || {}; S.awakened[sp.unit] = 1; S.levels[sp.unit] = Math.max(S.levels[sp.unit] || 1, 10); unlocked = [sp.unit]; mergeTiers(cherry, { SP: 3 }); mergeTiers(grain, { SP: 2 }); }
         if (sp.kind === 'tower') { const fl = i - TOWER_BASE; if (fl > (S.tower || 0)) { first = true; crumbs *= 2; S.tower = fl; } else crumbs = Math.round(crumbs * .25 / 10) * 10; }   // a floor pays double the first time, a quarter when replayed
         if ((sp.kind === 'daily' || sp.kind === 'trial') && !S.spDone[sp.key]) { first = true; crumbs *= 2; }
       } else if (secOf(i)) {
@@ -2702,15 +2718,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const tr = []; for (const w of stageOf(i).waves) for (const t of FOES[w.u].traits || []) if (ORB_TRAITS.includes(t) && !tr.includes(t)) tr.push(t);
       orb = rollOrb(tr); S.orbs = S.orbs || {}; S.orbs[orb] = (S.orbs[orb] || 0) + 1;
     }
-    let sugar = 0, np = 0, cherry = 0;
-    if (win && first && ((isSpecial(i) && stageOf(i).kind === 'tower' && (i - TOWER_BASE) % 10 === 0) || (!isSpecial(i) && secOf(i) > 0 && baseOf(i) % 5 === 4))) cherry = isSpecial(i) ? ((i - TOWER_BASE) >= 30 ? 2 : 1) : secOf(i);   // Golden Cherries: Heavenly Tower every 10th floor, the last stage of each Section 2 / 3 map
+    let sugar = 0, np = 0;
+    // Golden Cherries: the Heavenly Tower every 10th floor (rarer kinds higher up) and the last stage of each Section 2 / 3 map
+    if (win && first && isSpecial(i) && stageOf(i).kind === 'tower' && (i - TOWER_BASE) % 10 === 0) { mergeTiers(cherry, TOWER_CHERRY[i - TOWER_BASE]); mergeTiers(grain, TOWER_GRAIN[i - TOWER_BASE]); }
+    else if (win && first && !isSpecial(i) && secOf(i) > 0 && baseOf(i) % 5 === 4) mergeTiers(cherry, MAP_CHERRY[secOf(i)]);
     if (win && isSpecial(i)) {
       const sp = stageOf(i);
       if (sp.kind === 'tower') { const fl = i - TOWER_BASE; S.spDone.tower = 1; if (first) { if (fl % 5 === 0) sugar = 10 + fl; if (fl % 10 === 0) np = 10 + fl * 2; } }   // milestone floors pay Sugar Cubes and NP
       else if (!S.spDone[sp.key]) { S.spDone[sp.key] = 1; sugar = sp.kind === 'daily' ? 30 : SUGAR_SPECIAL; }
     }
     else if (win && first) sugar = SUGAR_FIRST[secOf(i)] || 30;
-    S.sugar = (S.sugar || 0) + sugar; S.np = (S.np || 0) + np; S.cherry = (S.cherry || 0) + cherry;
+    S.sugar = (S.sugar || 0) + sugar; S.np = (S.np || 0) + np; giveTiers(S, 'cherries', cherry); giveTiers(S, 'grains', grain);
     if (win) { missStats(S).wins++; const dd = missDaily(S); dd.wins++; if (isSpecial(i)) dd.legend++; }
     const tickets = win ? rollTickets(i, first) : 0; S.tickets = (S.tickets || 0) + tickets;
     const nt = win ? (first ? 2 : 1) : 0; S.ntickets = (S.ntickets || 0) + nt; S.crumbs += crumbs; persist(); if (win) markDirty();
@@ -3148,7 +3166,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
       else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
       crumbIcon(c, 578, p.y + 168, 17); text(c, '+' + r.crumbs + ' crumbs', 604, p.y + 170, 32, OUT);
-      if (r.tickets || r.grain || r.sugar || r.nt || r.np || r.cherry) fitText(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.np ? '+' + r.np + ' NP' : '', r.grain ? '+' + r.grain + ' Golden Grain' : '', r.cherry ? '+' + r.cherry + ' Golden Cherr' + (r.cherry > 1 ? 'ies' : 'y') : ''].filter(Boolean).join('   ·   '), 640, p.y + 212, 520, 22, '#7a3fa0', 'center');
+      if (r.tickets || tierSum(r.grain) || r.sugar || r.nt || r.np || tierSum(r.cherry)) fitText(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.np ? '+' + r.np + ' NP' : '', tierSum(r.grain) ? '+' + tierWords(r.grain, 'Golden Grain', 'Golden Grain') : '', tierSum(r.cherry) ? '+' + tierWords(r.cherry, 'Golden Cherry', 'Golden Cherries') : ''].filter(Boolean).join('   ·   '), 640, p.y + 212, 520, 22, '#7a3fa0', 'center');
       let yy = p.y + 245;
       if (r.treasure) {
         const t = TREASURES[baseOf(r.treasure.i)], g = TREASURE_GRADES[r.treasure.grade];
@@ -3270,7 +3288,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
           go: () => startBattle(TOWER_BASE + fl), pests: [...new Set(t.waves.map(w => w.u))] };
       }
       return { name: x.kind === 'daily' ? 'Daily: ' + x.mod.name : e.ks.length > 1 ? x.diff : x.name, open: spOpen(S, q), done: !!S.spDone[x.key], boss: x.waves.some(w => FOES[w.u].boss), grade: null, mag: x.mag, hp: x.hp,
-        reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && x.unit && !isOwned(S, x.unit) ? '  + ' + UNITS[x.unit].name : ''), first: !S.spDone[x.key], attack: null,
+        reward: x.reward + (x.grains ? '  +' + tierWords(x.grains, 'grain', 'grain') : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && x.unit && !isOwned(S, x.unit) ? '  + ' + UNITS[x.unit].name : ''), first: !S.spDone[x.key], attack: null,
         go: () => startBattle(SP_BASE + q), pests: [...new Set(x.waves.map(w => w.u))] };
     });
     drawStageSelect(c, { key: 'lg:' + (G.lgEvent || 0), stages, sel: e.ks.indexOf(G.spSel), setSel: k => { G.spSel = e.ks[k]; }, back: () => goBack(),
@@ -3398,7 +3416,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     const ids = Object.keys(SHOP_ITEMS);
     ids.forEach((k, q) => {
-      const SW = 1200 / ids.length, it = SHOP_ITEMS[k], x = 40 + q * SW + 8, y = 110, w = SW - 16, h = 460, have = (S.items && S.items[k]) || 0, can = (S.sugar || 0) >= it.price;
+      const SW = 1200 / ids.length, it = SHOP_ITEMS[k], x = 40 + q * SW + 8, y = 110, w = SW - 16, h = 460, have = (S.items && S.items[k]) || 0, tk = k === 'cherry' || k === 'grain', tt = (G.shopTier && G.shopTier[k]) || 'R', price = tk ? TIER_PRICE[k][tt] : it.price, can = (S.sugar || 0) >= price;
       rr(c, x, y + 6, w, h, 20, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, h, 20, '#fff3d6', '#4a2f12', 4);
       rr(c, x + 16, y + 16, w - 32, 190, 14, '#2b4a47', '#e0b060', 3);
       c.save(); c.beginPath(); c.rect(x + 19, y + 19, w - 38, 184); c.clip(); c.translate(x + w / 2, y + 112);   // nothing may spill out of the picture box
@@ -3409,19 +3427,20 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       else if (k === 'cherry') { for (const [cx2, cy2] of [[-34, 26], [34, 30]]) { line(c, [cx2, cy2 - 20, 0, -70], '#2c7a3a', 5); dot(c, cx2, cy2, 30, '#8a0a1a'); dot(c, cx2, cy2, 27, '#e2203a'); dot(c, cx2 - 9, cy2 - 10, 7, 'rgba(255,255,255,.55)'); } ell(c, 8, -64, 22, 10, '#4fb04a', '#2c7a3a', 3); }
       else { for (let q2 = 0; q2 < 5; q2++) { const gx = -48 + q2 * 24; line(c, [gx, 70, gx + 4, -10], '#c98a1a', 4); ell(c, gx + 4, -24, 8, 18, '#ffd24a', '#8a5a0a', 2); } }
       c.restore();
-      fitText(c, it.name, x + w / 2, y + 240, w - 24, 28, OUT, 'center');
+      fitText(c, tk ? TIER_NAME[tt] + ' ' + it.name : it.name, x + w / 2, y + 240, w - 24, 28, OUT, 'center');
+      if (tk) { const cw = (w - 40) / 5; TIERS.forEach((t, q2) => { const on = t === tt, cx3 = x + 20 + q2 * cw; rr(c, cx3 + 2, y + 322, cw - 4, 26, 8, on ? TIER_COLOR[t] : '#e8dcc0', on ? '#111' : '#a8702e', on ? 3 : 2); text(c, t, cx3 + cw / 2, y + 336, 14, on ? '#fff' : '#7c5432', 'center', on ? '#111' : null, HEAD); hit(cx3 + 2, y + 322, cw - 4, 26, () => { G.shopTier = Object.assign({}, G.shopTier, { [k]: t }); sfx('click'); }); }); }
       fitText(c, it.desc, x + w / 2, y + 278, w - 40, 15, '#7c5432', 'center');
-      text(c, k === 'orb' ? 'You have ' + orbTotal(S) + ' orb' + (orbTotal(S) === 1 ? '' : 's') + ' in your bag' : it.instant ? (k === 'cherry' ? 'You have ' + (S.cherry || 0) + ' Golden Cherries' : 'You have ' + (S.grain || 0) + ' Golden Grain') : have ? 'You have ' + have + (have > 1 ? ' (used one at a time)' : '') : 'You have none', x + w / 2, y + 310, 14, '#a8702e', 'center');
+      text(c, k === 'orb' ? 'You have ' + orbTotal(S) + ' orb' + (orbTotal(S) === 1 ? '' : 's') + ' in your bag' : it.instant ? (k === 'cherry' ? 'You have ' + cherryN(S, tt) + ' ' + TIER_NAME[tt] + ' Golden Cherries' : 'You have ' + grainN(S, tt) + ' ' + TIER_NAME[tt] + ' Golden Grain') : have ? 'You have ' + have + (have > 1 ? ' (used one at a time)' : '') : 'You have none', x + w / 2, y + 310, 14, '#a8702e', 'center');
       baseBtn(c, x + 40, y + 360, w - 80, 70, '', () => {
         if (!can) { sfx('deny'); toast('Not enough Sugar Cubes. First clears of stages give more.'); return; }
-        S.sugar -= it.price; let got = it.name;
-        if (k === 'grain') S.grain = (S.grain || 0) + 1;
-        else if (k === 'cherry') S.cherry = (S.cherry || 0) + 1;
+        S.sugar -= price; let got = tk ? TIER_NAME[tt] + ' ' + it.name : it.name;
+        if (k === 'grain') giveTiers(S, 'grains', { [tt]: 1 });
+        else if (k === 'cherry') giveTiers(S, 'cherries', { [tt]: 1 });
         else if (k === 'orb') { const o = rollOrb(); S.orbs = S.orbs || {}; S.orbs[o] = (S.orbs[o] || 0) + 1; got = orbName(o) + ' orb (' + orbDesc(o) + ')'; }
         else { S.items = S.items || {}; S.items[k] = (S.items[k] || 0) + 1; }
         persist(); markDirty(); sfx('up'); toast('Got ' + got + '!');
       }, { dim: !can });
-      sugarIcon(c, x + w / 2 - 50, y + 397, 1); text(c, String(it.price), x + w / 2 - 22, y + 398, 34, '#fff', 'left', '#4a2f12', HEAD);
+      sugarIcon(c, x + w / 2 - 50, y + 397, 1); text(c, String(price), x + w / 2 - 22, y + 398, 34, '#fff', 'left', '#4a2f12', HEAD);
     });
     baseTop(c, 'SHOP');
     baseBottom(c, () => goBack(), true);
@@ -3709,8 +3728,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function upCard(c, key, W, H, focus, eq) {   // eq: the Equip screen's version (bigger picture, the dough cost along the bottom)
     if (key === 'k:back') {
       const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#ffd23a'); g.addColorStop(1, '#e8a400'); rr(c, -W / 2, 0, W, H, 4, g, '#111', 6);
-      poly(c, [-60, H / 2 - 40, -10, H / 2 - 85, -10, H / 2 - 60, 60, H / 2 - 60, 60, H / 2 - 20, -10, H / 2 - 20, -10, H / 2 + 5], '#fff', '#111', 5);
-      text(c, 'Back', 0, H - 70, 52, '#fff', 'center', '#111', HEAD); return;
+      text(c, 'Back', 0, H / 2, 64, '#fff', 'center', '#111', HEAD); return;
     }
     const fold = key.startsWith('f:') && UP_FOLDERS.find(f => 'f:' + f.id === key);
     if (fold) {
@@ -3774,12 +3792,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const fold = UP_FOLDERS.find(f => f.id === UPCAT);
     rr(c, -30, 86, 450, 52, 26, UPSEL && UPSEL.startsWith('b:') ? '#2f7f86' : '#111', null); const selB = !!(UPSEL && UPSEL.startsWith('b:')); if (!(UPCAT === 'main' && UPSEL && UPSEL.startsWith('f:'))) text(c, fold ? fold.one : selB ? 'Power Ups' : 'Bakers', 200, 112, 30, '#fff', 'center', null, HEAD);
     if (!selB) btn(c, 14, 144, 180, 32, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 15, r: 16, color: '#d8d0c0' });
-    [['C', S.cherry || 0, '#c8102e', '#ff8a7a']].forEach((r, i) => {   // round icon with the count under it (Golden Cherry only)
-      const x = 1204 + i * 72, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, r[3]); g2.addColorStop(1, r[2]);
-      c.beginPath(); c.arc(x, y, 24, 0, TAU); c.fillStyle = g2; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
-      text(c, r[0], x, y, r[0].length > 1 ? 16 : 20, '#fff', 'center', '#111', HEAD);
-      text(c, String(r[1]), x, y + 36, 18, '#ffe135', 'center', '#111', HEAD);
-    });
+    { const tkey = UPSEL && UNITS[UPSEL] ? tierOf(UPSEL) : fold && TIERS.includes(fold.id) ? fold.id : null;   // the Golden Cherry / Grain kind this baker (or folder) uses
+      if (tkey) { const x = 1204, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, '#ff8a7a'); g2.addColorStop(1, TIER_COLOR[tkey]);
+        c.beginPath(); c.arc(x, y, 24, 0, TAU); c.fillStyle = g2; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
+        text(c, tkey, x, y, tkey.length > 1 ? 16 : 20, '#fff', 'center', '#111', HEAD);
+        text(c, '🍒 ' + cherryN(S, tkey), x, y + 38, 18, '#ffe135', 'center', '#111', HEAD); text(c, '🌾 ' + grainN(S, tkey), x, y + 60, 18, '#ffe135', 'center', '#111', HEAD); } }
     // cards
     if (!items.length) text(c, 'No ' + (fold ? fold.label : 'bakers') + ' yet. Find them in the Gacha!', 640, 260, 26, '#7c5432', 'center');
     const order = items.map((k, i) => i).sort((a, b) => Math.abs(b - car.pos) - Math.abs(a - car.pos));
@@ -3860,7 +3877,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function lvBlocked(key) {
     if (key.startsWith('b:')) return baseNat(S, key.slice(2)) >= baseNatMax(key.slice(2));
     if (!UNITS[key] || !isOwned(S, key)) return false;
-    const lv = unitLv(S, key); return lv >= UNIT_MAX_LV || lv >= natCap(S, key) || (lv >= TF_LV && (S.cherry || 0) < 1);
+    const lv = unitLv(S, key); return lv >= UNIT_MAX_LV || lv >= natCap(S, key) || (lv >= TF_LV && cherryN(S, tierOf(key)) < 1);
   }
   function inUseStamp(c, W, H) {   // the red 'In use' stamp Battle Cats puts on cats that are in your lineup
     c.save(); c.translate(W / 2 - 66, 104); c.rotate(.35); c.globalAlpha = .9; c.beginPath(); c.arc(0, 0, 38, 0, TAU); c.lineWidth = 5; c.strokeStyle = '#e2483a'; c.stroke(); c.beginPath(); c.arc(0, 0, 31, 0, TAU); c.lineWidth = 2; c.stroke();
@@ -3889,22 +3906,22 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     else if (isNormalU(id) && lv >= lvCap(S)) { /* Golden Cherries can't be used on Normal bakers: no button, no text */ }
     else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached.'); }, { dim: true }),
       text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
-    else { const cost = unitUpCost(id, lv), noC = cherryLv && (S.cherry || 0) < 1;
-      upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Max Level for Current Version has been reached. Each level past Lv' + TF_LV + ' needs 1 Golden Cherry (you have ' + (S.cherry || 0) + ').'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv) S.cherry--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
-      if (cherryLv) text(c, '+ 1 cherry', 330, 479, 18, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12');
+    else { const cost = unitUpCost(id, lv), tk = tierOf(id), noC = cherryLv && cherryN(S, tk) < 1;
+      upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Max Level for Current Version has been reached. Each level past Lv' + TF_LV + ' needs 1 ' + (tk ? TIER_NAME[tk] : '') + ' Golden Cherry (you have ' + cherryN(S, tk) + ').'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv && tk) S.cherries[tk]--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
+      if (cherryLv) text(c, '+ 1 ' + (tk ? TIER_NAME[tk] : '') + ' cherry', 330, 479, 16, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12');
       else if (!isNormalU(id)) text(c, 'Level Cap UP!', 330, 479, 16, '#fff', 'left', '#4a2f12'); }   // Golden Cherries work on this baker: say so at every level
     // Talents oval, Orb and Info
     const tals = talentsOf(id), showMid = tfReady || (evo && tals.length > 0);
     if (showMid) {   // the oval: Evolve once the baker is ready for its True Form, Talents after it has one
-      const h = inside(560, 414, 160, 84), cost = evoCost(id), gc = grainCost(id), can = S.crumbs >= cost && (S.grain || 0) >= gc;
+      const h = inside(560, 414, 160, 84), cost = evoCost(id), gc = grainCost(id), can = S.crumbs >= cost && grainN(S, tierOf(id)) >= gc;
       c.save(); c.translate(45, 0);
       ell(c, 595, 462, 80, 44, 'rgba(0,0,0,.4)', null);
       const g = c.createLinearGradient(0, 414, 0, 500); g.addColorStop(0, tfReady ? (can ? (h ? '#fff27a' : '#ffe45e') : '#d8d0bf') : (h ? '#fff27a' : '#ffe45e')); g.addColorStop(1, tfReady ? (can ? '#e8a000' : '#a99f8b') : '#e8a000');
       ell(c, 595, 456, 80, 44, g, tfReady && !can ? '#6b6252' : '#4a2f12', 4);
-      if (tfReady) { text(c, 'Evolve ★', 595, 445, 28, '#fff', 'center', '#4a2f12', HEAD); text(c, cost + ' · ' + gc + ' grain', 595, 475, 13, can ? '#fff' : '#efe8d8', 'center', '#4a2f12'); }
+      if (tfReady) { text(c, 'Evolve ★', 595, 445, 28, '#fff', 'center', '#4a2f12', HEAD); text(c, cost + ' · ' + gc + ' ' + tierOf(id) + ' grain', 595, 475, 13, can ? '#fff' : '#efe8d8', 'center', '#4a2f12'); }
       else text(c, 'Talents', 595, 458, 36, '#fff', 'center', '#4a2f12', HEAD);
       c.restore();
-      if (tfReady) hit(560, 414, 160, 84, () => { if ((S.grain || 0) < gc) { sfx('deny'); toast('Needs ' + gc + ' Golden Grain (you have ' + (S.grain || 0) + '). Win Golden Field legend stages.'); return; } buy(cost, () => { S.grain -= gc; S.evolved[id] = 1; sfx('boss'); toast(UNITS[id].name + ' reached its True Form: ' + EVO_NAMES[id] + '!'); }); });
+      if (tfReady) hit(560, 414, 160, 84, () => { const gt = tierOf(id); if (grainN(S, gt) < gc) { sfx('deny'); toast('Needs ' + gc + ' ' + TIER_NAME[gt] + ' Golden Grain (you have ' + grainN(S, gt) + '). Win Golden Field and Tower stages, or use the Shop.'); return; } buy(cost, () => { S.grains[gt] -= gc; S.evolved[id] = 1; sfx('boss'); toast(UNITS[id].name + ' reached its True Form: ' + EVO_NAMES[id] + '!'); }); });
       else hit(560, 414, 160, 84, () => { G.talOpen = id; G.talIdx = orbSlot(id) ? 1 : 0; sfx('click'); });
     }    { const x = VW - 58, y = 392, hv = inside(x, y, 50, 50), g3 = c.createLinearGradient(0, y, 0, y + 50); g3.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g3.addColorStop(1, '#e0a000');
       rr(c, x, y, 50, 50, 10, g3, '#111', 3); c.save(); c.beginPath(); c.rect(x + 4, y + 4, 42, 42); c.clip(); portrait(c, id, x + 25, y + 46, 34, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore();
@@ -4158,11 +4175,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     dot(c, x, y, 30, '#3d4543'); dot(c, x, y, 27, '#4e5855'); pawMark(c, x, y, 1.2); c.restore();
   }
   // shared Bakery Base pieces (Legend Stages opens inside the base, like the event list in Battle Cats)
-  function baseRoom(c, eq) {
+  function baseRoom(c, eq, open) {   // open: 0..1, the doors swing apart (Upgrade / Equip)
     // the two doors: dark gap down the middle, a knob on each door
-    const pg = c.createLinearGradient(600, 0, 680, 0); pg.addColorStop(0, '#0d1312'); pg.addColorStop(.25, '#2c3b39'); pg.addColorStop(.5, '#0b1110'); pg.addColorStop(.75, '#2c3b39'); pg.addColorStop(1, '#0d1312');
-    c.fillStyle = pg; c.fillRect(600, 58, 80, 592); c.fillStyle = '#060909'; c.fillRect(637, 58, 6, 592);
-    doorKnob(c, 530, 422); doorKnob(c, 752, 422);
+    const hw = 40 + (open || 0) * 330, x0 = 640 - hw;
+    const pg = c.createLinearGradient(x0, 0, x0 + hw * 2, 0); pg.addColorStop(0, '#0d1312'); pg.addColorStop(.25, '#2c3b39'); pg.addColorStop(.5, '#0b1110'); pg.addColorStop(.75, '#2c3b39'); pg.addColorStop(1, '#0d1312');
+    c.fillStyle = pg; c.fillRect(x0, 58, hw * 2, 592); c.fillStyle = '#060909'; c.fillRect(637, 58, 6, 592);
+    if (open > 0) { const lg = c.createRadialGradient(640, 350, 10, 640, 350, hw + 60); lg.addColorStop(0, 'rgba(255,243,214,' + (.85 * open) + ')'); lg.addColorStop(1, 'rgba(251,239,204,0)'); c.fillStyle = lg; c.fillRect(x0 - 60, 58, hw * 2 + 120, 592); }   // warm light from the next room
+    doorKnob(c, 530 - (open || 0) * 330, 422); doorKnob(c, 752 + (open || 0) * 330, 422);
     // mascot peeking in from the bottom right (behind the bubble and the bottom bar)
     const mid = eq[0] || 'bun', md = defOf(mid), mk = 330 / (md.h + (md.hover || 0) * .5) / 1.25;
     c.save(); c.translate(1080, 700 + Math.sin(G.time * 2.2) * 3); c.scale(-mk, mk); portrait(c, mid, 0, 0, 1000, { walk: G.time * 1.5, pose: 0, hurt: false, t: G.time }); c.restore();
@@ -4189,21 +4208,21 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---------------- User Rank rewards (Battle Cats style, scaled to this game: a fully maxed save is around 1,250 rank) ----------------
   const RANK_REWARDS = [
     [10, { tickets: 1 }], [50, { nt: 3 }], [100, { tickets: 1 }], [150, { rich: 1 }], [200, { nt: 5 }], [250, { crumbs: 5000 }],
-    [300, { radar: 1 }], [350, { sugar: 30 }], [400, { tickets: 1 }], [450, { grain: 2, cherry: 2 }], [500, { nt: 10 }], [550, { crumbs: 20000 }],
-    [600, { tickets: 1 }], [650, { np: 50, cherry: 2 }], [700, { rich: 2 }], [750, { grain: 3, cherry: 3 }], [800, { tickets: 2 }], [850, { crumbs: 50000 }],
-    [900, { nt: 15 }], [950, { radar: 2 }], [1000, { tickets: 3 }], [1050, { sugar: 100 }], [1100, { grain: 5, cherry: 5 }], [1150, { nt: 20 }],
-    [1200, { tickets: 5 }], [1250, { crumbs: 200000, sugar: 200, cherry: 5 }],
+    [300, { radar: 1 }], [350, { sugar: 30 }], [400, { tickets: 1 }], [450, { grain: { R: 2 }, cherry: { R: 3 } }], [500, { nt: 10 }], [550, { crumbs: 20000 }],
+    [600, { tickets: 1 }], [650, { np: 50, cherry: { SR: 2 } }], [700, { rich: 2 }], [750, { grain: { SR: 3 }, cherry: { SR: 3 } }], [800, { tickets: 2 }], [850, { crumbs: 50000 }],
+    [900, { nt: 15 }], [950, { radar: 2 }], [1000, { tickets: 3 }], [1050, { sugar: 100 }], [1100, { grain: { UR: 5 }, cherry: { UR: 3 } }], [1150, { nt: 20 }],
+    [1200, { tickets: 5 }], [1250, { crumbs: 200000, sugar: 200, grain: { LR: 3, SP: 3 }, cherry: { LR: 2, SP: 3 } }],
   ].map(([rank, rw]) => ({ rank, rw }));
   const RANK_RW_LABEL = { tickets: ['Rare Ticket', 'Rare Tickets'], nt: ['Normal Ticket', 'Normal Tickets'], crumbs: ['crumbs', 'crumbs'], sugar: ['Sugar Cubes', 'Sugar Cubes'],
     grain: ['Golden Grain', 'Golden Grain'], cherry: ['Golden Cherry', 'Golden Cherries'], np: ['NP', 'NP'], rich: ['Rich Bun', 'Rich Buns'], radar: ['Treasure Radar', 'Treasure Radars'] };
-  const rankRwText = rw => Object.keys(rw).map(k => rw[k] + ' ' + RANK_RW_LABEL[k][rw[k] === 1 ? 0 : 1]).join(' + ');
+  const rankRwText = rw => Object.keys(rw).map(k => (k === 'grain' || k === 'cherry') ? tierWords(rw[k], RANK_RW_LABEL[k][0], RANK_RW_LABEL[k][1]) : rw[k] + ' ' + RANK_RW_LABEL[k][rw[k] === 1 ? 0 : 1]).join(' + ');
   const rankClaimed = save => (save.rankClaimed || 0);                     // how many rewards (from the top of the list) are claimed
   const rankReady = () => { const k = rankClaimed(S); return k < RANK_REWARDS.length && userRank(S).total >= RANK_REWARDS[k].rank; };
   function claimRank() {
     const k = rankClaimed(S); if (!rankReady()) return null;
     const rw = RANK_REWARDS[k].rw; S.items = S.items || {};
     S.tickets = (S.tickets || 0) + (rw.tickets || 0); S.ntickets = (S.ntickets || 0) + (rw.nt || 0); S.crumbs += rw.crumbs || 0; S.sugar = (S.sugar || 0) + (rw.sugar || 0);
-    S.grain = (S.grain || 0) + (rw.grain || 0); S.cherry = (S.cherry || 0) + (rw.cherry || 0); S.np = (S.np || 0) + (rw.np || 0);
+    giveTiers(S, 'grains', rw.grain); giveTiers(S, 'cherries', rw.cherry); S.np = (S.np || 0) + (rw.np || 0);
     if (rw.rich) S.items.rich = Math.min(99, (S.items.rich || 0) + rw.rich); if (rw.radar) S.items.radar = Math.min(99, (S.items.radar || 0) + rw.radar);
     S.rankClaimed = k + 1; return RANK_REWARDS[k];
   }
@@ -4293,7 +4312,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   ];
   // Start / Upgrade / Equip: the whole left column steps off to the left (and the tray drops) before the next screen opens
   const BASE_SLIDE = .62;
-  function baseSlide(fn) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn }; }
+  function baseSlide(fn, door) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? .95 : BASE_SLIDE }; }
   function drawBaseSlideAway(c, tt) {
     const p = clamp(tt / BASE_SLIDE, 0, 1), n0 = UI.btns.length, off = i => -Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2) * 470;
     c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip();
@@ -4307,8 +4326,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawBaseButtons(c, offs) {   // offs: a sideways offset per button (used by the stepped slide away)
     const o = offs || [0, 0, 0], at = (i, fn) => { c.save(); c.translate(o[i], 0); fn(); c.restore(); };
     at(0, () => baseBtn(c, 22, 168, 392, 78, 'Start!!', () => (inLegend() ? resumeStages() : baseSlide(resumeStages)), { size: 40 }));
-    at(1, () => baseBtn(c, 22, 272, 392, 78, 'Upgrade', () => baseSlide(() => { G.shopFrom = 'prep'; go('shop'); }), { size: 40 }));
-    at(2, () => baseBtn(c, 22, 376, 392, 78, 'Equip', () => baseSlide(() => go('equip')), { size: 40 }));
+    at(1, () => baseBtn(c, 22, 272, 392, 78, 'Upgrade', () => baseSlide(() => { G.shopFrom = 'prep'; go('shop'); }, true), { size: 40 }));
+    at(2, () => baseBtn(c, 22, 376, 392, 78, 'Equip', () => baseSlide(() => go('equip'), true), { size: 40 }));
   }
   // wooden tray across the door gap: Storage + Ticket capsule + Sugar capsule (also drawn sliding down when Start!! is pressed)
   function drawBaseTray(c) {
@@ -4385,9 +4404,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawPrep(c) {
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     const L = lineupOf(S), eq = L.filter(Boolean), capN = (S.capsule || []).length, tk = S.tickets || 0;
-    baseRoom(c, eq);
+    baseRoom(c, eq, G.baseGo && G.baseGo.door ? smooth01(clamp((G.time - G.baseGo.t0) / G.baseGo.dur, 0, 1)) : 0);
     // speech bubble: the most useful next step for this save
-    const tfReady = UNIT_ORDER.find(id => tfAble(S, id) && (S.grain || 0) >= grainCost(id));
+    const tfReady = UNIT_ORDER.find(id => tfAble(S, id) && grainN(S, tierOf(id)) >= grainCost(id));
     const newSpecial = SPECIALS.find((x, k) => spOpen(S, k) && !S.spDone[x.key]);
     const newSec = [2, 1].find(k => secOpen(S, k) && !secCleared(S, k));
     const msg = rankReady() ? 'Your User Rank went up! Tap the rank counter at the top left to claim a reward.'
@@ -4418,12 +4437,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     drawBaseIcons(c);
     drawBaseTray(c); }
     // bottom wood bar: back · Shop · Sugar Cubes
-    baseBottom(c, () => go('title'));
+    baseBottom(c, () => go('chapters'));   // Back from the base opens Stage Select (and Back from there goes to the title screen)
     if (G.menuOpen) drawMenuPopup(c);
     if (G.goalsOpen) drawGoalsPopup(c);
     if (G.lbOpen) drawLeaderboard(c);
     if (G.rankOpen) drawRankPopup(c);
-    if (G.baseGo && G.time - G.baseGo.t0 >= BASE_SLIDE) { const fn = G.baseGo.fn; G.baseGo = null; fn(); }
+    if (G.baseGo && G.baseGo.door) { const a = clamp(((G.time - G.baseGo.t0) / G.baseGo.dur - .6) / .4, 0, 1); if (a > 0) { c.fillStyle = 'rgba(251,239,204,' + a + ')'; c.fillRect(0, 58, VW, 590); } }   // the light fills the screen: the next screen has the same cream background
+    if (G.baseGo && G.time - G.baseGo.t0 >= G.baseGo.dur) { const fn = G.baseGo.fn; G.baseGo = null; fn(); }
   }
 
   // =====================================================================
@@ -4461,7 +4481,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const cand = UNIT_ORDER.filter(id => isOwned(S, id) && !isNormalU(id) && !isEvolved(S, id) && EVO_NAMES[id]).sort((a, b) => unitLv(S, b) - unitLv(S, a))[0];
     if (!cand) { if (!UNIT_ORDER.some(id => isOwned(S, id) && !isNormalU(id))) g.push({ label: 'Recruit a baker from the Gacha', hint: 'Rare tickets come from Missions and Expeditions', cur: Math.min(1, S.tickets || 0), max: 1, go: () => go('gacha') }); }
     else if (totalLv(S, cand) < TF_LV) g.push({ label: 'Raise ' + nameOf(S, cand) + ' to Lv ' + TF_LV, hint: 'Crumb levels plus + levels count. Then it can reach its True Form' + (unitLv(S, cand) >= lvCap(S) ? '  (clear more stages to raise the level cap)' : ''), cur: totalLv(S, cand), max: TF_LV, go: () => { UPSEL = cand; go('shop'); } });
-    else if ((S.grain || 0) < grainCost(cand)) g.push({ label: 'Collect Golden Grain for ' + nameOf(S, cand), hint: 'Win the Golden Field Legend stages', cur: S.grain || 0, max: grainCost(cand), go: () => go(legendOpen(S) ? 'special' : 'chapters') });
+    else if (grainN(S, tierOf(cand)) < grainCost(cand)) g.push({ label: 'Collect ' + TIER_NAME[tierOf(cand)] + ' Golden Grain for ' + nameOf(S, cand), hint: 'Win the Golden Field Legend stages, or buy it in the Shop', cur: grainN(S, tierOf(cand)), max: grainCost(cand), go: () => go(legendOpen(S) ? 'special' : 'chapters') });
     else g.push({ label: nameOf(S, cand) + ' is ready for its True Form!', hint: 'Open Upgrade and press True Form', cur: 1, max: 1, ready: true, go: () => { UPSEL = cand; go('shop'); } });
     // rewards waiting
     if (missReady()) g.push({ label: 'Claim your mission rewards', hint: 'Open Missions', cur: 1, max: 1, ready: true, go: () => { scReset(); go('missions'); } });
@@ -5096,12 +5116,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function expoLoot(e) {                                                 // fixed by the start time, so reloading never re-rolls it
     const hrs = e.dur / 60, r = q => hash(Math.floor(e.t0 / 1000) % 100000 + q * 17);
     const loot = { crumbs: Math.round(expoRate(e.dest) * hrs / 10) * 10, np: Math.floor(hrs * (2 + e.dest * 2) * (.5 + r(2))), grain: 0, tickets: 0 };
-    if (e.dest >= 2) loot.grain = Math.floor(hrs / 3 * (e.dest - 1) / 4 + r(1));
+    if (e.dest >= 2) { loot.grain = Math.floor(hrs / 3 * (e.dest - 1) / 4 + r(1)); loot.gt = e.dest >= 5 ? 'UR' : e.dest >= 4 ? 'SR' : 'R'; }   // farther places bring rarer grain
     if (hrs >= 3) loot.tickets = 1 + (r(3) < hrs / 16 ? 1 : 0);
     loot.nt = Math.max(1, Math.floor(hrs * 2));
     return loot;
   }
-  const lootText = l => [l.crumbs ? l.crumbs + ' crumbs' : '', l.np ? l.np + ' NP' : '', l.grain ? l.grain + ' Golden Grain' : '', l.tickets ? l.tickets + ' Rare Ticket' + (l.tickets > 1 ? 's' : '') : '', l.nt ? l.nt + ' Normal Ticket' + (l.nt > 1 ? 's' : '') : ''].filter(Boolean).join('  ·  ');
+  const lootText = l => [l.crumbs ? l.crumbs + ' crumbs' : '', l.np ? l.np + ' NP' : '', l.grain ? l.grain + ' ' + TIER_NAME[l.gt || 'R'] + ' Golden Grain' : '', l.tickets ? l.tickets + ' Rare Ticket' + (l.tickets > 1 ? 's' : '') : '', l.nt ? l.nt + ' Normal Ticket' + (l.nt > 1 ? 's' : '') : ''].filter(Boolean).join('  ·  ');
   const expoLeft = () => (S.expo ? S.expo.t0 + S.expo.dur * 60000 - Date.now() : 0);
   const expoReady = () => !!S.expo && expoLeft() <= 0;
   const clock = ms => { const t = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s2 = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s2).padStart(2, '0'); };
@@ -5126,7 +5146,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, (ready ? 'Brought back:' : 'Will bring back:'), 640, 214, 18, '#b9d4cf', 'center');
       fitLine(c, lootText(loot), 640, 246, 740, 22, '#ffd24a', 'center');
       if (ready) baseBtn(c, 520, 272, 240, 52, 'Collect!', () => {
-        const l = expoLoot(e); S.crumbs += l.crumbs; S.np = (S.np || 0) + l.np; S.grain = (S.grain || 0) + l.grain; S.tickets = (S.tickets || 0) + l.tickets; S.ntickets = (S.ntickets || 0) + (l.nt || 0);
+        const l = expoLoot(e); S.crumbs += l.crumbs; S.np = (S.np || 0) + l.np; if (l.grain) giveTiers(S, 'grains', { [l.gt || 'R']: l.grain }); S.tickets = (S.tickets || 0) + l.tickets; S.ntickets = (S.ntickets || 0) + (l.nt || 0);
         S.expo = null; missStats(S).expo++; missDaily(S).expo++; persist(); markDirty(); sfx('up'); toast('Collected ' + lootText(l) + '!');
       }, { size: 28 });
       else { const armed = G.time < (G.expoArm || 0); btn(c, 560, 280, 160, 36, armed ? 'Sure? No loot' : 'Call back', () => { if (armed) { S.expo = null; G.expoArm = 0; persist(); toast('The scout came home empty-handed.'); } else G.expoArm = G.time + 3; }, { size: 15, r: 12, color: armed ? '#ff8a7a' : '#d8d0c0' }); }
@@ -6461,7 +6481,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-2259';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-2327';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
