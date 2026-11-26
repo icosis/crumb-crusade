@@ -4310,7 +4310,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     'Pest strength is a percentage. Mine is 100%. Of bun.',
   ];
   // Start / Upgrade / Equip: the whole left column steps off to the left (and the tray drops) before the next screen opens
-  const BASE_SLIDE = .62, BASE_DOOR_T = .4, BASE_DOOR_DUR = .67;   // the doors open in BASE_DOOR_T seconds, in a straight line; the whole move lasts BASE_DOOR_DUR
+  const BASE_SLIDE = .62, BASE_DOOR_T = .4, BASE_DOOR_DUR = .4;   // the doors open in BASE_DOOR_T seconds, in a straight line; the whole move lasts BASE_DOOR_DUR
   function baseSlide(fn, door) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? BASE_DOOR_DUR : BASE_SLIDE }; }
   const baseGoT = () => { const e = G.time - G.baseGo.t0; return G.baseGo.rev ? G.baseGo.dur - e : e; };   // seconds into the slide-away (a reversed one runs backwards)
   function drawBaseSlideAway(c, tt) {
@@ -4430,7 +4430,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'tap me for more', bx + bw - 26, by + bh - 20, 14, 'rgba(255,255,255,.5)', 'right'); }
     baseTopBar(c);
     drawSugarSale(c);
-    if (G.baseGo) drawBaseSlideAway(c, baseGoT());
+    if (G.baseGo) drawBaseSlideAway(c, baseGoT() * (G.baseGo.door ? .67 / BASE_DOOR_DUR : 1));   // with the doors the left column hurries to finish in the same time
     else { drawRankBar(c);
     // big buttons
     drawBaseButtons(c);
@@ -6480,7 +6480,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1159';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1208';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
