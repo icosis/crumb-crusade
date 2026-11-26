@@ -2441,7 +2441,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // especially on slow machines). Animation inputs are snapped to a few frames:
   //   walk -> 8 frames per stride, pose -> steps of 0.2, t -> 8 frames per cycle (only for art that uses it).
   // Bosses are huge and rare, so they are still drawn live. Memory is capped (least-recently-used out).
-  const WALK_FR = 8, POSE_STEP = .2, T_FR = 8, SPR_BUDGET = 6e6;      // budget in pixels (~24 MB)
+  const WALK_FR = 8, POSE_STEP = .2, T_FR = 8, SPR_BUDGET = 12e6;     // budget in pixels (~48 MB)
   const T_PERIOD = { mosquito: TAU / 40, moth: TAU / 10, bakemut: TAU / 3, bakemut_tf: TAU / 3, mouse: TAU / 4, donut: TAU / 3, cake: TAU / 14, macaron: TAU / 3, dragon: TAU / 3, cinnabun: TAU / 3, phoenix: TAU / 6, fly: TAU / 48, wasp: TAU / 44, hornet: TAU / 44, firefly: TAU / 40 };
   // Tight drawing bounds per art id, measured once by a script (artBox below can still measure any id that is missing). Measuring on the fly cost 15-45 ms per baker, which made scrolling the Upgrade / Equip cards stutter.
   const ART_BOX_PRE = {"bun":{"x0":-42,"y0":-58,"x1":53,"y1":11},"loaf":{"x0":-44,"y0":-87,"x1":52,"y1":11},"pretzel":{"x0":-51,"y0":-82,"x1":68,"y1":11},"ant":{"x0":-42,"y0":-57,"x1":48,"y1":9},"fly":{"x0":-40,"y0":-45,"x1":36,"y1":11},"beetle":{"x0":-50,"y0":-68,"x1":66,"y1":9},"mouse":{"x0":-68,"y0":-87,"x1":83,"y1":11},"baguette":{"x0":-65,"y0":-115,"x1":126,"y1":11},"muffin":{"x0":-55,"y0":-76,"x1":54,"y1":11},"croissant":{"x0":-32,"y0":-60,"x1":47,"y1":10},"donut":{"x0":-40,"y0":-74,"x1":87,"y1":16},"cake":{"x0":-74,"y0":-203,"x1":91,"y1":13},"cookie":{"x0":-40,"y0":-58,"x1":50,"y1":11},"pie":{"x0":-46,"y0":-75,"x1":53,"y1":11},"eclair":{"x0":-62,"y0":-115,"x1":122,"y1":11},"waffle":{"x0":-49,"y0":-90,"x1":98,"y1":11},"macaron":{"x0":-38,"y0":-72,"x1":87,"y1":5},"pancake":{"x0":-53,"y0":-114,"x1":62,"y1":12},"tart":{"x0":-50,"y0":-105,"x1":63,"y1":11},"dragon":{"x0":-116,"y0":-144,"x1":159,"y1":12},"scone":{"x0":-39,"y0":-68,"x1":48,"y1":11},"churro":{"x0":-61,"y0":-103,"x1":112,"y1":11},"cupcake":{"x0":-41,"y0":-94,"x1":62,"y1":11},"strudel":{"x0":-47,"y0":-93,"x1":75,"y1":12},"cinnabun":{"x0":-38,"y0":-113,"x1":86,"y1":9},"gingerbread":{"x0":-79,"y0":-142,"x1":93,"y1":13},"phoenix":{"x0":-101,"y0":-125,"x1":129,"y1":13},"bakemut":{"x0":-140,"y0":-210,"x1":164,"y1":12},"brulee":{"x0":-43,"y0":-93,"x1":78,"y1":11},"alaska":{"x0":-69,"y0":-123,"x1":102,"y1":29},"souffle":{"x0":-68,"y0":-109,"x1":83,"y1":-16},"jubilee":{"x0":-67,"y0":-127,"x1":99,"y1":11},"licorice":{"x0":-39,"y0":-100,"x1":72,"y1":11},"eclipse":{"x0":-64,"y0":-107,"x1":89,"y1":11},"phantom":{"x0":-58,"y0":-95,"x1":67,"y1":6},"oreo":{"x0":-71,"y0":-122,"x1":102,"y1":11},"meringue":{"x0":-62,"y0":-88,"x1":75,"y1":-6},"fondant":{"x0":-66,"y0":-98,"x1":91,"y1":-8},"spice":{"x0":-66,"y0":-93,"x1":91,"y1":-8},"cursebloom":{"x0":-66,"y0":-93,"x1":91,"y1":-8},"ember":{"x0":-36,"y0":-97,"x1":48,"y1":11},"cinder":{"x0":-39,"y0":-68,"x1":47,"y1":11},"mille":{"x0":-71,"y0":-127,"x1":105,"y1":24},"dusk":{"x0":-39,"y0":-83,"x1":48,"y1":11},"raven":{"x0":-40,"y0":-97,"x1":52,"y1":11},"reaper":{"x0":-65,"y0":-129,"x1":83,"y1":11},"sprinkle":{"x0":-59,"y0":-81,"x1":72,"y1":-8},"floss":{"x0":-61,"y0":-83,"x1":86,"y1":-8},"aurora":{"x0":-75,"y0":-125,"x1":102,"y1":-21},"squire":{"x0":-32,"y0":-67,"x1":65,"y1":19},"valkyrie":{"x0":-66,"y0":-104,"x1":80,"y1":-1},"roach":{"x0":-45,"y0":-59,"x1":49,"y1":9},"wasp":{"x0":-58,"y0":-54,"x1":57,"y1":9},"ratking":{"x0":-68,"y0":-106,"x1":83,"y1":11},"goldbug":{"x0":-50,"y0":-68,"x1":66,"y1":9},"mosquito":{"x0":-39,"y0":-39,"x1":48,"y1":10},"termite":{"x0":-39,"y0":-35,"x1":46,"y1":9},"spider":{"x0":-44,"y0":-52,"x1":41,"y1":9},"snail":{"x0":-40,"y0":-63,"x1":53,"y1":9},"metalbug":{"x0":-50,"y0":-68,"x1":66,"y1":9},"grub":{"x0":-45,"y0":-36,"x1":54,"y1":8},"hornet":{"x0":-69,"y0":-54,"x1":57,"y1":14},"tick":{"x0":-39,"y0":-43,"x1":47,"y1":9},"firefly":{"x0":-44,"y0":-43,"x1":38,"y1":11},"flea":{"x0":-36,"y0":-44,"x1":44,"y1":11},"scorpion":{"x0":-46,"y0":-74,"x1":57,"y1":9},"moth":{"x0":-52,"y0":-57,"x1":38,"y1":9},"queen":{"x0":-44,"y0":-69,"x1":41,"y1":9},"crow":{"x0":-88,"y0":-78,"x1":94,"y1":12},"crazed":{"x0":-140,"y0":-210,"x1":164,"y1":12},"bakemut_tf":{"x0":-142,"y0":-210,"x1":180,"y1":15}};
@@ -4310,20 +4310,27 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     'Pest strength is a percentage. Mine is 100%. Of bun.',
   ];
   // Start / Upgrade / Equip: the whole left column steps off to the left (and the tray drops) before the next screen opens
-  // Pre-drawing the screens the base leads to (once, a moment after start, one per beat, onto a scratch canvas): the first draw of Equip / Upgrade builds a lot of cached
-  // pictures and cost 130-270 ms, which showed up as a hitch right when the doors finished opening. Done while the base sits idle instead.
-  const WARM = { n: 0, t: 0, cv: null };
+  // Pre-drawing every screen (and the slide animations) once, while you sit on the Bakery Base or the title screen, one per beat, onto a scratch canvas with the SAME scale as the real one.
+  // The first draw of a screen builds a lot of cached pictures (100-270 ms), which showed up as a hitch the moment a screen or animation first appeared. Done early, it never shows.
+  const WARM = { n: 0, t: 0, cv: null, steps: [
+    c => { for (const e of [.05, .12, .2, .27, .34]) { G.baseGo = { t0: G.time - e, fn: null, door: true, dur: 9 }; drawPrep(c); } },                      // Upgrade / Equip doors + column
+    c => drawEquip(c), c => drawShop(c),
+    c => { for (const id of lineupOf(S).filter(Boolean)) { const a = artFor(id), s = defOf(id).s || 1; for (let w = 0; w < 8; w++) { c.save(); c.translate(100 + w * 10, 400); c.scale(s, s); drawArt(c, a, { walk: w * TAU / 8, pose: 0, hurt: false, t: G.time }); c.restore(); } } },   // the lineup walking (a battle's first frames)
+    c => { G.sec = 0; G.map = null; drawChapters(c); }, c => { G.sec = 0; G.map = null; drawMap(c); },
+    c => { G.trayOut = G.time - .2; G.spIn = G.time - .1; drawSpecial(c); }, c => { G.lgEvent = 1; G.spSel = 1; drawLegendMap(c); },    // Legend: Start slide, event map
+    c => drawUnits(c), c => { G.gachaTab = 'rare'; drawGacha(c); }, c => { G.gachaTab = 'normal'; drawGacha(c); }, c => { G.gachaTab = 'rare'; G.bnInfo = true; drawGacha(c); },
+    c => drawStore(c), c => drawCapsule(c), c => drawMissions(c), c => drawExpo(c), c => drawTreasure(c), c => drawIndex(c), c => drawOrbs(c),
+  ] };
   function warmTick() {
-    if (!HAS_DOM || WARM.n >= 3 || G.screen !== 'prep' || G.baseGo || G.menuOpen || G.goalsOpen || G.rankOpen || G.lbOpen || ACC.el) return;
-    if (!WARM.t) WARM.t = G.time; if (G.time - WARM.t < 1.5) return; WARM.t = G.time - .7;   // first after 1.5 s, then every 0.8 s
-    if (!WARM.cv) { WARM.cv = document.createElement('canvas'); WARM.cv.width = VW; WARM.cv.height = VH; }
-    const c = WARM.cv.getContext('2d'), n0 = UI.btns.length, keep = { u: UPSEL, e: EQSEL, uc: UPCAT, ec: EQCAT, hist: HIST.slice() };
-    try {
-      if (WARM.n === 0) { for (const e of [.05, .12, .2, .27, .34]) { G.baseGo = { t0: G.time - e, fn: null, door: true, dur: BASE_DOOR_DUR + .5 }; drawPrep(c); } G.baseGo = null; }
-      else if (WARM.n === 1) drawEquip(c); else drawShop(c);
-    } catch (e) { G.baseGo = null; }
-    UI.btns.length = n0; G.screen = 'prep'; UPSEL = keep.u; EQSEL = keep.e; UPCAT = keep.uc; EQCAT = keep.ec; G.eqCards = []; HIST.length = 0; keep.hist.forEach(h => HIST.push(h));
-    if (WARM.n === 1) delete CAR['eq:main']; if (WARM.n === 2) delete CAR['up:main'];
+    if (!HAS_DOM || WARM.n >= WARM.steps.length || (G.screen !== 'prep' && G.screen !== 'title') || G.baseGo || G.menuOpen || G.goalsOpen || G.rankOpen || G.lbOpen || G.pick || G.msgBox || ACC.el) return;
+    if (!WARM.t) WARM.t = G.time; if (G.time - WARM.t < 1.5) return; WARM.t = G.time - .7;   // the first after 1.5 s, then one every 0.8 s
+    if (!WARM.cv) WARM.cv = document.createElement('canvas'); if (WARM.cv.width !== canvas.width || WARM.cv.height !== canvas.height) { WARM.cv.width = canvas.width; WARM.cv.height = canvas.height; }
+    const c = WARM.cv.getContext('2d'), n0 = UI.btns.length, sG = Object.assign({}, G), sCar = new Set(Object.keys(CAR)), sSC = Object.assign({}, SC), keep = { u: UPSEL, e: EQSEL, uc: UPCAT, ec: EQCAT, hist: HIST.slice() };
+    c.setTransform(scale, 0, 0, scale, 0, 0); c.globalAlpha = 1;
+    try { WARM.steps[WARM.n](c); } catch (e) { /* a screen that needs more state than this: just skip it */ }
+    for (const k of ['baseGo', 'trayOut', 'spIn', 'sec', 'map', 'lgEvent', 'spSel', 'gachaTab', 'bnInfo', 'eqCards']) { if (sG[k] === undefined) delete G[k]; else G[k] = sG[k]; }   // put back what the steps touch (not the caches the screens keep in G)
+    for (const k of Object.keys(CAR)) if (!sCar.has(k)) delete CAR[k]; Object.assign(SC, sSC);
+    UI.btns.length = n0; UPSEL = keep.u; EQSEL = keep.e; UPCAT = keep.uc; EQCAT = keep.ec; HIST.length = 0; keep.hist.forEach(h => HIST.push(h));
     WARM.n++;
   }
   const BASE_SLIDE = .62, BASE_DOOR_T = .4, BASE_DOOR_DUR = .4;   // the doors open in BASE_DOOR_T seconds, in a straight line; the whole move lasts BASE_DOOR_DUR
@@ -6496,7 +6503,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1212';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1242';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
