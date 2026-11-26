@@ -4310,6 +4310,22 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     'Pest strength is a percentage. Mine is 100%. Of bun.',
   ];
   // Start / Upgrade / Equip: the whole left column steps off to the left (and the tray drops) before the next screen opens
+  // Pre-drawing the screens the base leads to (once, a moment after start, one per beat, onto a scratch canvas): the first draw of Equip / Upgrade builds a lot of cached
+  // pictures and cost 130-270 ms, which showed up as a hitch right when the doors finished opening. Done while the base sits idle instead.
+  const WARM = { n: 0, t: 0, cv: null };
+  function warmTick() {
+    if (!HAS_DOM || WARM.n >= 3 || G.screen !== 'prep' || G.baseGo || G.menuOpen || G.goalsOpen || G.rankOpen || G.lbOpen || ACC.el) return;
+    if (!WARM.t) WARM.t = G.time; if (G.time - WARM.t < 1.5) return; WARM.t = G.time - .7;   // first after 1.5 s, then every 0.8 s
+    if (!WARM.cv) { WARM.cv = document.createElement('canvas'); WARM.cv.width = VW; WARM.cv.height = VH; }
+    const c = WARM.cv.getContext('2d'), n0 = UI.btns.length, keep = { u: UPSEL, e: EQSEL, uc: UPCAT, ec: EQCAT, hist: HIST.slice() };
+    try {
+      if (WARM.n === 0) { for (const e of [.05, .12, .2, .27, .34]) { G.baseGo = { t0: G.time - e, fn: null, door: true, dur: BASE_DOOR_DUR + .5 }; drawPrep(c); } G.baseGo = null; }
+      else if (WARM.n === 1) drawEquip(c); else drawShop(c);
+    } catch (e) { G.baseGo = null; }
+    UI.btns.length = n0; G.screen = 'prep'; UPSEL = keep.u; EQSEL = keep.e; UPCAT = keep.uc; EQCAT = keep.ec; G.eqCards = []; HIST.length = 0; keep.hist.forEach(h => HIST.push(h));
+    if (WARM.n === 1) delete CAR['eq:main']; if (WARM.n === 2) delete CAR['up:main'];
+    WARM.n++;
+  }
   const BASE_SLIDE = .62, BASE_DOOR_T = .4, BASE_DOOR_DUR = .4;   // the doors open in BASE_DOOR_T seconds, in a straight line; the whole move lasts BASE_DOOR_DUR
   function baseSlide(fn, door) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? BASE_DOOR_DUR : BASE_SLIDE }; }
   const baseGoT = () => { const e = G.time - G.baseGo.t0; return G.baseGo.rev ? G.baseGo.dur - e : e; };   // seconds into the slide-away (a reversed one runs backwards)
@@ -6348,7 +6364,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function frame(ts) {
     const raw = (ts - last) / 1000 || 0, dt = Math.min(.05, raw); last = ts; G.time += dt;
-    lvPump(); lbTeamSync(); acctMaybe(); inboxTick();
+    lvPump(); lbTeamSync(); acctMaybe(); inboxTick(); warmTick();
     if (G.screen === 'battle') tickBattle(dt);
     const menu = G.screen !== 'battle' && !G.gacha;
     if (!menu || (frameNo++ & 1) === 0) draw();
@@ -6480,7 +6496,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1208';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1212';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
