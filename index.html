@@ -46,7 +46,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const TAU = Math.PI * 2;
   const VW = 1280, VH = 720, TOP = 52, PANEL_Y = 556, GROUND_Y = 470;
   const STEP = 1 / 60, KB_T = 0.42, REC_T = 0.25;
-  const MAX_UNITS = 40, MAX_FOES = 40, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 30, LINEUP = 10, TEAMS = 5, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
+  const MAX_UNITS = 50, MAX_FOES = 50, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 30, LINEUP = 10, TEAMS = 5, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
   const OUT = '#3a2416';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const rand = (a, b) => a + Math.random() * (b - a);   // looks only (particles, wobble): never use it for anything that changes the outcome of a battle
@@ -712,7 +712,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
 
   const WALLET_INCOME = [14, 20, 27, 35, 44, 54, 65, 78];
   const WALLET_CAP = [500, 800, 1200, 1700, 2300, 3000, 3800, 4800];
-  const WALLET_COST = [70, 150, 250, 380, 540, 740, 950];   // each upgrade costs more than the last, and the step between them grows too (maxing out still costs 3080 dough)
+  const WALLET_COST = [150, 300, 450, 600, 750, 900, 1050];   // like Battle Cats: an upgrade costs the base price times your CURRENT level (maxing out costs 4200 dough)
   // Rolling Pin = Cat Cannon. BC charge bottoms out around 32s, so ours goes 50s (Lv1) -> 32s (Lv10).
   const pinCharge = lv => Math.max(32, 50 - 2 * (lv - 1));
   // Battle Cats "Power Up" menu: Cannon Attack / Range / Charge, Worker Cat Efficiency / Wallet, Base Defense, Research, Accounting, Study.
@@ -2580,6 +2580,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function baseBar(c, x, y, base, color, label) {
     const f = clamp(base.hp / base.maxHp, 0, 1);
     rr(c, x - 72, y, 144, 16, 8, 'rgba(30,20,12,.75)', null); if (f > 0) rr(c, x - 70, y + 2, Math.max(8, 140 * f), 12, 6, color, null);
+    text(c, label + '  ' + Math.ceil(base.hp) + ' / ' + base.maxHp, x, y - 14, 15, '#fff', 'center', 'rgba(30,20,12,.85)');
   }
   function drawOven(c, x, B) {
     const b = B.pbase, t = G.time, sh = 0, sink = B.over === 'lose' ? Math.min(240, B.overT * 150) : 0;
@@ -2800,12 +2801,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (u.state === 'windup') pose = -.4 * Math.sin(Math.min(1, u.t / d.windup) * Math.PI / 2);
     else if (u.state === 'recover') pose = Math.max(0, 1 - u.t / Math.min(.4, backOf(d)));
     const hov = d.hover ? d.hover + Math.sin(u.age * 5 + u.id) * 4 : 0, pop = Math.min(1, .5 + u.age * 4);
-    const sq = u.hurtT > 0 && u.state !== 'kb' ? .1 : 0;
+    const sq = 0;   // no flinch when merely damaged
     c.save(); c.translate(sx, gy - u.hop - hov); c.scale(u.dir * s * pop * (1 + sq), s * pop * (1 - sq));
     if (u.state === 'kb') c.rotate(-.35);
     c.lineCap = 'round';
     const evo = u.side > 0 && tfOn(S, u.type); if (evo) evoAura(c, d);
-    drawArt(c, d.art || u.type, { walk: u.walk, pose, hurt: u.hurtT > 0 || u.state === 'kb', t: u.age + u.id });
+    drawArt(c, d.art || u.type, { walk: u.walk, pose, hurt: u.state === 'kb', t: u.age + u.id });
     if (u.side > 0 && UNITS[u.type] && formOf(S, u.type) >= 1 && !TF_DEF[u.type]) chefHat(c, d);
     if (evo) evoStar(c, d);
     c.restore();
@@ -3128,11 +3129,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       rr(c, 300, 76, 680, 62, 16, 'rgba(30,20,12,.78)', null);
       text(c, 'Click a baker below (or press 1-0) to send it marching!', 640, 96, 18, '#fff3d6', 'center');
       text(c, 'Raise Oven Heat for faster dough.  Drag or ← → to pan, mouse wheel or +/- to zoom.', 640, 120, 15, '#f3d49a', 'center');
-      c.globalAlpha = 1;
-    }
-    if (B.banner) {
-      const k = B.banner.t, a = clamp(Math.min(k * 4, (2.6 - k) * 2), 0, 1);
-      c.globalAlpha = a; c.fillStyle = 'rgba(160,20,20,.82)'; c.fillRect(0, 190, VW, 74);
       c.globalAlpha = 1;
     }
     { const V = lvViewOf(B); drawHud(c, V); drawPanel(c, V); }
@@ -6493,7 +6489,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1325';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1352';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
