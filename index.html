@@ -2650,7 +2650,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.baseGo = null; G.bnInfo = false; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.baseGo = null; if (isBack && screen === 'prep' && (from === 'shop' || from === 'equip')) G.baseGo = { t0: G.time, rev: true, door: true, dur: BASE_DOOR_DUR }; G.bnInfo = false; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -3792,12 +3792,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const fold = UP_FOLDERS.find(f => f.id === UPCAT);
     rr(c, -30, 86, 450, 52, 26, UPSEL && UPSEL.startsWith('b:') ? '#2f7f86' : '#111', null); const selB = !!(UPSEL && UPSEL.startsWith('b:')); if (!(UPCAT === 'main' && UPSEL && UPSEL.startsWith('f:'))) text(c, fold ? fold.one : selB ? 'Power Ups' : 'Bakers', 200, 112, 30, '#fff', 'center', null, HEAD);
     if (!selB) btn(c, 14, 144, 180, 32, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 15, r: 16, color: '#d8d0c0' });
-    { const tkey = UPSEL && UNITS[UPSEL] ? tierOf(UPSEL) : fold && TIERS.includes(fold.id) ? fold.id : null;   // the Golden Cherry / Grain kind this baker (or folder) uses
-      if (tkey) { const x = 1204, y = 108, g2 = c.createRadialGradient(x - 8, y - 10, 3, x, y, 26); g2.addColorStop(0, '#ff8a7a'); g2.addColorStop(1, TIER_COLOR[tkey]);
-        c.beginPath(); c.arc(x, y, 24, 0, TAU); c.fillStyle = g2; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
-        text(c, tkey, x, y, tkey.length > 1 ? 16 : 20, '#fff', 'center', '#111', HEAD);
-        text(c, '🍒 ' + cherryN(S, tkey), x, y + 38, 18, '#ffe135', 'center', '#111', HEAD); text(c, '🌾 ' + grainN(S, tkey), x, y + 60, 18, '#ffe135', 'center', '#111', HEAD); } }
-    // cards
+    { const tkey = UPSEL && UNITS[UPSEL] ? tierOf(UPSEL) : fold && TIERS.includes(fold.id) ? fold.id : null;   // every kind of Golden Cherry in a row; the kind this baker uses is ringed
+      TIERS.forEach((t, i) => { const x = 1040 + i * 52, y = 106, g2 = c.createRadialGradient(x - 6, y - 8, 2, x, y, 20); g2.addColorStop(0, '#ff8a7a'); g2.addColorStop(1, TIER_COLOR[t]);
+        if (t === tkey) { c.beginPath(); c.arc(x, y, 25, 0, TAU); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke(); }
+        c.beginPath(); c.arc(x, y, 20, 0, TAU); c.fillStyle = g2; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 3; c.stroke();
+        text(c, t, x, y, t.length > 1 ? 14 : 18, '#fff', 'center', '#111', HEAD);
+        text(c, String(cherryN(S, t)), x, y + 36, 18, '#ffe135', 'center', '#111', HEAD); }); }
     if (!items.length) text(c, 'No ' + (fold ? fold.label : 'bakers') + ' yet. Find them in the Gacha!', 640, 260, 26, '#7c5432', 'center');
     const order = items.map((k, i) => i).sort((a, b) => Math.abs(b - car.pos) - Math.abs(a - car.pos));
     const openFolder = k => { const id = k.slice(2); UPCAT = id; UPSEL = null; const s = CAR['up:' + id]; if (s) s.sel = undefined; sfx('click'); };
@@ -4180,7 +4180,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const hw = 40 + (open || 0) * 330, x0 = 640 - hw;
     const pg = c.createLinearGradient(x0, 0, x0 + hw * 2, 0); pg.addColorStop(0, '#0d1312'); pg.addColorStop(.25, '#2c3b39'); pg.addColorStop(.5, '#0b1110'); pg.addColorStop(.75, '#2c3b39'); pg.addColorStop(1, '#0d1312');
     c.fillStyle = pg; c.fillRect(x0, 58, hw * 2, 592); c.fillStyle = '#060909'; c.fillRect(637, 58, 6, 592);
-    if (open > 0) { const lg = c.createRadialGradient(640, 350, 10, 640, 350, hw + 60); lg.addColorStop(0, 'rgba(255,243,214,' + (.85 * open) + ')'); lg.addColorStop(1, 'rgba(251,239,204,0)'); c.fillStyle = lg; c.fillRect(x0 - 60, 58, hw * 2 + 120, 592); }   // warm light from the next room
     doorKnob(c, 530 - (open || 0) * 330, 422); doorKnob(c, 752 + (open || 0) * 330, 422);
     // mascot peeking in from the bottom right (behind the bubble and the bottom bar)
     const mid = eq[0] || 'bun', md = defOf(mid), mk = 330 / (md.h + (md.hover || 0) * .5) / 1.25;
@@ -4311,8 +4310,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     'Pest strength is a percentage. Mine is 100%. Of bun.',
   ];
   // Start / Upgrade / Equip: the whole left column steps off to the left (and the tray drops) before the next screen opens
-  const BASE_SLIDE = .62;
-  function baseSlide(fn, door) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? .95 : BASE_SLIDE }; }
+  const BASE_SLIDE = .62, BASE_DOOR_T = .4, BASE_DOOR_DUR = .67;   // the doors open in BASE_DOOR_T seconds, in a straight line; the whole move lasts BASE_DOOR_DUR
+  function baseSlide(fn, door) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? BASE_DOOR_DUR : BASE_SLIDE }; }
+  const baseGoT = () => { const e = G.time - G.baseGo.t0; return G.baseGo.rev ? G.baseGo.dur - e : e; };   // seconds into the slide-away (a reversed one runs backwards)
   function drawBaseSlideAway(c, tt) {
     const p = clamp(tt / BASE_SLIDE, 0, 1), n0 = UI.btns.length, off = i => -Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2) * 470;
     c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip();
@@ -4404,7 +4404,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawPrep(c) {
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     const L = lineupOf(S), eq = L.filter(Boolean), capN = (S.capsule || []).length, tk = S.tickets || 0;
-    baseRoom(c, eq, G.baseGo && G.baseGo.door ? smooth01(clamp((G.time - G.baseGo.t0) / G.baseGo.dur, 0, 1)) : 0);
+    baseRoom(c, eq, G.baseGo && G.baseGo.door ? clamp(baseGoT() / BASE_DOOR_T, 0, 1) : 0);
     // speech bubble: the most useful next step for this save
     const tfReady = UNIT_ORDER.find(id => tfAble(S, id) && grainN(S, tierOf(id)) >= grainCost(id));
     const newSpecial = SPECIALS.find((x, k) => spOpen(S, k) && !S.spDone[x.key]);
@@ -4430,7 +4430,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'tap me for more', bx + bw - 26, by + bh - 20, 14, 'rgba(255,255,255,.5)', 'right'); }
     baseTopBar(c);
     drawSugarSale(c);
-    if (G.baseGo) drawBaseSlideAway(c, G.time - G.baseGo.t0);
+    if (G.baseGo) drawBaseSlideAway(c, baseGoT());
     else { drawRankBar(c);
     // big buttons
     drawBaseButtons(c);
@@ -4442,8 +4442,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (G.goalsOpen) drawGoalsPopup(c);
     if (G.lbOpen) drawLeaderboard(c);
     if (G.rankOpen) drawRankPopup(c);
-    if (G.baseGo && G.baseGo.door) { const a = clamp(((G.time - G.baseGo.t0) / G.baseGo.dur - .6) / .4, 0, 1); if (a > 0) { c.fillStyle = 'rgba(251,239,204,' + a + ')'; c.fillRect(0, 58, VW, 590); } }   // the light fills the screen: the next screen has the same cream background
-    if (G.baseGo && G.time - G.baseGo.t0 >= G.baseGo.dur) { const fn = G.baseGo.fn; G.baseGo = null; fn(); }
+    if (G.baseGo && G.time - G.baseGo.t0 >= G.baseGo.dur) { const fn = G.baseGo.fn; G.baseGo = null; if (fn) fn(); }
   }
 
   // =====================================================================
@@ -6481,7 +6480,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-2327';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1155';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
