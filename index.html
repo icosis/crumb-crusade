@@ -2610,7 +2610,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp')) { if (LV.st === 'search') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp')) { if (LV.st === 'search' || LV.st === 'room') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -3118,7 +3118,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const r = G.result, p = overlayPanel(c, 560, (r.unlocked.length ? 460 : 370) + (r.treasure ? 46 : 0) + (r.orb ? 46 : 0));
       text(c, r.draw ? 'DRAW' : r.win ? 'VICTORY!' : 'BURNT OUT...', 640, p.y + 62, 54, r.win ? '#e2483a' : '#6d5f50', 'center', OUT, HEAD);
       // headline under VICTORY: an unlock (new section / new map) gets its own red line, with the usual note underneath
-      const sub = r.pvp ? (r.pvp.desync ? 'The two devices disagreed, so this match does not count.' : r.pvp.conflict ? 'The two reports disagreed: no rating change.' : r.pvp.waiting ? 'Waiting for the other player to report…' : r.draw ? 'Draw: no rating change.' : r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
+      const sub = r.pvp ? (r.pvp.desync ? 'The two devices disagreed, so this match does not count.' : r.pvp.casual ? 'Casual match: no rating change.' : r.pvp.conflict ? 'The two reports disagreed: no rating change.' : r.pvp.waiting ? 'Waiting for the other player to report…' : r.draw ? 'Draw: no rating change.' : r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
       const unlock = r.newSec >= 0 ? 'SECTION ' + (r.newSec + 1) + ' UNLOCKED: ' + SECTIONS[r.newSec].name + '  ·  Lv cap ' + lvCap(S) : r.newMap >= 0 ? 'NEW MAP UNLOCKED: ' + MAPS[r.newMap].name + ' (' + MAPS[r.newMap].diff + ')' : '';
       if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
       else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
@@ -4644,7 +4644,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function lvReset() { lvClose(); LV.st = 'idle'; LV.m = null; LV.L = null; LV.peerReady = false; LV.myReady = false; LV.view = null; LV.ff = false; LV.desyncShown = false; liveEndSeed(); }
   function lvRecv(str) {
     let m; try { m = JSON.parse(str); } catch (e) { return; } if (!m || typeof m !== 'object') return; LV.lastRecv = lvNow();
-    if (m.type === 'ready') LV.peerReady = true;
+    if (m.type === 'ready') { LV.peerReady = true; if (LV.st === 'play') lvSend({ type: 'ready' }); }   // a late-comer may still be waiting to hear it
     else if (m.type === 'peer') { if (m.on && LV.st === 'ready') lvSend({ type: 'ready' }); }
     else if (m.type === 'bye') { LV.peerBye = true; }
     else if (LV.L) liveRecv(LV.L, m);
@@ -4664,9 +4664,28 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       await lvSleep(1100);
     }
   }
-  async function lvCancel() { LV.polling++; const was = LV.st; lvReset(); if (was === 'search' && LB.me) { try { await lbCall('POST', '/api/live/cancel', { id: LB.me.id, token: LB.me.token }); } catch (e) {} } }
+  async function lvCasualCreate() {   // casual: open a room, show its code, wait for the friend to type it in
+    if (!apiBase() || !LB.me) return; const team = pvpTeamNow(); if (!team.length) { sfx('deny'); toast('Equip some bakers first.'); return; }
+    lvReset(); LV.err = ''; const my = ++LV.polling;
+    try { const j = await lbCall('POST', '/api/live/room', { id: LB.me.id, token: LB.me.token, team }); if (LV.polling !== my) return; LV.st = 'room'; LV.code = j.code; LV.t0 = G.time; sfx('click'); }
+    catch (e) { LV.err = 'Could not open a room (' + String((e && e.message) || e).slice(0, 60) + ')'; return; }
+    while (LV.st === 'room' && LV.polling === my) {
+      await lvSleep(1200); if (LV.st !== 'room' || LV.polling !== my) return;
+      try { const r = await lbCall('POST', '/api/live/poll', { id: LB.me.id, token: LB.me.token }); if (LV.st !== 'room' || LV.polling !== my) return; if (r.st === 'matched') { lvMatched(r); return; } }
+      catch (e) { if (LV.polling === my) { LV.st = 'idle'; LV.err = 'Lost the connection to the server.'; } return; }
+      if (G.time - LV.t0 > 590) { lvCancel(); LV.err = 'The room timed out.'; return; }
+    }
+  }
+  async function lvCasualJoin() {     // casual: type a friend's room code
+    if (!apiBase() || !LB.me) return; const team = pvpTeamNow(); if (!team.length) { sfx('deny'); toast('Equip some bakers first.'); return; }
+    let code; try { code = window.prompt('Type your friend\'s room code (5 letters or numbers):', ''); } catch (e) { code = null; } if (!code || !code.trim()) return;
+    lvReset(); LV.err = ''; LV.st = 'joining';
+    try { const j = await lbCall('POST', '/api/live/join', { id: LB.me.id, token: LB.me.token, code, team }); lvMatched(j); }
+    catch (e) { LV.st = 'idle'; LV.err = String((e && e.message) || e).slice(0, 80); }
+  }
+  async function lvCancel() { LV.polling++; const was = LV.st; lvReset(); if ((was === 'search' || was === 'room') && LB.me) { try { await lbCall('POST', '/api/live/cancel', { id: LB.me.id, token: LB.me.token }); } catch (e) {} } }
   function lvMatched(j) {
-    LV.m = j; LV.st = 'ready'; LV.t0 = G.time; LV.t0n = lvNow(); LV.peerReady = false; LV.myReady = false; sfx('boss');
+    LV.m = j; LV.st = 'ready'; LV.t0 = G.time; LV.t0n = lvNow(); LV.myReady = false; sfx('boss');   // (a 'ready' that already arrived from the other side is kept)
     try { LV.tr = (LV.connect || lvWebSocket)(j); } catch (e) { LV.st = 'idle'; LV.err = 'Could not open the live connection.'; }
   }
   function lvBegin() {   // both are connected and ready: start the shared battle
@@ -4707,15 +4726,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function lvFinish() {
     if (G.result) return; const L = LV.L, B = L.B, over = B.over, draw = over === 'draw', voided = over === 'void', win = !draw && !voided && (over === 'win') === (L.side === 1);
-    const crumbs = voided ? 0 : win ? 800 : draw ? 300 : 150; S.crumbs += crumbs; persist(); if (win) markDirty();
-    G.result = { win, draw, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: 0, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: 0, pvp: { opp: LV.m.opp.name, live: true, desync: voided } };
+    const casual = !!(LV.m && LV.m.casual), crumbs = voided ? 0 : casual ? (win ? 100 : draw ? 75 : 50) : win ? 800 : draw ? 300 : 150; S.crumbs += crumbs; persist(); if (win) markDirty();
+    G.result = { win, draw, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: 0, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: 0, pvp: { opp: LV.m.opp.name, live: true, desync: voided, casual } };
     lvSend({ type: 'done' }); LV.st = 'over'; if (!voided) lvReport(win, draw, LV.ff); setTimeout(lvClose, 2500);   // 'done' is NOT a quit: the other device may still be a few ticks behind
   }
   async function lvReport(win, draw, ff) {
     const r = G.result, m = LV.m;
     for (let i = 0; i < 8; i++) {
       try { const j = await lbCall('POST', '/api/live/result', { id: LB.me.id, token: LB.me.token, match: m.match, win: draw ? null : win, ff: !!ff }); if (j.pending) { await lvSleep(2000); continue; }
-        r.pvp = Object.assign(r.pvp, { rating: j.rating, delta: j.delta, conflict: !!j.conflict }); G.pvpd = null; return; }
+        r.pvp = Object.assign(r.pvp, { rating: j.rating, delta: j.delta, conflict: !!j.conflict, casual: r.pvp.casual || !!j.casual }); G.pvpd = null; return; }
       catch (e) { r.pvp.err = true; return; }
     }
     r.pvp.waiting = true;
@@ -4730,19 +4749,30 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function drawLivePane(c, me, D) {
     rr(c, 430, 76, 810, 566, 16, 'rgba(0,0,0,.35)', '#111', 3);
-    const cx = 835, dots = '.'.repeat(1 + Math.floor(G.time * 2) % 3);
+    const cx = 835, dots = '.'.repeat(1 + Math.floor(G.time * 2) % 3), mode = G.lvMode === 'casual' ? 'casual' : 'ranked', busy = LV.st !== 'idle';
+    if (!busy) [['ranked', 'Ranked  ·  random opponent', 450], ['casual', 'Casual  ·  pick your opponent', 840]].forEach(([k, l, x]) => btn(c, x, 92, 380, 44, l, () => { G.lvMode = k; LV.err = ''; sfx('click'); }, { r: 16, size: 20, color: mode === k ? '#ffd24a' : '#f3d49a' }));
     if (LV.st === 'search') {
       text(c, 'Looking for an opponent' + dots, cx, 250, 34, '#fff', 'center', '#000', HEAD); text(c, Math.floor(G.time - LV.t0) + ' s', cx, 296, 22, '#f0d8d0', 'center');
       text(c, 'Another player has to press Find at the same time.', cx, 336, 17, '#d8bfb8', 'center'); baseBtn(c, cx - 110, 380, 220, 64, 'Cancel', () => lvCancel(), { size: 32 });
+    } else if (LV.st === 'room') {
+      text(c, 'Your room code', cx, 200, 26, '#f0d8d0', 'center'); rr(c, cx - 190, 224, 380, 120, 20, '#fff3d6', '#4a2f12', 5); text(c, LV.code || '', cx, 288, 84, '#4a2f12', 'center', null, HEAD);
+      text(c, 'Tell your friend to press "Join with a code" and type it in.', cx, 386, 18, '#f0d8d0', 'center'); text(c, 'Waiting for them' + dots, cx, 424, 20, '#ffd24a', 'center');
+      baseBtn(c, cx - 110, 470, 220, 60, 'Cancel', () => lvCancel(), { size: 30 });
+    } else if (LV.st === 'joining') {
+      text(c, 'Joining' + dots, cx, 300, 36, '#fff', 'center', '#000', HEAD);
     } else if (LV.st === 'ready' && LV.m) {
-      text(c, 'Match found!', cx, 230, 40, '#ffd24a', 'center', '#000', HEAD); text(c, LV.m.opp.name + '   ·   Rating ' + LV.m.opp.rating, cx, 290, 28, '#fff', 'center', '#000', HEAD);
+      text(c, LV.m.casual ? 'Casual match!' : 'Match found!', cx, 230, 40, '#ffd24a', 'center', '#000', HEAD); text(c, LV.m.opp.name + '   ·   Rating ' + LV.m.opp.rating, cx, 290, 28, '#fff', 'center', '#000', HEAD);
       text(c, LV.peerReady ? 'Starting' + dots : 'Connecting' + dots, cx, 340, 22, '#f0d8d0', 'center');
+    } else if (mode === 'casual') {
+      text(c, 'Casual Live Battle', cx, 200, 44, '#fff', 'center', '#000', HEAD); text(c, 'Pick who you fight: a friend you share a code with.', cx, 246, 20, '#f0d8d0', 'center');
+      ['One of you presses Create a room and gets a code.', 'The other presses Join with a code and types it in.', 'Same rules as ranked, but the result never changes your rating.'].forEach((t, i) => text(c, t, cx, 296 + i * 28, 16, '#d8bfb8', 'center'));
+      baseBtn(c, 470, 410, 340, 80, 'Create a room', () => lvCasualCreate(), { size: 34 }); baseBtn(c, 860, 410, 340, 80, 'Join with a code', () => lvCasualJoin(), { size: 34 });
+      if (LV.err) text(c, LV.err, cx, 530, 17, '#ffb3a8', 'center'); text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers).', cx, 580, 15, '#d8bfb8', 'center');
     } else {
-      text(c, 'Live Battle', cx, 190, 48, '#fff', 'center', '#000', HEAD); text(c, 'Fight a real player, right now, in real time.', cx, 240, 22, '#f0d8d0', 'center');
-      ['Both of you play at once: deploy bakers and upgrade your Oven Heat.', 'Destroy their oven before they destroy yours. 5 minutes, then the healthier oven wins.', 'Same rules for both: your bakers\' levels count, but no items, combos or Rolling Pin.'].forEach((t, i) => text(c, t, cx, 292 + i * 28, 16, '#d8bfb8', 'center'));
+      text(c, 'Ranked Live Battle', cx, 200, 44, '#fff', 'center', '#000', HEAD); text(c, 'Fight a real player, right now. Random opponent, your rating counts.', cx, 246, 20, '#f0d8d0', 'center');
+      ['Both of you play at once: deploy bakers and upgrade your Oven Heat.', 'Destroy their oven before they destroy yours. 5 minutes, then the healthier oven wins.', 'Same rules for both: your bakers\' levels count, but no items, combos or Rolling Pin.'].forEach((t, i) => text(c, t, cx, 296 + i * 28, 16, '#d8bfb8', 'center'));
       baseBtn(c, cx - 150, 410, 300, 80, 'Find a match', () => lvFind(), { size: 36 });
-      if (LV.err) text(c, LV.err, cx, 530, 17, '#ffb3a8', 'center');
-      text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers).', cx, 580, 15, '#d8bfb8', 'center');
+      if (LV.err) text(c, LV.err, cx, 530, 17, '#ffb3a8', 'center'); text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers).', cx, 580, 15, '#d8bfb8', 'center');
     }
   }
   function drawMenuPopup(c) {
@@ -6139,9 +6169,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-1848';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-1910';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
