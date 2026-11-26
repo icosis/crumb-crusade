@@ -711,7 +711,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const mapOpen = (save, m) => save.cleared >= MAPS[m].first;
 
   const WALLET_INCOME = [11, 15, 20, 26, 33, 41, 49, 59];   // dough per second at each Oven Heat level (was 14 to 78: it filled up too fast)
-  const WALLET_CAP = [500, 800, 1200, 1700, 2300, 3000, 3800, 4800];
+  const WALLET_BASE = 100, WALLET_PER = 400;   // like Battle Cats: wallet = a base + a bonus for every Oven Heat level reached in the stage (Lv1 500 ... Lv8 3300)
+  function walletCap(l) { return WALLET_BASE + WALLET_PER * l; }
   const WALLET_COST = [300, 600, 900, 1200, 1500, 1800, 2100];   // like Battle Cats: an upgrade costs the base price times your CURRENT level (the last one, to Lv 8, costs 2100; maxing out costs 8400 dough)
   // Rolling Pin = Cat Cannon. BC charge bottoms out around 32s, so ours goes 50s (Lv1) -> 32s (Lv10).
   const pinCharge = lv => Math.max(32, 50 - 2 * (lv - 1));
@@ -1353,7 +1354,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     };
   }
   const income = B => WALLET_INCOME[B.wallet - 1] * B.incomeMul;
-  const cap = B => Math.round(WALLET_CAP[B.wallet - 1] * (B.capMul || 1));
+  const cap = B => Math.round(walletCap(B.wallet) * (B.capMul || 1));
   // income never pushes dough past the wallet cap, but never trims it either (a Rich Bun can start you above the cap)
   const addMoney = (B, v) => { if (B.money < cap(B)) B.money = Math.min(cap(B), B.money + v); };
   const walletCost = B => (B.wallet >= 8 ? Infinity : WALLET_COST[B.wallet - 1]);
@@ -1732,7 +1733,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     liveBuildP2(B, teamB, fb); B.live = true; return B;
   }
   function pvEco(B, dt) {                  // player 2's money, same wallet rules as player 1
-    const P = B.pv; P.t += dt; const capm = WALLET_CAP[P.wl - 1];
+    const P = B.pv; P.t += dt; const capm = walletCap(P.wl);
     if (P.money < capm) P.money = Math.min(capm, P.money + WALLET_INCOME[P.wl - 1] * dt);
   }
   function liveApplyCmd(B, c) {
@@ -4649,7 +4650,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // the opponent's turn: money like a player's wallet, then deploy what it can afford (big units when rich, cheap ones when few are out)
   function pvpStep(B, dt) {
     const P = B.pv || pvpInit(B); P.t += dt;
-    const wl = Math.min(8, 1 + Math.floor(P.t / 40)), capm = WALLET_CAP[wl - 1];
+    const wl = Math.min(8, 1 + Math.floor(P.t / 40)), capm = walletCap(wl);
     if (P.money < capm) P.money = Math.min(capm, P.money + WALLET_INCOME[wl - 1] * dt);
     P.think -= dt; if (P.think > 0) return; P.think = .5 + Math.random() * .6;
     if (countSide(B, -1) >= 24) return;
@@ -6521,7 +6522,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1420';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1620';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
