@@ -712,7 +712,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
 
   const WALLET_INCOME = [14, 20, 27, 35, 44, 54, 65, 78];
   const WALLET_CAP = [500, 800, 1200, 1700, 2300, 3000, 3800, 4800];
-  const WALLET_COST = [150, 300, 450, 600, 750, 900, 1050];   // like Battle Cats: an upgrade costs the base price times your CURRENT level (maxing out costs 4200 dough)
+  const WALLET_COST = [300, 600, 900, 1200, 1500, 1800, 2100];   // like Battle Cats: an upgrade costs the base price times your CURRENT level (the last one, to Lv 8, costs 2100; maxing out costs 8400 dough)
   // Rolling Pin = Cat Cannon. BC charge bottoms out around 32s, so ours goes 50s (Lv1) -> 32s (Lv10).
   const pinCharge = lv => Math.max(32, 50 - 2 * (lv - 1));
   // Battle Cats "Power Up" menu: Cannon Attack / Range / Charge, Worker Cat Efficiency / Wallet, Base Defense, Research, Accounting, Study.
@@ -2651,7 +2651,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
     UI.btns.length = 0; G.hdrag = G.sdrag = G.sldrag = G.rdrag = G.stDrag = G.dnd = G.drag = null;   // (a tap that lands before the next frame must not press a button of the screen we just left)
-    G.screen = screen; G.baseGo = null; if (isBack && screen === 'prep' && (from === 'shop' || from === 'equip')) G.baseGo = { t0: G.time, rev: true, door: true, dur: BASE_DOOR_DUR }; G.bnInfo = false; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.stInfo = false; G.baseGo = null; if (isBack && screen === 'prep' && (from === 'shop' || from === 'equip')) G.baseGo = { t0: G.time, rev: true, door: true, dur: BASE_DOOR_DUR }; G.bnInfo = false; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -3512,10 +3512,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const w = W * k, h = H * k;
       hit(cx - w / 2, top, w, h, i === cur ? () => {} : () => { if (s2.open) { car.target = i; sfx('click'); } else { sfx('deny'); toast('Clear the previous stage first.'); } });
     }
-    // stats under the centre tab (where Battle Cats shows Energy / Cleared)
-    text(c, 'Pest strength', 552, 196, 22, '#fff', 'left', '#2b1a0e', HEAD); text(c, Math.round(st.mag * 100) + '%', 830, 196, 26, '#9be3ff', 'right', '#2b1a0e', HEAD);
-    text(c, 'Bin HP', 552, 232, 22, '#fff', 'left', '#2b1a0e', HEAD); text(c, String(st.hp), 830, 232, 26, '#fff', 'right', '#2b1a0e', HEAD);
-    (st.pests || []).slice(0, 7).forEach((id, j) => { const x = 552 + j * 48; rr(c, x, 252, 44, 44, 8, FOES[id].boss ? '#ffc9c0' : 'rgba(255,250,235,.85)', 'rgba(58,36,22,.5)', 2); c.save(); c.beginPath(); c.rect(x + 1, 253, 42, 42); c.clip(); c.translate(x + 22, 0); c.scale(-1, 1); portrait(c, id, 0, 292, 32); c.restore(); });
+    // under the centre tab: just an Info button (the pest strength, the bin's health and the pests of the stage are in its pop-up)
+    { const x = 552, y = 196, w = 150, h = 46, hv = inside(x, y, w, h), g5 = c.createLinearGradient(0, y, 0, y + h); g5.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g5.addColorStop(1, '#e0a000');
+      rr(c, x, y + 4, w, h, 14, 'rgba(0,0,0,.3)', null); rr(c, x, y, w, h, 14, g5, '#111', 4); dot(c, x + 28, y + h / 2, 14, '#fff'); text(c, 'i', x + 28, y + h / 2 + 1, 22, '#2b1a0e', 'center', null, HEAD); text(c, 'Info', x + 88, y + h / 2 + 1, 26, '#fff', 'center', '#111', HEAD);
+      hit(x, y, w, h, () => { G.stInfo = true; sfx('click'); }); }
     if (st.first) { rr(c, 846, 186, 236, 56, 14, '#3fd6d0', '#fff', 3); poly(c, [846, 200, 832, 186, 858, 190], '#3fd6d0', null); text(c, 'First clear: ×2 reward', 964, 214, 16, '#fff', 'center', '#1f6a66', HEAD); }
     // ---- bottom right: reward, Equip, Attack!, items ----
     { const x = 920, y = 410, w = 330, h = 46, g2 = c.createLinearGradient(0, y, 0, y + h); g2.addColorStop(0, '#ffd23a'); g2.addColorStop(1, '#e0a000');
@@ -3541,6 +3541,21 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (cfg.title) fitLine(c, cfg.title, 640, 30, 420, 20, '#fff3d6', 'center');
     rr(c, 1000, 9, 254, 40, 20, '#2b1a0e', '#e0b060', 3); crumbIcon(c, 1026, 29, 13); text(c, String(S.crumbs), 1236, 30, 25, '#ffd24a', 'right');
     baseBottom(c, cfg.back);
+    if (G.stInfo) drawStageInfo(c, st);
+  }
+  // the stage's Info pop-up: pest strength, the bin's health and which pests come
+  function drawStageInfo(c, st) {
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => { G.stInfo = false; sfx('click'); });
+    const x = 340, y = 100, w = 600, h = 490;
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#fff3d6', '#111', 5); hit(x, y, w, h, () => {});
+    fitLine(c, st.name, x + w / 2, y + 40, w - 60, 32, OUT, 'center');
+    text(c, 'Pest strength', x + 40, y + 96, 24, '#7c5432', 'left'); text(c, Math.round(st.mag * 100) + '%', x + w - 40, y + 96, 30, '#2a7fb8', 'right', null, HEAD);
+    text(c, 'Bin HP', x + 40, y + 140, 24, '#7c5432', 'left'); text(c, String(st.hp), x + w - 40, y + 140, 30, OUT, 'right', null, HEAD);
+    text(c, 'Pests in this stage', x + w / 2, y + 190, 22, '#7c5432', 'center');
+    (st.pests || []).slice(0, 12).forEach((id, j) => { const px = x + 34 + (j % 4) * 138, py = y + 212 + Math.floor(j / 4) * 90, f = FOES[id];
+      rr(c, px, py, 128, 84, 10, f.boss ? '#ffc9c0' : '#f3e6c8', 'rgba(58,36,22,.5)', 2); c.save(); c.beginPath(); c.rect(px + 2, py + 2, 124, 80); c.clip(); c.translate(px + 64, 0); c.scale(-1, 1); portrait(c, id, 0, py + 56, 52); c.restore();
+      fitLine(c, f.name, px + 64, py + 71, 120, 13, OUT, 'center'); });
+    baseBtn(c, x + w / 2 - 90, y + h - 66, 180, 50, 'Close', () => { G.stInfo = false; sfx('click'); }, { size: 26 });
   }
 
   // main stages: every stage of the section you have reached sits in the tab strip; the map shows the current map's 5 stops
@@ -6489,7 +6504,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1352';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1358';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
