@@ -2580,10 +2580,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function baseBar(c, x, y, base, color, label) {
     const f = clamp(base.hp / base.maxHp, 0, 1);
     rr(c, x - 72, y, 144, 16, 8, 'rgba(30,20,12,.75)', null); if (f > 0) rr(c, x - 70, y + 2, Math.max(8, 140 * f), 12, 6, color, null);
-    text(c, label + '  ' + Math.ceil(base.hp) + ' / ' + base.maxHp, x, y - 14, 15, '#fff', 'center', 'rgba(30,20,12,.85)');
   }
   function drawOven(c, x, B) {
-    const b = B.pbase, t = G.time, sh = b.shake > 0 ? Math.sin(t * 90) * 5 : 0, sink = B.over === 'lose' ? Math.min(240, B.overT * 150) : 0;
+    const b = B.pbase, t = G.time, sh = 0, sink = B.over === 'lose' ? Math.min(240, B.overT * 150) : 0;
     c.save(); c.beginPath(); c.rect(x - 200, 0, 400, GROUND_Y + 16); c.clip();
     c.translate(x + sh, GROUND_Y + 14 + sink);
     rr(c, -56, -262, 36, 80, 4, '#9c4a35'); rr(c, -61, -270, 46, 14, 4, '#7c3324');
@@ -2600,7 +2599,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (!B.over) baseBar(c, x, GROUND_Y - 300, b, '#6fd36a', 'OVEN');
   }
   function drawBin(c, x, B) {
-    const b = B.ebase, t = G.time, sh = b.shake > 0 ? Math.sin(t * 90) * 5 : 0, sink = B.over === 'win' ? Math.min(260, B.overT * 150) : 0;
+    const b = B.ebase, t = G.time, sh = 0, sink = B.over === 'win' ? Math.min(260, B.overT * 150) : 0;
     c.save(); c.beginPath(); c.rect(x - 200, 0, 400, GROUND_Y + 16); c.clip();
     c.translate(x + sh, GROUND_Y + 14 + sink); if (sink) c.rotate(Math.min(.25, B.overT * .2));
     for (let i = 0; i < 3; i++) { const p = (t * .3 + i / 3) % 1; c.globalAlpha = (1 - p) * .5; c.beginPath(); for (let k = 0; k <= 8; k++) { const yy = -214 - p * 50 - k * 6; c.lineTo(-40 + i * 40 + Math.sin(k * 1.1 + t * 3 + i) * 6, yy); } c.strokeStyle = '#8fd43a'; c.lineWidth = 3; c.stroke(); } c.globalAlpha = 1;
@@ -2650,6 +2649,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
+    UI.btns.length = 0; G.hdrag = G.sdrag = G.sldrag = G.rdrag = G.stDrag = G.dnd = G.drag = null;   // (a tap that lands before the next frame must not press a button of the screen we just left)
     G.screen = screen; G.baseGo = null; if (isBack && screen === 'prep' && (from === 'shop' || from === 'equip')) G.baseGo = { t0: G.time, rev: true, door: true, dur: BASE_DOOR_DUR }; G.bnInfo = false; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
@@ -2951,7 +2951,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }    for (const r of B.rings) { const k = r.t / r.dur; c.beginPath(); c.ellipse(r.x - G.cam, r.y + 40, r.r0 + (r.r1 - r.r0) * k, (r.r0 + (r.r1 - r.r0) * k) * .28, 0, 0, TAU); c.strokeStyle = r.color + (1 - k) + ')'; c.lineWidth = 8 * (1 - k) + 2; c.stroke(); }
     for (const p of B.parts) { c.globalAlpha = 1 - p.life / p.max; c.fillStyle = p.color; c.fillRect(p.x - G.cam - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     c.globalAlpha = 1;
-    for (const n of B.nums) { c.globalAlpha = clamp(1.6 - n.t * 2, 0, 1); text(c, n.text, n.x - G.cam, n.y, 18, n.color, 'center', 'rgba(30,20,12,.9)'); }
     c.globalAlpha = 1;
   }
   function drawHud(c, B) {
@@ -2962,7 +2961,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     btn(c, 126, 8, 44, 34, S.muted ? '✕' : '♪', () => { S.muted = !S.muted; persist(); }, { r: 9, size: 18, color: '#f3d49a' });
     // Cat CPU (Battle Cats' auto-battle item): plays the battle for you while switched on. You can still deploy by hand.
     if (!B.live) btn(c, 178, 8, 72, 34, G.auto ? 'CPU ON' : 'CPU', () => { G.auto = !G.auto; S.cpu = G.auto; persist(); sfx('click'); toast(G.auto ? 'Cat CPU on: it will fight for you.' : 'Cat CPU off.'); }, { r: 9, size: 14, color: G.auto ? '#9be37a' : '#f3d49a' });
-    fitText(c, stageLabel(B.idx) + '  ' + B.st.name, 262, 26, 200, 19, '#fff3d6');
     // minimap
     const mx = 470, mw = 420, my = 17, mh = 18, k = mw / B.len;
     rr(c, mx, my, mw, mh, 6, 'rgba(255,255,255,.12)', null);
@@ -2983,15 +2981,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // wallet
     const wc = walletCost(B), canW = B.money >= wc, maxed = B.wallet >= 8;
     let pr = btn(c, 10, y, 168, h, '', tryWallet, { color: maxed ? '#c9bba3' : canW ? '#9be37a' : '#b9a98f' });
-    text(c, 'OVEN HEAT', 94, y + 22 + pr, 16, OUT, 'center');
-    text(c, 'Lv ' + B.wallet, 94, y + 56 + pr, 34, OUT, 'center', null, HEAD);
-    if (maxed) text(c, 'MAX', 94, y + 104 + pr, 22, OUT, 'center');
-    else { text(c, 'Upgrade', 94, y + 92 + pr, 15, OUT, 'center'); doughIcon(c, 70, y + 115 + pr, 9); text(c, String(wc), 84, y + 116 + pr, 20, OUT); }
-    text(c, 'Q', 24, y + 16 + pr, 13, 'rgba(58,36,22,.6)', 'center');
+    { const fy = y + 40 + pr, fl = Math.sin(G.time * 9) * 2; poly(c, [-16, 26, -20, -4 + fl, -7, 8, 0, -26 - fl, 7, 6, 19, -8 + fl, 16, 26].map((v, i) => (i % 2 ? fy + v : 94 + v)), '#ff9d2e', OUT, 3); poly(c, [-6, 26, -5, 6, 1, -6 - fl, 7, 26].map((v, i) => (i % 2 ? fy + v : 94 + v)), '#ffe27a', null); }   // a flame: Oven Heat
+    text(c, 'Lv ' + B.wallet, 94, y + 86 + pr, 34, OUT, 'center', null, HEAD);
+    if (!maxed) { doughIcon(c, 70, y + 115 + pr, 9); text(c, String(wc), 84, y + 116 + pr, 20, OUT); }
     // units
     for (let i = 0; i < LINEUP; i++) {
       const id = B.roster[i], d = UNITS[id], x = 190 + i * 89, w = 84;
-      if (!id) { rr(c, x, y, w, h, 12, '#4a3020', '#2a1a10'); text(c, 'Empty', x + w / 2, y + h / 2, 14, '#8a6a4c', 'center'); continue; }
+      if (!id) { rr(c, x, y, w, h, 12, '#4a3020', '#2a1a10'); continue; }
       const rc = B.recharge[id] || 0, can = B.money >= d.cost && rc <= 0, hov = inside(x, y, w, h), press = hov && G.down && can ? 3 : 0;
       rr(c, x, y + 5, w, h, 12, 'rgba(0,0,0,.3)', null);
       rr(c, x, y + press, w, h, 12, can ? (hov ? '#fffaf0' : '#fdeecb') : '#b3a48c');
@@ -3010,9 +3006,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     pr = btn(c, px, y, pw, h, '', tryPin, { color: ready ? (Math.sin(G.time * 8) > 0 ? '#ffd24a' : '#ffb02e') : '#b9a98f' });
     c.save(); c.translate(px + pw / 2, y + 48 + pr); c.rotate(-.25);
     rr(c, -64, -6, 128, 12, 6, '#8a5a2a', OUT, 2.5); rr(c, -42, -16, 84, 32, 12, '#d9a05a', OUT, 3); rr(c, -36, -12, 72, 8, 4, 'rgba(255,240,200,.5)', null); c.restore();
-    text(c, ready ? 'ROLL OUT!' : 'ROLLING PIN', px + pw / 2, y + 92 + pr, 17, OUT, 'center');
     rr(c, px + 16, y + 108 + pr, pw - 32, 14, 7, 'rgba(30,20,12,.6)', null); if (f > .04) rr(c, px + 18, y + 110 + pr, (pw - 36) * f, 10, 5, ready ? '#fff' : '#ff8a2a', null);
-    text(c, 'SPACE', px + 30, y + 16 + pr, 12, 'rgba(58,36,22,.6)', 'center');
   }
   function overlayPanel(c, w, h) {
     UI.btns.length = 0;
@@ -3093,9 +3087,6 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function drawTutorial(c, B) {
     const t = tutorialTip(B);
-    rr(c, 270, 62, 740, 76, 16, 'rgba(30,20,12,.88)', '#ffd24a', 3);
-    text(c, t.msg, 640, 90, 25, '#fff3d6', 'center');
-    fitText(c, t.sub, 640, 120, 700, 16, '#f3d49a', 'center');
     if (t.ring) { const p = Math.sin(G.time * 6), e = 4 + p * 2; c.globalAlpha = .75 + .25 * p; rr(c, t.ring[0] - e, t.ring[1] - e, t.ring[2] + e * 2, t.ring[3] + e * 2, 14, null, '#ffd24a', 5); c.globalAlpha = 1; }
   }
   // Tactics tips for stages 1-2 to 1-5 (first time only): one short lesson at a time, like a coach.
@@ -3122,18 +3113,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawBattle(c) {
     const B = G.battle, th = THEMES[B.st.theme];
     c.save();
-    if (B.shake > 0) c.translate((Math.random() - .5) * B.shake * 26, (Math.random() - .5) * B.shake * 26);
     drawBackdrop(c, th, G.cam);
     c.save(); c.translate(0, GROUND_Y); c.scale(G.zoom, G.zoom); c.translate(0, -GROUND_Y);
     drawOven(c, 110 - G.cam, B); drawBin(c, B.len - 110 - G.cam, B);
-    drawRangeMarks(c, B);
+    G.hoverUnit = null; G.rangePreview = null;   // (no range arrows on the ground: show, don't tell)
     const list = B.units.slice().sort((a, b) => a.lane - b.lane);
     for (const u of list) { const sx = u.x - G.cam; if (sx > -260 && sx < VW / G.zoom + 260) drawUnit(c, u, sx + (u.jx || 0)); }
     if (B.pin) drawPin(c, B.pin);
     drawWorldFx(c, B);
     c.restore();
     c.restore();
-    if (B.idx === 0 && B.time < 14 && !B.over && !inTutorial(B.idx)) {
+    if (false) {
       c.globalAlpha = clamp(14 - B.time, 0, 1);
       rr(c, 300, 76, 680, 62, 16, 'rgba(30,20,12,.78)', null);
       text(c, 'Click a baker below (or press 1-0) to send it marching!', 640, 96, 18, '#fff3d6', 'center');
@@ -3143,12 +3133,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (B.banner) {
       const k = B.banner.t, a = clamp(Math.min(k * 4, (2.6 - k) * 2), 0, 1);
       c.globalAlpha = a; c.fillStyle = 'rgba(160,20,20,.82)'; c.fillRect(0, 190, VW, 74);
-      text(c, B.banner.text, 640 + (1 - a) * 80, 228, 40, '#fff', 'center', '#3a0c0c', HEAD); c.globalAlpha = 1;
+      c.globalAlpha = 1;
     }
     { const V = lvViewOf(B); drawHud(c, V); drawPanel(c, V); }
     if (inTutorial(B.idx) && !B.over && !G.result && !G.paused) drawTutorial(c, B);
-    else if (!B.over && !G.result && !G.paused) drawStageTips(c, B);
-    if (B.combos && B.combos.length && B.time < 7 && !B.over && !G.result && !G.paused) {   // which Bakery Combos are working this battle
+    if (false) {   // which Bakery Combos are working this battle
       const txt = 'Combo' + (B.combos.length > 1 ? 's' : '') + ': ' + B.combos.map(cb => cb.name + ' (' + comboText(cb.eff) + ')').join('   ·   ');
       c.globalAlpha = clamp((7 - B.time) * 2, 0, 1); c.font = 'bold 15px ' + FONT; const cw = Math.min(1180, c.measureText(txt).width + 40);
       rr(c, 640 - cw / 2, 146, cw, 30, 15, 'rgba(30,20,12,.82)', null); fitText(c, txt, 640, 162, cw - 30, 15, '#ffd24a', 'center'); c.globalAlpha = 1;
@@ -4334,7 +4323,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     WARM.n++;
   }
   const BASE_SLIDE = .62, BASE_DOOR_T = .4, BASE_DOOR_DUR = .4;   // the doors open in BASE_DOOR_T seconds, in a straight line; the whole move lasts BASE_DOOR_DUR
-  function baseSlide(fn, door) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? BASE_DOOR_DUR : BASE_SLIDE }; }
+  function baseSlide(fn, door) { if (G.baseGo || G.screen !== 'prep') return; sfx('click'); G.baseGo = { t0: G.time, fn, door: !!door, dur: door ? BASE_DOOR_DUR : BASE_SLIDE }; }
   const baseGoT = () => { const e = G.time - G.baseGo.t0; return G.baseGo.rev ? G.baseGo.dur - e : e; };   // seconds into the slide-away (a reversed one runs backwards)
   function drawBaseSlideAway(c, tt) {
     const p = clamp(tt / BASE_SLIDE, 0, 1), n0 = UI.btns.length, off = i => -Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2) * 470;
@@ -6371,6 +6360,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function frame(ts) {
     const raw = (ts - last) / 1000 || 0, dt = Math.min(.05, raw); last = ts; G.time += dt;
+    if (G.baseGo && (G.screen !== 'prep' || G.time - G.baseGo.t0 > G.baseGo.dur + 1)) G.baseGo = null;
     lvPump(); lbTeamSync(); acctMaybe(); inboxTick(); warmTick();
     if (G.screen === 'battle') tickBattle(dt);
     const menu = G.screen !== 'battle' && !G.gacha;
@@ -6503,7 +6493,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1242';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1325';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
