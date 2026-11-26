@@ -696,7 +696,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // after that each one also needs its own stage count, as before.
   const legendOpen = save => secOpen(save, 1);
   const secDone = (save, sec) => secCleared(save, sec) >= STAGES.length;
-  const spOpen = (save, k) => { const x = SPECIALS[k || 0]; return legendOpen(save) && save.cleared >= x.need && (x.sec == null || secDone(save, x.sec)); };   // an Awakening stage opens when its whole section is cleared
+  const spOpen = (save, k) => { const x = SPECIALS[k || 0]; return legendOpen(save) && save.cleared >= x.need && (!x.unit || isOwned(save, x.unit)); };   // an Awakening stage needs its Special baker (which a finished section gives)
   const spLockText = x => (x.sec != null ? 'Finish every stage of ' + SECTIONS[x.sec].name : 'Clear stage ' + stageLabel(x.need - 1));
   // Maps group the stages into chapters of rising difficulty. Progress is still one line through all stages:
   // a map opens once every stage of the previous map is cleared.
@@ -761,7 +761,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const orbOk = (save, id) => orbSlot(id) && isEvolved(save, id) && isOwned(save, id);
   // True Forms (Battle Cats style). Most units just get stronger (EVO_MUL). A unit listed here REPLACES its stats and look instead.
   const TRUE_FORMS = {
-    bakemut: { desc: 'Rush nuker. Charges in at top speed and blasts whole crowds. Frail.', role: 'nuker', hp: 4200, dmg: 1900, range: 110, speed: 105, windup: .35, interval: 3.0, recharge: 85, art: 'bakemut_tf' },
+    bakemut: { desc: 'Rush nuker. Charges in at top speed and blasts whole crowds. Frail.', role: 'nuker', hp: 4200, dmg: 1900, range: 110, speed: 160, windup: .3, interval: 2.4, recharge: 85, art: 'bakemut_tf' },
   };
   const TF_DEF = {}, ART_DEFS = {};
   for (const id of Object.keys(TRUE_FORMS)) { TF_DEF[id] = Object.assign({}, UNITS[id], TRUE_FORMS[id], { name: EVO_NAMES[id] || UNITS[id].name }); ART_DEFS[TRUE_FORMS[id].art] = TF_DEF[id]; }
@@ -947,6 +947,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const j = readCode(str); if (!j) return false;
     try { S = loadSave(j); persist(); return true; } catch (e) { return false; }
   }
+  const SECTION_UNITS = ['squire', 'valkyrie', 'bakemut'];   // finishing Section 1 / 2 / 3 gives this Special baker; its Awakening stage then appears
+  function grantSectionUnits(sv) {
+    const got = [];
+    SECTION_UNITS.forEach((id, sec) => { if (secCleared(sv, sec) >= STAGES.length && !(sv.awakened && sv.awakened[id])) { sv.awakened = sv.awakened || {}; sv.awakened[id] = 1; sv.levels[id] = Math.max(sv.levels[id] || 1, 10); got.push(id); } });
+    return got;
+  }
   function loadSave(src) {
     const s = defaultSave();
     if (!HAS_DOM) return s;
@@ -998,6 +1004,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         try { if (j.sortV === 2 && ['default', 'rarity', 'level', 'cost', 'name'].includes(j.sortMode)) { s.sortMode = j.sortMode; s.sortRev = !!j.sortRev; } } catch (e) { /* keep defaults */ } // older saves: switch to rarity grouping once
       }
     } catch (e) { /* storage unavailable: play without saving */ }
+    grantSectionUnits(s);   // (a save that already finished a section owns its Special baker)
     return s;
   }
   let CLOUD_DIRTY = null;   // set by cloud sync once signed in: schedules an upload after each save
@@ -1537,14 +1544,19 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }
     B.surges = B.surges.filter(s => s.t < s.dur);
   }
+  const EXPLODE_SIDE = .6, EXPLODE_OFF = 1.45;   // the two side blasts are 60% the size and sit 1.45 radii left and right of the main one
   function explode(B, u, x, dmg) {
     if (dmg == null) dmg = u.dmg;
-    for (const e of B.units) {
-      if (e.side === u.side || !targetable(e, u) || e.state === 'corpse') continue;
-      const dd = Math.abs(e.x - x); if (dd > EXPLODE_R + e.def.r * .5) continue;
-      hitFoe(B, u, e, Math.max(1, dmg * EXPLODE_DMG * (1 - .5 * Math.min(1, dd / EXPLODE_R))), 'boom');
+    const blasts = [[x, 1, 0], [x - EXPLODE_R * EXPLODE_OFF, EXPLODE_SIDE, .16], [x + EXPLODE_R * EXPLODE_OFF, EXPLODE_SIDE, .16]];   // [centre, size, delay of the picture]
+    for (const [bx, sz] of blasts) {
+      const R = EXPLODE_R * sz;
+      for (const e of B.units) {
+        if (e.side === u.side || !targetable(e, u) || e.state === 'corpse') continue;
+        const dd = Math.abs(e.x - bx); if (dd > R + e.def.r * .5) continue;
+        hitFoe(B, u, e, Math.max(1, dmg * EXPLODE_DMG * (sz === 1 ? 1 : .7) * (1 - .5 * Math.min(1, dd / R))), 'boom');
+      }
     }
-    if (B.booms) B.booms.push({ x, t: 0, dur: .9, seed: Math.random() * 100 });          // fireball animation (drawBoom)
+    if (B.booms) for (const [bx, sz, dl] of blasts) B.booms.push({ x: bx, t: -dl, dur: .9, s: sz, seed: Math.random() * 100 });          // fireball animations (drawBoom): the main one first, then the two beside it
     burst(B, x, GROUND_Y - 40, 22, '#ffb02e', 360); burst(B, x, GROUND_Y - 30, 10, '#fff3b0', 240); burst(B, x, GROUND_Y - 20, 8, '#5a4038', 200);
     B.shake = Math.max(B.shake, .35); sfx('big');
   }
@@ -1761,7 +1773,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function autoPlay(B) {
     B.aiT = (B.aiT || 0) - STEP; if (B.aiT > 0 || B.over) return; B.aiT = .25;
     if (B.pinCharge >= B.pinMax && B.units.some(u => u.side < 0 && u.hp > 0 && (u.x - B.pEdge < Math.min(800, B.pinReach || 800) || (u.barrier > 0 && u.x - B.pEdge < (B.pinReach || 1e9))))) firePin(B);   // also: the pin shatters barriers
-    if (B.wallet < Math.min(8, 2 + Math.floor(B.time / 18)) && B.money >= walletCost(B)) { upgradeWallet(B); return; }
+    if (B.wallet < Math.min(8, 2 + Math.floor(B.time / 18)) && B.money >= walletCost(B) && B.money >= cap(B) * .8) { upgradeWallet(B); return; }   // upgrade when the wallet is nearly full (the upgrades are expensive now)
     const ready = B.roster.filter(id => id && !(B.recharge[id] > 0)), wall = id => UNITS[id].role === 'tank' || UNITS[id].role === 'swarm';
     const walls = B.units.filter(u => u.side > 0 && u.hp > 0 && wall(u.type)).length, foesNear = B.units.some(u => u.side < 0 && u.hp > 0);
     const tanks = ready.filter(wall).sort((a, b) => UNITS[a].cost - UNITS[b].cost);
@@ -2700,13 +2712,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (isSpecial(i)) {
         const sp = stageOf(i);
         if (sp.kind === 'grain') mergeTiers(grain, sp.grains);
-        if (sp.kind === 'awaken' && sp.unit && !(S.awakened && S.awakened[sp.unit])) { first = true; crumbs *= 2; S.awakened = S.awakened || {}; S.awakened[sp.unit] = 1; S.levels[sp.unit] = Math.max(S.levels[sp.unit] || 1, 10); unlocked = [sp.unit]; mergeTiers(cherry, { SP: 3 }); mergeTiers(grain, { SP: 2 }); }
+        if (sp.kind === 'awaken' && sp.unit && !S.spDone[sp.key]) { first = true; crumbs *= 2; S.evolved = S.evolved || {}; S.evolved[sp.unit] = 1; toast(EVO_NAMES[sp.unit] + ' awakened!'); mergeTiers(cherry, { SP: 3 }); mergeTiers(grain, { SP: 2 }); }   // first win: the baker awakens (True Form)
         if (sp.kind === 'tower') { const fl = i - TOWER_BASE; if (fl > (S.tower || 0)) { first = true; crumbs *= 2; S.tower = fl; } else crumbs = Math.round(crumbs * .25 / 10) * 10; }   // a floor pays double the first time, a quarter when replayed
         if ((sp.kind === 'daily' || sp.kind === 'trial') && !S.spDone[sp.key]) { first = true; crumbs *= 2; }
       } else if (secOf(i)) {
         const sc = secOf(i), b = baseOf(i); S.secCleared = S.secCleared || {};
-        if ((S.secCleared[sc] || 0) <= b) { first = true; crumbs *= 2; S.secCleared[sc] = b + 1; }
-      } else if (S.cleared <= i) { first = true; crumbs *= 2; const before = S.cleared; S.cleared = i + 1; unlocked = UNIT_ORDER.filter(id => UNITS[id].unlock > before && UNITS[id].unlock <= S.cleared);
+        if ((S.secCleared[sc] || 0) <= b) { first = true; crumbs *= 2; S.secCleared[sc] = b + 1; unlocked = unlocked.concat(grantSectionUnits(S)); }
+      } else if (S.cleared <= i) { first = true; crumbs *= 2; const before = S.cleared; S.cleared = i + 1; unlocked = UNIT_ORDER.filter(id => UNITS[id].unlock > before && UNITS[id].unlock <= S.cleared).concat(grantSectionUnits(S));
       }
     } else crumbs = 20 + Math.round(stageReward(i) * .2 * (1 - B.ebase.hp / B.ebase.maxHp));
     crumbs = Math.round(crumbs * (1 + treasureBonus(S, 'crumbs') + .03 * (baseLv(S, 'study') - 1)));
@@ -2839,7 +2851,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Explosion (Bakemut's talent), drawn in stages like the reference sprite, magenta like the other baker effects:
   // glowing orb over a ring -> puffy cloud with spikes -> tall spiky starburst -> a dome of pixel sparks that scatters and fades.
   function drawBoom(c, b) {
-    const k = b.t / b.dur, x = b.x - G.cam, gy = GROUND_Y - 6, R = EXPLODE_R;
+    if (b.t < 0) return;   // a side blast waits for the main one
+    const k = b.t / b.dur, x = b.x - G.cam, gy = GROUND_Y - 6, R = EXPLODE_R * (b.s || 1);
     const MAG = '#ff2fd0', PINK = '#ff8af0', PALE = '#ffd6f8', WHITE = '#ffffff', rnd = i => hash(b.seed + i * 7.31);
     const ease = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
     // grey scorch under it
@@ -3258,6 +3271,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   };
   const LEGEND_FIXED = SPECIALS.filter(x => x.kind !== 'daily' && x.kind !== 'tower');   // the stages that count for "clear every Legend stage"
   const lgOpen = e => spOpen(S, e.ks[0]);
+  const lgVisible = e => { const x = SPECIALS[e.ks[0]]; return x.kind !== 'awaken' || !x.unit || isOwned(S, x.unit); };   // an Awakening stage shows up only after its baker is collected
   const lgSeenKey = (e, ei) => 'lg' + ei + '_' + e.ks.filter(q => spOpen(S, q)).length;   // the red New! tag goes away once you open the event
   function openLegendEvent(ei) {
     const e = LG_EVENTS[ei]; if (!lgOpen(e)) { sfx('deny'); toast(!legendOpen(S) ? 'Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).' : spLockText(SPECIALS[e.ks[0]]) + ' to open ' + e.name + '.'); return; }
@@ -3275,7 +3289,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
           go: () => startBattle(TOWER_BASE + fl), pests: [...new Set(t.waves.map(w => w.u))] };
       }
       return { name: x.kind === 'daily' ? 'Daily: ' + x.mod.name : e.ks.length > 1 ? x.diff : x.name, open: spOpen(S, q), done: !!S.spDone[x.key], boss: x.waves.some(w => FOES[w.u].boss), grade: null, mag: x.mag, hp: x.hp,
-        reward: x.reward + (x.grains ? '  +' + tierWords(x.grains, 'grain', 'grain') : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && x.unit && !isOwned(S, x.unit) ? '  + ' + UNITS[x.unit].name : ''), first: !S.spDone[x.key], attack: null,
+        reward: x.reward + (x.grains ? '  +' + tierWords(x.grains, 'grain', 'grain') : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && x.unit && !(S.evolved && S.evolved[x.unit]) ? '  + True Form: ' + (EVO_NAMES[x.unit] || UNITS[x.unit].name) : ''), first: !S.spDone[x.key], attack: null,
         go: () => startBattle(SP_BASE + q), pests: [...new Set(x.waves.map(w => w.u))] };
     });
     drawStageSelect(c, { key: 'lg:' + (G.lgEvent || 0), stages, sel: e.ks.indexOf(G.spSel), setSel: k => { G.spSel = e.ks[k]; }, back: () => goBack(),
@@ -3290,7 +3304,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawSpecial(c) {
     let back = 0; if (G.spOut != null) { back = G.time - G.spOut; if (back > SLIDE_BACK + .03) { G.spOut = null; goBack(); return; } }   // Back plays the Start!! animation in reverse, smoothly
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
-    if (G.lgSel == null || !LG_EVENTS[G.lgSel]) { const k = LG_EVENTS.findIndex(e => lgOpen(e) && e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key])); G.lgSel = k >= 0 ? k : 0; }
+    if (G.lgSel == null || !LG_EVENTS[G.lgSel] || !lgVisible(LG_EVENTS[G.lgSel])) { const k = LG_EVENTS.findIndex(e => lgVisible(e) && lgOpen(e) && e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key])); G.lgSel = k >= 0 ? k : 0; }
     const ev = LG_EVENTS[G.lgSel], info = LG_INFO[ev.kind];
     baseRoom(c, lineupOf(S).filter(Boolean));
     drawBaseGhost(c);
@@ -3301,12 +3315,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       lines.forEach((ln, i) => text(c, ln, B.bx + B.bw / 2, B.by + B.bh / 2 + (i - (lines.length - 1) / 2) * 42, 30, '#fff', 'center'));
       text(c, 'tap me for more', B.bx + B.bw - 26, B.by + B.bh - 20, 14, 'rgba(255,255,255,.5)', 'right'); }    // ---- left: scrolling list of orange event buttons ----
     const TOP = 138, BOT = 646, LX = 26, LW = 446, view = BOT - TOP, rowH = 104;
-    SC.max = Math.max(0, LG_EVENTS.length * rowH + 20 - view);
+    SC.max = Math.max(0, LG_EVENTS.filter(lgVisible).length * rowH + 20 - view);
     const dt = Math.min(.05, G.time - SC.last); SC.last = G.time;
     SC.target = clamp(SC.target, 0, SC.max); SC.y += (SC.target - SC.y) * (1 - Math.exp(-dt * 16)); if (Math.abs(SC.target - SC.y) < .2) SC.y = SC.target;
     c.save(); c.beginPath(); c.rect(0, TOP, 600, view); c.clip();
+    let vi = 0;
     LG_EVENTS.forEach((e, ei) => {
-      const y = TOP + 26 - SC.y + ei * rowH; if (y > BOT || y + rowH < TOP) return;
+      if (!lgVisible(e)) return; const y = TOP + 26 - SC.y + (vi++) * rowH; if (y > BOT || y + rowH < TOP) return;
       const dx = -slideOff() * (LW + 90);   // the whole orange block slides in from the left together
       c.save(); c.translate(dx, 0);
       const o = lgOpen(e), sel = ei === G.lgSel, got = e.ks.filter(q => S.spDone[SPECIALS[q].key]).length, done = got === e.ks.length, fresh = e.ks.some(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key]) && !S.seen[lgSeenKey(e, ei)];
@@ -6506,9 +6521,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1410';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1420';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
