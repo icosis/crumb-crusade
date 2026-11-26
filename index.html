@@ -710,7 +710,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const mapOf = i => MAPS.findIndex(m => i >= m.first && i <= m.last);
   const mapOpen = (save, m) => save.cleared >= MAPS[m].first;
 
-  const WALLET_INCOME = [14, 20, 27, 35, 44, 54, 65, 78];
+  const WALLET_INCOME = [11, 15, 20, 26, 33, 41, 49, 59];   // dough per second at each Oven Heat level (was 14 to 78: it filled up too fast)
   const WALLET_CAP = [500, 800, 1200, 1700, 2300, 3000, 3800, 4800];
   const WALLET_COST = [300, 600, 900, 1200, 1500, 1800, 2100];   // like Battle Cats: an upgrade costs the base price times your CURRENT level (the last one, to Lv 8, costs 2100; maxing out costs 8400 dough)
   // Rolling Pin = Cat Cannon. BC charge bottoms out around 32s, so ours goes 50s (Lv1) -> 32s (Lv10).
@@ -2985,6 +2985,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     { const fy = y + 40 + pr, fl = Math.sin(G.time * 9) * 2; poly(c, [-16, 26, -20, -4 + fl, -7, 8, 0, -26 - fl, 7, 6, 19, -8 + fl, 16, 26].map((v, i) => (i % 2 ? fy + v : 94 + v)), '#ff9d2e', OUT, 3); poly(c, [-6, 26, -5, 6, 1, -6 - fl, 7, 26].map((v, i) => (i % 2 ? fy + v : 94 + v)), '#ffe27a', null); }   // a flame: Oven Heat
     text(c, 'Lv ' + B.wallet, 94, y + 86 + pr, 34, OUT, 'center', null, HEAD);
     if (!maxed) { doughIcon(c, 70, y + 115 + pr, 9); text(c, String(wc), 84, y + 116 + pr, 20, OUT); }
+    text(c, 'Q', 24, y + 16 + pr, 13, 'rgba(58,36,22,.6)', 'center');
     // units
     for (let i = 0; i < LINEUP; i++) {
       const id = B.roster[i], d = UNITS[id], x = 190 + i * 89, w = 84;
@@ -3008,6 +3009,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.save(); c.translate(px + pw / 2, y + 48 + pr); c.rotate(-.25);
     rr(c, -64, -6, 128, 12, 6, '#8a5a2a', OUT, 2.5); rr(c, -42, -16, 84, 32, 12, '#d9a05a', OUT, 3); rr(c, -36, -12, 72, 8, 4, 'rgba(255,240,200,.5)', null); c.restore();
     rr(c, px + 16, y + 108 + pr, pw - 32, 14, 7, 'rgba(30,20,12,.6)', null); if (f > .04) rr(c, px + 18, y + 110 + pr, (pw - 36) * f, 10, 5, ready ? '#fff' : '#ff8a2a', null);
+    text(c, 'SPACE', px + 30, y + 16 + pr, 12, 'rgba(58,36,22,.6)', 'center');
   }
   function overlayPanel(c, w, h) {
     UI.btns.length = 0;
@@ -6504,7 +6506,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1358';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1410';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
