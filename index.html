@@ -4649,9 +4649,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function lvReset() { lvClose(); LV.st = 'idle'; LV.invite = null; LV.code = null; LV.m = null; LV.L = null; LV.peerHi = false; LV.myConf = null; LV.peerConf = null; LV.peerGone = false; LV.peerBye = false; LV.view = null; LV.ff = false; LV.desyncShown = false; liveEndSeed(); }
   function lvRecv(str) {
     let m; try { m = JSON.parse(str); } catch (e) { return; } if (!m || typeof m !== 'object') return; LV.lastRecv = lvNow();
-    if (m.type === 'hi') { LV.peerHi = true; if (LV.st !== 'idle' && G.time - (LV.hiT || -9) > .5) { LV.hiT = G.time; lvSend({ type: 'hi' }); } }   // answer once, so a late-comer hears us too
-    else if (m.type === 'conf') { const t = lvCleanTeam(m.team); if (t && LV.st === 'prep') LV.peerConf = t; }
-    else if (m.type === 'unconf') { if (LV.st === 'prep') LV.peerConf = null; }
+    if (m.type === 'hi') { LV.peerHi = true; if (LV.tr && LV.st !== 'idle' && G.time - (LV.hiT || -9) > .5) { LV.hiT = G.time; lvSend({ type: 'hi' }); } }   // answer once, so a late-comer hears us too
+    else if (m.type === 'conf') { const t = lvCleanTeam(m.team); if (t && (LV.st === 'prep' || LV.st === 'ready')) LV.peerConf = t; }
+    else if (m.type === 'unconf') { if (LV.st === 'prep' || LV.st === 'ready') LV.peerConf = null; }
     else if (m.type === 'peer') { if (m.on) { if (LV.st === 'ready' || LV.st === 'prep') lvSend({ type: 'hi' }); } else if (LV.peerHi && (LV.st === 'ready' || LV.st === 'prep')) LV.peerGone = true; }
     else if (m.type === 'bye') { LV.peerBye = true; }
     else if (LV.L) liveRecv(LV.L, m);
@@ -4805,10 +4805,27 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, LV.m.casual ? 'Casual match!' : 'Match found!', cx, 230, 40, '#ffd24a', 'center', '#000', HEAD); text(c, LV.m.opp.name + '   ·   Rating ' + LV.m.opp.rating, cx, 290, 28, '#fff', 'center', '#000', HEAD);
       text(c, LV.peerHi ? 'Starting' + dots : 'Connecting' + dots, cx, 340, 22, '#f0d8d0', 'center');
     } else if (mode === 'casual') {
-      text(c, 'Casual Live Battle', cx, 200, 44, '#fff', 'center', '#000', HEAD); text(c, 'Pick who you fight: a friend you share a code with.', cx, 246, 20, '#f0d8d0', 'center');
-      ['One of you presses Create a room and gets a code.', 'The other presses Join with a code and types it in.', 'Same rules as ranked, but the result never changes your rating.'].forEach((t, i) => text(c, t, cx, 296 + i * 28, 16, '#d8bfb8', 'center'));
-      baseBtn(c, 470, 410, 340, 80, 'Create a room', () => lvCasualCreate(), { size: 34 }); baseBtn(c, 860, 410, 340, 80, 'Join with a code', () => lvCasualJoin(), { size: 34 });
-      if (LV.err) text(c, LV.err, cx, 530, 17, '#ffb3a8', 'center'); text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers).', cx, 580, 15, '#d8bfb8', 'center');
+      // casual = your friends list: press Challenge on an online friend, they get a pop-up and can accept or decline
+      text(c, 'Casual Live Battle  ·  your friends', cx, 168, 30, '#fff', 'center', '#000', HEAD);
+      if (!apiBase()) text(c, 'Online play is not switched on for this copy of the game.', cx, 330, 22, '#f0d8d0', 'center');
+      else if (!LB.me) { text(c, 'Log in or make an account to challenge your friends.', cx, 300, 24, '#fff', 'center'); baseBtn(c, cx - 160, 340, 320, 70, 'Log in / Sign up', () => acctDialog('register'), { size: 30 }); }
+      else {
+        if (INB.friends === null && G.time - INB.t > 1) INB.t = -99;
+        const list = INB.friends;
+        if (list === null) text(c, 'Loading your friends…', cx, 330, 22, '#f0d8d0', 'center');
+        else if (!list.length) { text(c, 'No friends yet.', cx, 300, 28, '#fff', 'center'); text(c, 'Add a friend by their username, then challenge them here.', cx, 338, 18, '#d8bfb8', 'center'); }
+        else {
+          const sorted = list.slice().sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0)), shown = sorted.slice(0, 5);
+          shown.forEach((f, i) => { const y = 196 + i * 58;
+            rr(c, 450, y, 770, 54, 12, 'rgba(255,255,255,.1)', null); dot(c, 478, y + 27, 9, f.online ? '#5fe05a' : '#6b6b6b'); fitLine(c, f.name, 504, y + 28, 250, 24, '#fff', 'left');
+            text(c, 'Rating ' + f.rating, 770, y + 28, 17, '#d8bfb8', 'left'); text(c, f.online ? 'online' : 'offline', 900, y + 28, 16, f.online ? '#9be37a' : '#8a8a8a', 'left');
+            baseBtn(c, 1010, y + 5, 200, 44, f.online ? 'Challenge' : 'Offline', f.online ? () => friendChallenge(f) : () => toast(f.name + ' is not online right now.'), { size: 22, disabled: !f.online }); });
+          if (sorted.length > shown.length) text(c, '+ ' + (sorted.length - shown.length) + ' more on the Friends screen', cx, 520, 15, '#d8bfb8', 'center');
+        }
+      }
+      baseBtn(c, 450, 558, 230, 56, 'Add a friend', () => friendAdd(), { size: 24, disabled: !LB.me }); baseBtn(c, 700, 558, 200, 56, 'Friends', () => { sfx('click'); go('friends'); }, { size: 24 });
+      btn(c, 930, 566, 140, 40, 'Create a room', () => lvCasualCreate(), { size: 13, r: 10, color: '#f3d49a' }); btn(c, 1080, 566, 140, 40, 'Join with code', () => lvCasualJoin(), { size: 13, r: 10, color: '#f3d49a' });
+      if (LV.err) text(c, LV.err, cx, 536, 16, '#ffb3a8', 'center'); text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers). The result never changes your rating.', cx, 632, 14, '#d8bfb8', 'center');
     } else {
       text(c, 'Ranked Live Battle', cx, 200, 44, '#fff', 'center', '#000', HEAD); text(c, 'Fight a real player, right now. Random opponent, your rating counts.', cx, 246, 20, '#f0d8d0', 'center');
       ['Both of you play at once: deploy bakers and upgrade your Oven Heat.', 'Destroy their oven before they destroy yours. 5 minutes, then the healthier oven wins.', 'Same rules for both: your bakers\' levels count, but no items, combos or Rolling Pin.'].forEach((t, i) => text(c, t, cx, 296 + i * 28, 16, '#d8bfb8', 'center'));
@@ -4887,7 +4904,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---- inbox: every few seconds (only while the game is on screen) ask the server who is asking for me ----
   function inboxTick() {
     if (!LB.me || !apiBase() || INB.busy || (typeof document !== 'undefined' && document.visibilityState === 'hidden') || (EXPOSE_HOOK && !ACC.test)) return;
-    const fr = G.screen === 'friends'; if (G.time - INB.t < (fr ? 4 : 9)) return; INB.t = G.time; INB.busy = true;
+    const fr = G.screen === 'friends' || (G.screen === 'pvp' && G.pvpTab !== 'slot' && G.lvMode === 'casual' && LV.st === 'idle'); if (G.time - INB.t < (fr ? 4 : 9)) return; INB.t = G.time; INB.busy = true;
     lbCall('POST', fr ? '/api/friends' : '/api/inbox', { id: LB.me.id, token: LB.me.token })
       .then(j => { INB.requests = j.requests || []; INB.invites = j.invites || []; if (j.friends) { INB.friends = j.friends; INB.sent = j.sent || []; } })
       .catch(e => { if (e && e.status === 403) { LB.me = null; S.lbMe = null; lbSaveMe(); } }).then(() => { INB.busy = false; });
@@ -6371,7 +6388,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-1945';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-2241';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
