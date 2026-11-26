@@ -438,7 +438,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const hasAny = (list, traits) => { if (!list || !list.length) return false; const tr = traits && traits.length ? traits : ['traitless']; return list.some(t => tr.includes(t)); };   // a foe with no traits counts as 'traitless' (Battle Cats' white enemies)
   // ---- Talent Orbs (Battle Cats style): one orb slot per True Form gacha unit. An orb is tied to a pest colour:
   //   Attack orb = more damage to that colour, Defense orb = less damage taken from it. Grades D C B A S.
-  //   Orbs drop from wins (Section 1 Map 3+, more and better in Sections 2-3) and can be bought in the Shop.
+  //   Orbs drop from wins (Section 1 from stage 2-3 on, more and better in Sections 2-3) and can be bought in the Shop.
   // Kept simple: no grades. Every Attack orb is +20% damage, every Defense orb -15% damage taken.
   const ORB_TRAITS = ['red', 'black', 'floating', 'metal', 'angel', 'alien', 'zombie', 'relic', 'aku'], ORB_ATK = .20, ORB_DEF = .15;
   const ORB_KINDS = { atk: 'Attack', def: 'Defense' };
@@ -686,7 +686,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const secOpen = (save, sec) => !sec || secCleared(save, sec - 1) >= STAGES.length;
   // the harder copy of a stage for sections 2-3: pest strength x mapMul[map] (tuned per map, since early maps have weaker pest line-ups)
   function secStage(idx) {
-    const bi = baseOf(idx), b = STAGES[bi], k = SECTIONS[secOf(idx)], m = MAPS.findIndex(mp => bi >= mp.first && bi <= mp.last);
+    const bi = baseOf(idx), b = STAGES[bi], k = SECTIONS[secOf(idx)], m = BANDS.findIndex(mp => bi >= mp.first && bi <= mp.last);
     return Object.assign({}, b, { mag: snapMag(b.mag * k.mapMul[m]), hp: Math.round(b.hp * k.hpMul + k.hpAdd), push: Math.max(b.push || 1, k.push) });
   }
   const SP_STAGE = SPECIALS[0];
@@ -700,12 +700,18 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const spLockText = x => (x.sec != null ? 'Finish every stage of ' + SECTIONS[x.sec].name : 'Clear stage ' + stageLabel(x.need - 1));
   // Maps group the stages into chapters of rising difficulty. Progress is still one line through all stages:
   // a map opens once every stage of the previous map is cleared.
-  const MAPS = [
+  const BANDS = [
     { name: 'Countertop Kitchen', diff: 'Beginner', color: '#9be37a', tint: 'rgba(110,180,90,.13)', first: 0, last: 4 },
     { name: 'Around the House',   diff: 'Normal',   color: '#f6c343', tint: 'rgba(214,150,60,.13)', first: 5, last: 9 },
     { name: 'Garden Wilds',       diff: 'Hard',     color: '#ff8a5c', tint: 'rgba(214,90,60,.14)', first: 10, last: 14 },
     { name: 'Dumpster Kingdom',   diff: 'Expert',   color: '#c0457a', tint: 'rgba(150,50,110,.15)', first: 15, last: 19 },
     { name: 'Pest Empire',        diff: 'Legend',   color: '#8a5cff', tint: 'rgba(110,70,200,.16)', first: 20, last: 24 },
+  ];
+  // 3 chapters per section (like Empire of Cats / Into the Future / Cats of the Cosmos: 3 sections x 3 chapters = 9). The BANDS above only set how hard each stage is.
+  const MAPS = [
+    { name: 'Kitchen & House',   diff: 'Easy',   color: '#9be37a', tint: 'rgba(110,180,90,.13)', first: 0, last: 7 },
+    { name: 'Garden & Dumpsters', diff: 'Hard',   color: '#ff8a5c', tint: 'rgba(214,90,60,.14)', first: 8, last: 15 },
+    { name: 'Pest Empire',       diff: 'Legend', color: '#8a5cff', tint: 'rgba(110,70,200,.16)', first: 16, last: 24 },
   ];
   const mapOf = i => MAPS.findIndex(m => i >= m.first && i <= m.last);
   const mapOpen = (save, m) => save.cleared >= MAPS[m].first;
@@ -714,7 +720,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Battle Cats wallet: (base + bonus per Oven Heat level) x your Dough Tin level, + the treasure bonus, x combos. BC pays 100 base and 50 per level per Tin level; ours is 6x that so it fits our prices (Tin Lv1: 600 at Oven Heat 1 ... 2700 at Oven Heat 8).
   const WALLET_BASE = 600, WALLET_PER = 300, LIVE_TIN = 5;   // (a live / PvP battle gives both sides Tin Lv5)
   function walletCap(l, tin, extra) { tin = tin || LIVE_TIN; return WALLET_BASE * tin + WALLET_PER * tin * (l - 1) + (extra || 0); }
-  const WALLET_COST = [300, 600, 900, 1200, 1500, 1800, 2100];   // like Battle Cats: an upgrade costs the base price times your CURRENT level (the last one, to Lv 8, costs 2100; maxing out costs 8400 dough)
+  const LIVE_WBASE = 160;   // a live / PvP battle gives both sides the same Lv1 price
+  const walletBaseOf = save => 100 + 7 * (baseLv(save, 'wallet') - 1);   // like Battle Cats: Worker Cat Rate upgrades make the Lv1 price dearer (Lv1 100 ... Lv30 303; so the last upgrade costs 700 ... 2121)
+  const walletStep = (l, base) => (l >= 8 ? Infinity : (base || LIVE_WBASE) * l);   // price = Lv1 price x your CURRENT Oven Heat level
   // Rolling Pin = Cat Cannon. BC charge bottoms out around 32s, so ours goes 50s (Lv1) -> 32s (Lv10).
   const pinCharge = lv => Math.max(32, 50 - 2 * (lv - 1));
   // Battle Cats "Power Up" menu: Cannon Attack / Range / Charge, Worker Cat Efficiency / Wallet, Base Defense, Research, Accounting, Study.
@@ -1347,7 +1355,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       idx, st, len, diffMul: 1, pEdge: 190, eEdge: len - 190, time: 0, combos: cmb.list,
       units: [], parts: [], nums: [], projs: [], rings: [], booms: [], ripples: [], surges: [],
       money: 80 + cmb.start, wallet: 1, incomeMul: (1 + .12 * softLv(bl('wallet')) + cmb.income) * (st.incomeMul || 1), cdMul: (1 - treasureBonus(save, 'cd')) * (1 - .02 * softLv(bl('research'))) * (1 - cmb.cd),
-      tinLv: bl('tin'), capAdd: Math.round(treasureBonus(save, 'wallet')), capMul: 1 + cmb.cap, bountyMul: 1 + .1 * softLv(bl('accounting')), orbs, roster, pstats, talents, defs, recharge: {},
+      tinLv: bl('tin'), walletBase: walletBaseOf(save), capAdd: Math.round(treasureBonus(save, 'wallet')), capMul: 1 + cmb.cap, bountyMul: 1 + .1 * softLv(bl('accounting')), orbs, roster, pstats, talents, defs, recharge: {},
       pbase: { hp: php, maxHp: php, shake: 0 }, ebase: { hp: st.hp, maxHp: st.hp, shake: 0 },
       pinMax: pinCharge(bl('charge')) * (1 - cmb.pin), pinCharge: 0, pinDmg: pinDmgAt(bl('pin')), pinReach: pinReach(bl('range')), pin: null,
       waves: st.waves.map(w => Object.assign({}, w, { active: w.hp == null, timer: w.t || 0, left: w.n != null ? w.n : (w.e ? Infinity : 1) })),
@@ -1358,7 +1366,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const cap = B => Math.round(walletCap(B.wallet, B.tinLv, B.capAdd) * (B.capMul || 1));
   // income never pushes dough past the wallet cap, but never trims it either (a Rich Bun can start you above the cap)
   const addMoney = (B, v) => { if (B.money < cap(B)) B.money = Math.min(cap(B), B.money + v); };
-  const walletCost = B => (B.wallet >= 8 ? Infinity : WALLET_COST[B.wallet - 1]);
+  const walletCost = B => walletStep(B.wallet, B.walletBase);
   const countSide = (B, side) => { let n = 0; for (const u of B.units) if (u.side === side && u.hp > 0) n++; return n; };
 
   function spawn(B, side, id, def, hp, dmg) {
@@ -1744,7 +1752,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (c.k === 'dep') {
       const m = P.team.find(x => x.id === c.u); if (!m || (P.rech[m.id] || 0) > P.t || P.money < m.cost || countSide(B, -1) >= MAX_UNITS) return;
       P.money -= m.cost; P.rech[m.id] = P.t + m.rech; spawn(B, -1, m.id, m.def, m.hp, m.dmg);
-    } else if (c.k === 'wal') { const cost = P.wl >= 8 ? Infinity : WALLET_COST[P.wl - 1]; if (P.money >= cost) { P.money -= cost; P.wl++; } }
+    } else if (c.k === 'wal') { const cost = walletStep(P.wl); if (P.money >= cost) { P.money -= cost; P.wl++; } }
   }
   function liveHash(B) {                   // a checksum of everything that matters, to catch the two devices drifting apart
     let h = 2166136261 >>> 0; const mix = n => { h = Math.imul(h ^ (n | 0), 16777619) >>> 0; };
@@ -1909,7 +1917,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { LIVE_IDX, LIVE_D, LIVE_MAX_TICK, newBattleLive, liveNew, liveCan, liveStepOnce, liveIssue, liveRecv, liveHash, liveSetSeed, liveEndSeed, PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { LIVE_IDX, LIVE_D, LIVE_MAX_TICK, newBattleLive, liveNew, liveCan, liveStepOnce, liveIssue, liveRecv, liveHash, liveSetSeed, liveEndSeed, PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, BANDS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 3, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2703,7 +2711,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     G.result = { win, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: null, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: null, pvp: { opp: PVP_OPP ? PVP_OPP.name : '' } };
     if (PVP_OPP) pvpReport(PVP_OPP.id, win);
   }
-  const TOWER_CHERRY = { 10: { R: 2 }, 20: { SR: 2 }, 30: { UR: 2 }, 40: { UR: 2 }, 50: { LR: 2 } }, TOWER_GRAIN = { 30: { UR: 1 }, 40: { UR: 2 }, 50: { LR: 3 } }, MAP_CHERRY = { 1: { R: 2 }, 2: { SR: 2, UR: 1 } };
+  const TOWER_CHERRY = { 10: { R: 2 }, 20: { SR: 2 }, 30: { UR: 2 }, 40: { UR: 2 }, 50: { LR: 2 } }, TOWER_GRAIN = { 30: { UR: 1 }, 40: { UR: 2 }, 50: { LR: 3 } }, MAP_CHERRY = { 1: { R: 3 }, 2: { SR: 3, UR: 2 } };
   function finishBattle() {
     const B = G.battle, i = B.idx, win = B.over === 'win';
     if (typeof setTimeout === "function") setTimeout(() => { try { lbSubmit(false); } catch (e) {} }, 1500);   // keep the online leaderboard up to date
@@ -2736,7 +2744,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     let sugar = 0, np = 0;
     // Golden Cherries: the Heavenly Tower every 10th floor (rarer kinds higher up) and the last stage of each Section 2 / 3 map
     if (win && first && isSpecial(i) && stageOf(i).kind === 'tower' && (i - TOWER_BASE) % 10 === 0) { mergeTiers(cherry, TOWER_CHERRY[i - TOWER_BASE]); mergeTiers(grain, TOWER_GRAIN[i - TOWER_BASE]); }
-    else if (win && first && !isSpecial(i) && secOf(i) > 0 && baseOf(i) % 5 === 4) mergeTiers(cherry, MAP_CHERRY[secOf(i)]);
+    else if (win && first && !isSpecial(i) && secOf(i) > 0 && MAPS.some(m => m.last === baseOf(i))) mergeTiers(cherry, MAP_CHERRY[secOf(i)]);
     if (win && isSpecial(i)) {
       const sp = stageOf(i);
       if (sp.kind === 'tower') { const fl = i - TOWER_BASE; S.spDone.tower = 1; if (first) { if (fl % 5 === 0) sugar = 10 + fl; if (fl % 10 === 0) np = 10 + fl * 2; } }   // milestone floors pay Sugar Cubes and NP
@@ -3403,7 +3411,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, 'ORB BAG  (' + orbTotal(S) + ')', RX + 20, 270, 15, '#ffe9a8'); text(c, 'Click an orb to attach it', RX + 612, 270, 12, '#b9d4cf', 'right');
     const keys = Object.keys(S.orbs || {}).filter(k => S.orbs[k] > 0 && orbParse(k))
       .sort((a, b) => { const p = orbParse(a), q = orbParse(b); return ORB_TRAITS.indexOf(p.t) - ORB_TRAITS.indexOf(q.t) || (p.e < q.e ? -1 : p.e > q.e ? 1 : 0); });
-    if (!keys.length) ['No orbs yet.', 'Win stages from Map 3 on (better orbs in Sections 2 and 3),', 'or buy an Orb Capsule in the Shop.'].forEach((ln, i) => text(c, ln, RX + 316, 420 + i * 28, i ? 15 : 20, '#fff3d6', 'center'));
+    if (!keys.length) ['No orbs yet.', 'Win stages from stage 2-3 on (better orbs in Sections 2 and 3),', 'or buy an Orb Capsule in the Shop.'].forEach((ln, i) => text(c, ln, RX + 316, 420 + i * 28, i ? 15 : 20, '#fff3d6', 'center'));
     keys.slice(0, 32).forEach((k, n) => {
       const x = RX + 14 + (n % 4) * 152, y = 286 + Math.floor(n / 4) * 52, w = 146, h = 46, o = orbParse(k), hov = inside(x, y, w, h);
       rr(c, x, y, w, h, 10, hov ? '#fff3d6' : '#eadbb8', TRAIT_INFO[o.t].color, 3);
@@ -3472,8 +3480,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, 'HP ' + d.hp + '   ATK ' + d.dmg + '   Area   Range ' + dRng(d) + '   Cost ' + d.cost, 676, 414, 15, '#e2d8ff');
     fitText(c, 'Joins at Lv10. At Lv30 its True Form, Awakened Bakemut, becomes a rush nuker.', 676, 446, 520, 14, '#c9b6ff');
     if (done) text(c, '✓ Bakemut is on your team. Replay for crumbs.', 660, 512, 18, '#2c7a72');
-    else if (!open) text(c, '🔒 Clear Map 3 (' + MAPS[2].name + ') to open this stage.', 660, 512, 18, '#c8102e');
-    btn(c, 980, 590, 250, 80, open ? 'BATTLE!' : 'LOCKED', () => { if (open) startBattle(SP_IDX); else { sfx('deny'); toast('Clear every stage of ' + MAPS[2].name + ' first.'); } }, { size: 32, color: open ? '#ff9d5c' : '#c9bba3' });
+    else if (!open) text(c, '🔒 ' + spLockText(SP_STAGE) + ' to open this stage.', 660, 512, 18, '#c8102e');
+    btn(c, 980, 590, 250, 80, open ? 'BATTLE!' : 'LOCKED', () => { if (open) startBattle(SP_IDX); else { sfx('deny'); toast(spLockText(SP_STAGE) + ' first.'); } }, { size: 32, color: open ? '#ff9d5c' : '#c9bba3' });
     btn(c, 700, 600, 250, 60, 'Equip', () => go('equip'), { size: 24, color: '#8fc0a9' });
   }
   // ---------------- Stage Select (Battle Cats layout): stage tabs along the top, parchment map, Attack! bottom-right ----------------
@@ -3590,8 +3598,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         reward: String(stageReward(idx)), first: i >= cl, go: () => startBattle(idx), map: m, pests: [...new Set(st.waves.map(w => w.u))] });
     }
     const m = mapOf(G.sel); G.map = m;
-    drawStageSelect(c, { key: 'st:' + G.sec, stages, sel: G.sel, setSel: k => { G.sel = k; }, page: m, back: () => goBack('chapters'),
-      title: 'Section ' + (G.sec + 1) + ': ' + SECTIONS[G.sec].short + '  ·  Map ' + (m + 1) + ' ' + MAPS[m].name, sub: MAPS[m].name + '  ·  ' + MAPS[m].diff });
+    drawStageSelect(c, { key: 'st:' + G.sec, stages, sel: G.sel, setSel: k => { G.sel = k; }, page: Math.floor(G.sel / 5), back: () => goBack('chapters'),
+      title: 'Section ' + (G.sec + 1) + ': ' + SECTIONS[G.sec].short + '  ·  Chapter ' + (m + 1) + ' ' + MAPS[m].name, sub: MAPS[m].name + '  ·  ' + MAPS[m].diff });
   }
 
   // ---------------- carousel (Battle Cats style): one big card in the middle, smaller dimmed cards either side ----------------
@@ -3924,7 +3932,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     else if (isNormalU(id) && lv >= NORMAL_LV_MAX) { /* can't level further: no button, no text */ }
     else if (isNormalU(id) && lv >= lvCap(S)) { /* Golden Cherries can't be used on Normal bakers: no button, no text */ }
     else if (lv >= lvCap(S)) baseBtn(c, 88, 414, 360, 84, '', () => { showMsg('Max Level for Current Version has been reached.'); }, { dim: true }),
-      text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'Map 2' : lv < 30 ? 'Map 4' : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
+      text(c, 'Level Cap UP!', 268, 444, 34, '#efe8d8', 'center', '#6b6252', HEAD), text(c, 'clear ' + (lv < 20 ? 'stage ' + stageLabel(LV_CAP_UNLOCK - 1) : lv < 30 ? 'stage ' + stageLabel(19) : 'Section 2') + ' to raise it', 268, 479, 16, '#efe8d8', 'center', '#6b6252');
     else { const cost = unitUpCost(id, lv), tk = tierOf(id), noC = cherryLv && cherryN(S, tk) < 1;
       upBtn(c, cherryLv ? 'Level Cap UP!' : 'Level Up!', cost, () => { if (noC) { showMsg('Max Level for Current Version has been reached. Each level past Lv' + TF_LV + ' needs 1 ' + (tk ? TIER_NAME[tk] : '') + ' Golden Cherry (you have ' + cherryN(S, tk) + ').'); return; } buy(cost, () => { S.levels[id] = lv + 1; if (cherryLv && tk) S.cherries[tk]--; G.lvFlash = { id, t0: G.time }; }); }, S.crumbs < cost || noC, cherryLv ? 30 : undefined);
       if (cherryLv) text(c, '+ 1 ' + (tk ? TIER_NAME[tk] : '') + ' cherry', 330, 479, 16, noC ? '#efe8d8' : '#fff', 'left', '#4a2f12');
@@ -4838,7 +4846,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (V.money < d.cost || (V.recharge[id] || 0) > 0) return sfx('deny');
     if (liveIssue(L, 'dep', id)) sfx('spawn');
   }
-  function lvWallet() { const L = LV.L, B = L.B, V = lvViewOf(B); if (!L || B.over || V.wallet >= 8 || V.money < WALLET_COST[V.wallet - 1]) return sfx('deny'); liveIssue(L, 'wal'); sfx('up'); }
+  function lvWallet() { const L = LV.L, B = L.B, V = lvViewOf(B); if (!L || B.over || V.wallet >= 8 || V.money < walletStep(V.wallet)) return sfx('deny'); liveIssue(L, 'wal'); sfx('up'); }
   function lvQuit() { const L = LV.L; if (!L || L.B.over) return; lvSend({ type: 'bye' }); L.B.over = L.side > 0 ? 'lose' : 'win'; sfx('click'); }
   // what the panel at the bottom shows: your own side (player 2's numbers live in B.pv)
   function lvViewOf(B) {
@@ -5219,8 +5227,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const MISSIONS = {
     main: [
       { id: 'm1', text: 'Clear stage 1-1', goal: 1, val: s => s.cleared, rw: { tickets: 1 } },
-      { id: 'm2', text: 'Clear every stage of Map 1', goal: 5, val: s => s.cleared, rw: { tickets: 2 } },
-      { id: 'm3', text: 'Clear every stage of Map 2', goal: 10, val: s => s.cleared, rw: { sugar: 30 } },
+      { id: 'm2', text: 'Clear every stage of Chapter 1', goal: 8, val: s => s.cleared, rw: { tickets: 2 } },
+      { id: 'm3', text: 'Clear every stage of Chapter 2', goal: 16, val: s => s.cleared, rw: { sugar: 30 } },
       { id: 'm4', text: 'Clear all of Section 1', goal: 25, val: s => s.cleared, rw: { tickets: 3, sugar: 50 } },
       { id: 'm5', text: 'Clear all of Section 2', goal: 25, val: s => secCleared(s, 1), rw: { tickets: 5 } },
       { id: 'm6', text: 'Clear all of Section 3', goal: 25, val: s => secCleared(s, 2), rw: { tickets: 10, sugar: 150 } },
@@ -5811,7 +5819,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const sortBy = sortId === 'count' ? (a, b) => counts[b] - counts[a] || nm(a).localeCompare(nm(b)) : sortId === 'name' ? (a, b) => nm(a).localeCompare(nm(b)) : (a, b) => rank(b) - rank(a) || nm(a).localeCompare(nm(b));
     const auto = stLayout(keys, sortBy), pos = (G.stPos = G.stPos || {}), size = keys.length > 30 ? 66 : keys.length > 18 ? 80 : 100;
     const P = k => pos[page + '|' + k] || auto[k];
-    if (!keys.length) { text(c, orbs ? 'No Talent Orbs yet.' : 'Storage is empty.', 640, 330, 30, '#9fb7b3', 'center', null, HEAD); text(c, orbs ? 'Win stages from Map 3 on, or buy an Orb Capsule in the Shop.' : 'Capsule prizes wait here until you use them.', 640, 372, 18, '#7f9a96', 'center'); }
+    if (!keys.length) { text(c, orbs ? 'No Talent Orbs yet.' : 'Storage is empty.', 640, 330, 30, '#9fb7b3', 'center', null, HEAD); text(c, orbs ? 'Win stages from stage 2-3 on, or buy an Orb Capsule in the Shop.' : 'Capsule prizes wait here until you use them.', 640, 372, 18, '#7f9a96', 'center'); }
     // draw back to front (lower on screen = in front); the one being dragged goes on top
     const drag = G.stDrag && G.stDrag.page === page ? G.stDrag : null;
     keys.slice().sort((a, b) => (drag && a === drag.k) - (drag && b === drag.k) || P(a).y - P(b).y).forEach((k, i) => {
@@ -6251,16 +6259,16 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'max ' + st.fmt(max).split(' ')[0], x + 224, 138, 12, '#a8702e', 'right');
     });
     // map tabs: each map has one treasure per stage
-    if (G.tmap == null) G.tmap = Math.max(0, mapOf(Math.min(S.cleared, STAGES.length - 1)));
+    if (G.tmap == null || G.tmap >= MAPS.length) G.tmap = Math.max(0, mapOf(Math.min(S.cleared, STAGES.length - 1)));
     MAPS.forEach((m, k) => {
-      const x = 28 + k * 248, on = k === G.tmap, got = TREASURES.filter((t, i) => i >= m.first && i <= m.last && S.treasure && S.treasure[encIdx(G.tsec, i)]).length;
-      btn(c, x, 214, 240, 44, 'Map ' + (k + 1) + ': ' + m.name + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
+      const x = 28 + k * 328, on = k === G.tmap, got = TREASURES.filter((t, i) => i >= m.first && i <= m.last && S.treasure && S.treasure[encIdx(G.tsec, i)]).length;
+      btn(c, x, 206, 320, 44, 'Chapter ' + (k + 1) + ': ' + m.name + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
     });
     const TM = MAPS[G.tmap];
     // one card per stage of the selected map
     TREASURES.forEach((t, i) => {
       if (i < TM.first || i > TM.last) return;
-      const x = 28 + (i - TM.first) * 248, y = 300, w = 236, h = 210, g = (S.treasure && S.treasure[encIdx(G.tsec, i)]) || 0, gr = TREASURE_GRADES[g];
+      const j = i - TM.first, x = 28 + (j % 5) * 248, y = 264 + Math.floor(j / 5) * 208, w = 236, h = 200, g = (S.treasure && S.treasure[encIdx(G.tsec, i)]) || 0, gr = TREASURE_GRADES[g];
       const st = TREASURE_STATS[t.stat], played = secCleared(S, G.tsec) > i;
       rr(c, x, y + 4, w, h, 12, 'rgba(0,0,0,.25)', null); rr(c, x, y, w, h, 12, '#111', null);
       rr(c, x + 3, y + 3, w - 6, h - 6, 10, g ? gr.color : '#8a7f70', null); rr(c, x + 6, y + 6, w - 12, h - 12, 8, g ? '#fff3d6' : '#d6cdbf', null);
@@ -6523,7 +6531,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1628';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1639';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
