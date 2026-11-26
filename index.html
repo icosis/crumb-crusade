@@ -165,6 +165,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     ['aurora', 'pixie', 'LR', 'Aurora Éclair Archmage', 'Legend Rare. Freezes, weakens and curses from far away. Massive vs Relic pests.', 'support', 2900, 4200, 700, 220, 44, .6, 3.6, 68, 3, 500,
       { traits: ['pastry'], massive: ['relic'], freeze: { ch: .3, t: 3 }, weaken: { ch: .3, t: 4, to: .5 }, curse: { ch: .2, t: 3 }, ld: [100, 360], area: true },
       { shape: 'blob', bw: 32, bh: 56, ly: 0, hover: 40, col: '#c8a8ff', hi: '#ffffff', acc: '#5aa8e8', top: 'crown', wings: true, weapon: 'staff', aura: '#ffe0f4' }, 'Aurora Éclair Sage', 'Aurora Éclair Empress', ['Northern lights, southern frosting.', 'Aurora Éclair Empress: ice, hex and glaze in one very long sentence.']],
+    // ---------------- Special bakers: freed by the Awakening stage at the end of each section ----------------
+    ['squire', null, 'SR', 'Gingersnap Squire', 'Small, quick and loyal. Cheap to send out, and it nibbles Red pests.', 'attacker', 450, 1600, 230, 58, 86, .25, 1.0, 10, 5, 260,
+      { traits: ['sweet'], strong: ['red'] },
+      { shape: 'blob', bw: 15, bh: 30, ly: 8, col: '#c98a4e', hi: '#f0c890', acc: '#7a3f12', top: 'bow', weapon: 'blade' }, 'Gingersnap Knight', 'Gingersnap Champion', ['Wins small battles and the occasional big one.', 'Gingersnap Champion: the smallest hero with the biggest crunch.']],
+    ['valkyrie', null, 'UR', 'Valkyrie Baker', 'Winged knight of the oven. Fast flyer that slices whole crowds. Strong vs Floating and Angel pests.', 'heavy', 1500, 3200, 640, 150, 72, .4, 2.2, 40, 3, 420,
+      { traits: ['pastry'], strong: ['floating', 'angel'], area: true },
+      { shape: 'blob', bw: 24, bh: 48, ly: 0, hover: 26, col: '#d8d2ff', hi: '#ffffff', acc: '#e0a020', top: 'crown', wings: true, weapon: 'blade', aura: '#ffe27a' }, 'Valkyrie Dame', 'Valkyrie Empress', ['A knight who flies in, cuts the line in half and flies out.', 'Valkyrie Empress: the oven is hers; the sky is on loan.']],
   ];
   const PACK = PACK_ROWS.map(r => ({ id: r[0], banner: r[1], rarity: r[2], name: r[3], desc: r[4], role: r[5], cost: r[6], hp: r[7], dmg: r[8], range: r[9], speed: r[10], windup: r[11], interval: r[12], recharge: r[13], kb: r[14], up: r[15], extra: r[16], art: r[17], evo1: r[18], evo2: r[19], forms: r[20] }));
   for (const p of PACK) {
@@ -172,6 +179,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     UNITS[p.id] = Object.assign({ name: p.name, desc: p.desc, role: p.role, cost: p.cost, hp: p.hp, dmg: p.dmg, range: p.range, speed: p.speed, windup: p.windup, interval: p.interval, recharge: p.recharge, kb: p.kb,
       r: Math.round(sp.bw * .9), h, up: p.up, unlock: 99, gacha: true, rarity: p.rarity, banner: p.banner, back: .3 }, sp.hover ? { hover: sp.hover } : {}, p.extra);
   }
+  for (const id of ['squire', 'valkyrie']) { const u = UNITS[id]; u.curve = u.rarity; delete u.rarity; delete u.gacha; delete u.banner; u.special = true; }   // Special bakers: earned from an Awakening stage
   // one generic baker drawing for all of them, driven by the spec (body shape, colours, topper, weapon, wings, hover, aura)
   function bakerArt(sp) {
     const bw = sp.bw, bh = sp.bh, ly = sp.ly || 0, cy = -ly - (sp.hover || 0) - bh / 2, y0 = cy - bh / 2;
@@ -578,9 +586,16 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   //   awaken - frees Bakemut.   grain - "Golden Field": drops Golden Grain, needed for True Forms (BC Catfruit).
   //   crumb  - "Crumb Rush": gilded pests and a big crumb payout, for farming.
   const SPECIALS = [
-    { key: 'awaken', kind: 'awaken', name: 'The Crazed Knight', diff: 'Awakening', theme: 'night', len: 2500, hp: 30000, mag: 5.3, need: 15, reward: 8000, waves: [
+    // Awakening stages (Battle Cats' Awakened Bahamut style): each opens when a whole section is cleared and frees a Special baker
+    { key: 'awaken', kind: 'awaken', unit: 'bakemut', sec: 2, ord: -1, name: 'The Crazed Knight', diff: 'Awakening', theme: 'night', len: 2600, hp: 170000, mag: 13, need: 0, reward: 70000, waves: [
+      { u: 'ant', t: 2, e: 2.2 }, { u: 'roach', t: 7, e: 9 }, { u: 'wasp', t: 12, e: 9 }, { u: 'beetle', t: 18, e: 13 },
+      { u: 'crazed', hp: .95, t: 0 }, { u: 'mouse', hp: .5, t: 0, e: 4, n: 3, roar: true }] },
+    { key: 'awaken1', kind: 'awaken', unit: 'squire', sec: 0, ord: -3, name: 'The Runaway Gingerbread', diff: 'Awakening', theme: 'kitchen', len: 2300, hp: 45000, mag: 6.5, need: 0, reward: 8000, waves: [
       { u: 'ant', t: 2, e: 2.4 }, { u: 'roach', t: 8, e: 12 }, { u: 'wasp', t: 14, e: 11 }, { u: 'beetle', t: 20, e: 16 },
-      { u: 'crazed', hp: .95, t: 0 }, { u: 'mouse', hp: .5, t: 0, e: 4, n: 2, roar: true }] },
+      { u: 'ratking', hp: .95, t: 0 }, { u: 'mouse', hp: .5, t: 0, e: 4, n: 2, roar: true }] },
+    { key: 'awaken2', kind: 'awaken', unit: 'valkyrie', sec: 1, ord: -2, name: 'The Fallen Valkyrie', diff: 'Awakening', theme: 'roof', len: 2500, hp: 120000, mag: 11, need: 0, reward: 30000, waves: [
+      { u: 'wasp', t: 2, e: 2.4 }, { u: 'roach', t: 7, e: 10 }, { u: 'beetle', t: 12, e: 14 }, { u: 'mouse', t: 20, e: 22 },
+      { u: 'crow', hp: .95, t: 0 }, { u: 'queen', hp: .5, t: 0 }] },
     { key: 'grain1', kind: 'grain', name: 'Golden Field', diff: 'Easy', theme: 'garden', len: 1900, hp: 6000, mag: 1.6, need: 10, reward: 1500, grain: 1, waves: [
       { u: 'fly', t: 2, e: 3 }, { u: 'wasp', t: 8, e: 10 }, { u: 'ant', t: 4, e: 4 }, { u: 'mouse', hp: .5, t: 0, roar: true }] },
     { key: 'grain2', kind: 'grain', name: 'Golden Field', diff: 'Hard', theme: 'garden', len: 2200, hp: 15000, mag: 3.6, need: 15, reward: 3000, grain: 2, waves: [
@@ -610,7 +625,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const snapMag = m => { const p = Math.round(m * 100); return MAG_KEEP.includes(p) ? p / 100 : Math.round(m * 20) / 20; };
   STAGES.forEach(st => { st.mag = snapMag(st.mag); }); SPECIALS.forEach(st => { st.mag = snapMag(st.mag); });
   // Battle indexes: normal stages 0-24, Legend stages SP_BASE + k, Heavenly Tower floor f = TOWER_BASE + f, Section 2/3 stages from SEC_STRIDE
-  const TOWER_BASE = 500, TOWER_MAX = 499;
+  const TOWER_BASE = 500, TOWER_MAX = 50;
   const LIVE_IDX = 198;             // battle index of a Live Battle (head to head, real time)
   const PVP_IDX = 199;              // battle index of the PvP arena (between the Legend stages and the Heavenly Tower)
   let PVP_OPP = null;               // the opponent being fought: { id, name, rating, pw, team: [{ u, lv, p, e }] }
@@ -668,7 +683,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Legend stages stay locked until the Crumb Rebellion (Section 2) is unlocked, i.e. every Section 1 stage is cleared;
   // after that each one also needs its own stage count, as before.
   const legendOpen = save => secOpen(save, 1);
-  const spOpen = (save, k) => legendOpen(save) && save.cleared >= SPECIALS[k || 0].need;
+  const secDone = (save, sec) => secCleared(save, sec) >= STAGES.length;
+  const spOpen = (save, k) => { const x = SPECIALS[k || 0]; return legendOpen(save) && save.cleared >= x.need && (x.sec == null || secDone(save, x.sec)); };   // an Awakening stage opens when its whole section is cleared
+  const spLockText = x => (x.sec != null ? 'Finish every stage of ' + SECTIONS[x.sec].name : 'Clear stage ' + stageLabel(x.need - 1));
   // Maps group the stages into chapters of rising difficulty. Progress is still one line through all stages:
   // a map opens once every stage of the previous map is cleared.
   const MAPS = [
@@ -1747,13 +1764,21 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (slot >= 0 && !k.includes(id)) { k[slot] = id; save.lineup = k; }
   }
   // ---- gacha (Battle Cats rates): rare 70% / super rare 25% / uber rare 4.7% / legend rare 0.3%; an 11-draw costs 10 tickets, no guarantee ----
+  function gachaPool(r, banner) {   // who can drop at rarity r: an event banner swaps in its own bakers for the rarities it has
+    const bp = banner ? UNIT_ORDER.filter(id => UNITS[id].rarity === r && UNITS[id].banner === banner) : [];
+    return bp.length ? bp : UNIT_ORDER.filter(id => UNITS[id].rarity === r && !UNITS[id].banner);
+  }
+  function bannerOdds(banner) {   // every baker of the banner with its chance per draw, Rare first, Legend Rare last
+    const out = [];
+    for (const r of ['R', 'SR', 'UR', 'LR']) { const pool = gachaPool(r, banner); for (const id of pool) out.push({ id, rarity: r, p: RARITY[r].rate / pool.length }); }
+    return out;
+  }
   function rollGacha(rnd, minSR, minUR, banner) {
     const x = rnd(), L = RARITY.LR.rate, U = L + RARITY.UR.rate, Sr = U + RARITY.SR.rate;
     let r = x < L ? 'LR' : x < U ? 'UR' : x < Sr ? 'SR' : 'R';
     if (minSR && r === 'R') r = 'SR';
     if (minUR && (r === 'R' || r === 'SR')) r = 'UR';
-    const bp = banner ? UNIT_ORDER.filter(id => UNITS[id].rarity === r && UNITS[id].banner === banner) : [];   // an event banner swaps in its own bakers for the rarities it has
-    const pool = bp.length ? bp : UNIT_ORDER.filter(id => UNITS[id].rarity === r && !UNITS[id].banner);
+    const pool = gachaPool(r, banner);
     return pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))];
   }
   function gachaPull(save, n, rnd, banner) {
@@ -1782,7 +1807,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function capsuleUse(save, id) {
     if (!(save.capsule || []).includes(id)) return null;
     if (!save.owned) save.owned = {};
-    if (!save.owned[id]) { capsuleTake(save, id); save.owned[id] = 1; autoEquip(save, id); return 'unlock'; }
+    if (!save.owned[id]) { capsuleTake(save, id); save.owned[id] = 1; return 'unlock'; }
     if (plusOf(save, id) >= PLUS_MAX) return null;                   // plus levels maxed: can only be sold
     if (!save.plus) save.plus = {};
     capsuleTake(save, id); save.plus[id] = plusOf(save, id) + 1; return 'plus';
@@ -2610,7 +2635,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.baseGo = null; G.bnInfo = false; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp' && screen !== 'liveprep' && screen !== 'equip')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -2658,14 +2683,14 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (isSpecial(i)) {
         const sp = stageOf(i);
         if (sp.kind === 'grain') { grain = sp.grain; S.grain = (S.grain || 0) + grain; }
-        if (sp.kind === 'awaken' && !(S.awakened && S.awakened.bakemut)) { first = true; crumbs *= 2; S.awakened = S.awakened || {}; S.awakened.bakemut = 1; S.levels.bakemut = Math.max(S.levels.bakemut || 1, 10); unlocked = ['bakemut']; autoEquip(S, 'bakemut'); }
+        if (sp.kind === 'awaken' && sp.unit && !(S.awakened && S.awakened[sp.unit])) { first = true; crumbs *= 2; S.awakened = S.awakened || {}; S.awakened[sp.unit] = 1; S.levels[sp.unit] = Math.max(S.levels[sp.unit] || 1, 10); unlocked = [sp.unit]; }
         if (sp.kind === 'tower') { const fl = i - TOWER_BASE; if (fl > (S.tower || 0)) { first = true; crumbs *= 2; S.tower = fl; } else crumbs = Math.round(crumbs * .25 / 10) * 10; }   // a floor pays double the first time, a quarter when replayed
         if ((sp.kind === 'daily' || sp.kind === 'trial') && !S.spDone[sp.key]) { first = true; crumbs *= 2; }
       } else if (secOf(i)) {
         const sc = secOf(i), b = baseOf(i); S.secCleared = S.secCleared || {};
         if ((S.secCleared[sc] || 0) <= b) { first = true; crumbs *= 2; S.secCleared[sc] = b + 1; }
       } else if (S.cleared <= i) { first = true; crumbs *= 2; const before = S.cleared; S.cleared = i + 1; unlocked = UNIT_ORDER.filter(id => UNITS[id].unlock > before && UNITS[id].unlock <= S.cleared);
-        for (const id of unlocked) autoEquip(S, id); }
+      }
     } else crumbs = 20 + Math.round(stageReward(i) * .2 * (1 - B.ebase.hp / B.ebase.maxHp));
     crumbs = Math.round(crumbs * (1 + treasureBonus(S, 'crumbs') + .03 * (baseLv(S, 'study') - 1)));
     let treasure = null;
@@ -3217,6 +3242,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---------------- Legend events: each row on Legend Stages opens its own map of stages (like the main stage maps) ----------------
   const LG_EVENTS = [];
   SPECIALS.forEach((x, k) => { let e = LG_EVENTS.find(v => v.name === x.name); if (!e) { e = { name: x.name, kind: x.kind, ks: [] }; LG_EVENTS.push(e); } e.ks.push(k); });
+  LG_EVENTS.sort((a, b) => (SPECIALS[a.ks[0]].ord || 0) - (SPECIALS[b.ks[0]].ord || 0));   // the three Awakening stages first, in section order (the sort is stable)
   const LG_INFO = {
     awaken: { label: 'Awakening', color: '#a98bff', tint: 'rgba(110,70,200,.16)', blurb: 'A corrupted Bakemut guards the old oven. Beat it to free Bakemut!' },
     grain: { label: 'True Form stages', color: '#f6c343', tint: 'rgba(214,150,60,.15)', blurb: 'Golden wheat grows here. Win to harvest Golden Grain for True Forms!' },
@@ -3229,7 +3255,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const lgOpen = e => spOpen(S, e.ks[0]);
   const lgSeenKey = (e, ei) => 'lg' + ei + '_' + e.ks.filter(q => spOpen(S, q)).length;   // the red New! tag goes away once you open the event
   function openLegendEvent(ei) {
-    const e = LG_EVENTS[ei]; if (!lgOpen(e)) { sfx('deny'); toast(!legendOpen(S) ? 'Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).' : 'Clear stage ' + stageLabel(SPECIALS[e.ks[0]].need - 1) + ' to open ' + e.name + '.'); return; }
+    const e = LG_EVENTS[ei]; if (!lgOpen(e)) { sfx('deny'); toast(!legendOpen(S) ? 'Legend Stages open once the ' + SECTIONS[1].name + ' is unlocked (clear every Section 1 stage).' : spLockText(SPECIALS[e.ks[0]]) + ' to open ' + e.name + '.'); return; }
     S.seen[lgSeenKey(e, ei)] = 1; persist(); G.lgEvent = ei; const k = e.ks.find(q => spOpen(S, q) && !S.spDone[SPECIALS[q].key]); G.spSel = k != null ? k : e.ks.filter(q => spOpen(S, q)).pop(); go('legendmap');
   }
   function drawLegendMap(c) {
@@ -3240,11 +3266,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (x.kind === 'daily') applyDaily();
       if (x.kind === 'tower') {   // always the next floor up
         const fl = Math.min(TOWER_MAX, (S.tower || 0) + 1), t = towerStage(fl);
-        return { name: 'Floor ' + fl, open: spOpen(S, q), done: false, boss: fl % 5 === 0, grade: null, mag: t.mag, hp: t.hp, reward: t.reward + '  ·  best floor ' + (S.tower || 0), first: true, attack: null,
+        return { name: 'Floor ' + fl, open: spOpen(S, q), done: (S.tower || 0) >= TOWER_MAX, boss: fl % 5 === 0, grade: null, mag: t.mag, hp: t.hp, reward: t.reward + '  ·  best floor ' + (S.tower || 0), first: true, attack: null,
           go: () => startBattle(TOWER_BASE + fl), pests: [...new Set(t.waves.map(w => w.u))] };
       }
       return { name: x.kind === 'daily' ? 'Daily: ' + x.mod.name : e.ks.length > 1 ? x.diff : x.name, open: spOpen(S, q), done: !!S.spDone[x.key], boss: x.waves.some(w => FOES[w.u].boss), grade: null, mag: x.mag, hp: x.hp,
-        reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && !isOwned(S, 'bakemut') ? '  + Bakemut' : ''), first: !S.spDone[x.key], attack: null,
+        reward: x.reward + (x.grain ? '  +' + x.grain + ' grain' : '') + (x.limit ? '  ·  only ' + x.limit + ' baker' + (x.limit > 1 ? 's' : '') : '') + (x.kind === 'awaken' && x.unit && !isOwned(S, x.unit) ? '  + ' + UNITS[x.unit].name : ''), first: !S.spDone[x.key], attack: null,
         go: () => startBattle(SP_BASE + q), pests: [...new Set(x.waves.map(w => w.u))] };
     });
     drawStageSelect(c, { key: 'lg:' + (G.lgEvent || 0), stages, sel: e.ks.indexOf(G.spSel), setSel: k => { G.spSel = e.ks[k]; }, back: () => goBack(),
@@ -3288,7 +3314,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       c.font = 'bold 30px ' + HEAD; let fs = 30; while (fs > 16 && c.measureText(e.name).width > LW - 120) { fs--; c.font = 'bold ' + fs + 'px ' + HEAD; }
       text(c, e.name, LX + LW / 2, y + 30, fs, o ? '#fff' : '#b0a698', 'center', '#2b1a0e', HEAD);
       if (done) { rr(c, LX + 10, y + 38, 78, 18, 4, '#c8102e', null); text(c, 'COMPLETE!', LX + 49, y + 47, 11, '#fff', 'center'); }
-      if (!o) text(c, !legendOpen(S) ? '🔒 Needs Rebellion' : '🔒 Clear ' + stageLabel(SPECIALS[e.ks[0]].need - 1), LX + LW - 12, y + 48, 13, '#ffe9a8', 'right', '#2b1a0e');
+      if (!o) text(c, !legendOpen(S) ? '🔒 Needs Rebellion' : SPECIALS[e.ks[0]].sec != null ? '🔒 Clear ' + SECTIONS[SPECIALS[e.ks[0]].sec].short : '🔒 Clear ' + stageLabel(SPECIALS[e.ks[0]].need - 1), LX + LW - 12, y + 48, 13, '#ffe9a8', 'right', '#2b1a0e');
       e.ks.forEach((q, j) => text(c, '★', LX + 20 + j * 20, y + 74, 17, S.spDone[SPECIALS[q].key] ? '#ff7ad9' : '#c9c2b6', 'center', '#2b1a0e'));   // one star per stage, pink when cleared
       if (o && fresh) { c.save(); c.translate(LX + LW - 26, y + 58); c.rotate(-.1); rr(c, -34, -14, 70, 28, 6, '#e2483a', '#fff', 2); text(c, 'New!', 1, 1, 18, '#fff', 'center', null, HEAD); c.restore(); }
       c.restore();
@@ -3608,7 +3634,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     carArrow(c, 70, 400, -1, () => carStep('ch', -1), cur === 0);
     carArrow(c, VW - 70, 400, 1, () => carStep('ch', 1), cur === cards.length - 1);
     text(c, 'Tap the big card to pick it', 640, 606, 17, '#cfcfcf', 'center', '#000');
-    baseBottom(c, () => goBack('title'));   // opened from PLAY there is no history, so Back returns to the title screen; from the base it returns to the base
+    baseBottom(c, () => { HIST.length = 0; go('title'); });   // Back from Stage Select always returns to the start (title) screen
   }
   function chapterCard(c, cd, W, H, focus) {
     if (cd.pvp) { drawPvpCard(c, W, H, focus); return; }
@@ -3653,16 +3679,19 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // "Bakers" opens on the folders (Power Ups, Rare, Super Rare, ...) followed by the normal bakers; a folder opens its own carousel.
   let UPSEL = null, UPCAT = 'main', UPSORT = 'basic';
   const UP_FOLDERS = [
+    { id: 'ALL', label: 'All Bakers', one: 'All Bakers', color: '#7be0c0' },
     { id: 'LR', label: 'Legend Rare Bakers', one: 'Legend Rare Baker' }, { id: 'UR', label: 'Uber Rare Bakers', one: 'Uber Rare Baker' }, { id: 'SR', label: 'Super Rare Bakers', one: 'Super Rare Baker' },
     { id: 'R', label: 'Rare Bakers', one: 'Rare Baker' }, { id: 'SP', label: 'Special Bakers', one: 'Special Baker' },
   ];
-  const upCatOf = key => (!key || key.startsWith('f:') ? 'main' : key.startsWith('b:') ? 'main' : UNITS[key] ? (rarityOf(key) === 'B' ? 'main' : rarityOf(key)) : 'main');
+  const catIds = cat => UNIT_ORDER.filter(id => isOwned(S, id) && (cat === 'ALL' || rarityOf(id) === (cat === 'main' ? 'B' : cat)));
+  const upFolders = () => { const f = UP_FOLDERS.filter(x => x.id !== 'ALL' && catIds(x.id).length); return f.length ? [UP_FOLDERS[0]].concat(f) : []; };   // a folder shows up once you own a baker of that kind
+  const upCatOf = key => (!key || key.startsWith('f:') ? 'main' : key.startsWith('b:') || key.startsWith('k:') ? 'main' : UNITS[key] ? (rarityOf(key) === 'B' ? 'main' : rarityOf(key)) : 'main');
   function upList(cat) {
     if (cat === 'POWER') return Object.keys(BASE_UP).map(k => 'b:' + k);
     if (fltOn()) { const all = UNIT_ORDER.filter(fltMatch); return UPSORT === 'level' ? all.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a)) : all; }   // filter on: one flat list across every rarity
-    let ids = UNIT_ORDER.filter(id => isOwned(S, id) && rarityOf(id) === (cat === 'main' ? 'B' : cat));
+    let ids = catIds(cat);
     if (UPSORT === 'level') ids = ids.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a));
-    return cat === 'main' ? UP_FOLDERS.map(f => 'f:' + f.id).concat(ids, Object.keys(BASE_UP).map(k => 'b:' + k), UP_FOLDERS.slice().reverse().map(f => 'f:' + f.id)) : ids;
+    return cat === 'main' ? upFolders().map(f => 'f:' + f.id).concat(ids, Object.keys(BASE_UP).map(k => 'b:' + k), upFolders().slice().reverse().map(f => 'f:' + f.id)) : ['k:back'].concat(ids);   // inside a folder: a Back card sits left of the first baker
   }
   const BASE_ICON = { pin: 'pin', range: 'pin', charge: 'pin', wallet: 'dough', tin: 'dough', accounting: 'dough', oven: 'oven', research: 'book', study: 'book' };
   function powerIcon(c, k, x, y, s) {
@@ -3678,6 +3707,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   // one Upgrade card in local coords: x -W/2..W/2, y 0..H
   function upCard(c, key, W, H, focus, eq) {   // eq: the Equip screen's version (bigger picture, the dough cost along the bottom)
+    if (key === 'k:back') {
+      const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#ffd23a'); g.addColorStop(1, '#e8a400'); rr(c, -W / 2, 0, W, H, 4, g, '#111', 6);
+      poly(c, [-60, H / 2 - 40, -10, H / 2 - 85, -10, H / 2 - 60, 60, H / 2 - 60, 60, H / 2 - 20, -10, H / 2 - 20, -10, H / 2 + 5], '#fff', '#111', 5);
+      text(c, 'Back', 0, H - 70, 52, '#fff', 'center', '#111', HEAD); return;
+    }
     const fold = key.startsWith('f:') && UP_FOLDERS.find(f => 'f:' + f.id === key);
     if (fold) {
       const col = fold.color || (RARITY[fold.id] ? RARITY[fold.id].color : '#c9b6ff');
@@ -3686,7 +3720,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const lines = wrapLines(c, fold.label, W - 40, 44); c.font = 'bold 44px ' + HEAD;
       const fs = Math.min(44, Math.floor(44 * (W - 40) / Math.max(...lines.map(l => c.measureText(l).width))));
       lines.forEach((l, i) => text(c, l, 0, H / 2 - 16 + (i - (lines.length - 1) / 2) * (fs + 8), fs, '#fff', 'center', '#111', HEAD));
-      const n = fold.id === 'POWER' ? Object.keys(BASE_UP).length : UNIT_ORDER.filter(id => isOwned(S, id) && rarityOf(id) === fold.id).length;
+      const n = fold.id === 'POWER' ? Object.keys(BASE_UP).length : catIds(fold.id).length;
       text(c, fold.id === 'POWER' ? n + ' upgrades' : n + ' owned', 0, H - 34, 22, '#4a2f12', 'center');
       return;
     }
@@ -3726,10 +3760,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     STATIC_ART = true; try { drawShopInner(c); } finally { STATIC_ART = false; }   // Upgrade shows still pictures (no walking cards)
   }
   function drawShopInner(c) {
-    if (UPSEL && !UPSEL.startsWith('f:') && upCatOf(UPSEL) !== UPCAT) UPCAT = upCatOf(UPSEL);   // e.g. coming back from the Orb screen
+    if (UPSEL && !UPSEL.startsWith('f:') && !UPSEL.startsWith('k:') && UPCAT !== 'ALL' && upCatOf(UPSEL) !== UPCAT) UPCAT = upCatOf(UPSEL);   // e.g. coming back from the Orb screen
     const items = upList(UPCAT), key = 'up:' + UPCAT, car = carousel(key, items.length);
     // jump to UPSEL when it was changed from outside the carousel (opening a folder, the smoke test, ...)
-    if (car.sel !== UPSEL) { const j = items.indexOf(UPSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined) car.target = car.pos = UPCAT === 'main' ? Math.min(UP_FOLDERS.length, items.length - 1) : 0; }
+    if (car.sel !== UPSEL) { const j = items.indexOf(UPSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined) car.target = car.pos = UPCAT === 'main' ? Math.min(upFolders().length, items.length - 1) : Math.min(1, items.length - 1); }
     const cur = Math.round(car.target), sel = items[cur] || null; UPSEL = car.sel = sel;
 
     c.fillStyle = '#fbefcc'; c.fillRect(0, 0, VW, VH);
@@ -3760,7 +3794,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       levelFlash(c, items[i], W, H);
       c.restore();
       const w = W * sl.k, h = H * sl.k;
-      hit(cx - w / 2, top, w, h, i === cur ? (items[i].startsWith('f:') ? () => openFolder(items[i]) : () => {}) : () => { car.target = i; sfx('click'); });
+      hit(cx - w / 2, top, w, h, i === cur ? (items[i].startsWith('f:') ? () => openFolder(items[i]) : items[i] === 'k:back' ? () => upBack() : () => {}) : () => { car.target = i; sfx('click'); });
     }
     if (sel && UNITS[sel] && Math.abs(car.pos - cur) < .05) formBtn(c, sel, 640 + 176, 92 + 284);
     // black band with the action buttons, brown info panel under it
@@ -3768,7 +3802,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     poly(c, [0, 404, 700, 404, 736, 440, VW, 440, VW, 648, 0, 648], teal ? '#2f7f86' : '#111', null);
     rr(c, 60, 508, 1160, 134, 14, teal ? '#25646a' : '#6e4a2c', teal ? '#163c40' : '#3a2416', 3);
     if (!sel) { baseBottom(c, upBack); return; }
-    if (sel.startsWith('f:')) {
+    if (sel === 'k:back') {
+      baseBtn(c, 88, 414, 360, 84, 'Back', () => upBack(), { size: 40 });
+      text(c, 'Back to the folders', 640, 574, 28, '#fff', 'center');
+    } else if (sel.startsWith('f:')) {
       const f = UP_FOLDERS.find(x => 'f:' + x.id === sel);
       baseBtn(c, 88, 414, 360, 84, 'Open', () => openFolder(sel), { size: 40 });
       text(c, 'Move to', 640, 552, 28, '#fff', 'center'); text(c, f.label, 640, 596, 30, '#fff', 'center');
@@ -4254,12 +4291,24 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     'Sugar Cubes are great. Sugar Cubes are also delicious. Do not eat them.',
     'Pest strength is a percentage. Mine is 100%. Of bun.',
   ];
+  // Start / Upgrade / Equip: the whole left column steps off to the left (and the tray drops) before the next screen opens
+  const BASE_SLIDE = .62;
+  function baseSlide(fn) { if (G.baseGo) return; sfx('click'); G.baseGo = { t0: G.time, fn }; }
+  function drawBaseSlideAway(c, tt) {
+    const p = clamp(tt / BASE_SLIDE, 0, 1), n0 = UI.btns.length, off = i => -Math.pow(clamp((tt - i * .09) / .4, 0, 1), 2) * 470;
+    c.save(); c.beginPath(); c.rect(0, 0, VW, 648); c.clip();
+    c.save(); c.translate(0, p * p * 230); drawBaseTray(c); c.restore();
+    c.save(); c.translate(off(0), 0); drawRankBar(c); c.restore();
+    drawBaseButtons(c, [off(0), off(1), off(2)]);
+    c.save(); c.translate(off(3), 0); drawBaseIcons(c); c.restore();
+    c.restore(); UI.btns.length = n0;   // (nothing in the sliding pieces can be pressed)
+  }
   // the three big yellow buttons (also drawn sliding away to the right when Start!! is pressed, and back again on Back)
   function drawBaseButtons(c, offs) {   // offs: a sideways offset per button (used by the stepped slide away)
     const o = offs || [0, 0, 0], at = (i, fn) => { c.save(); c.translate(o[i], 0); fn(); c.restore(); };
-    at(0, () => baseBtn(c, 22, 168, 392, 78, 'Start!!', resumeStages, { size: 40 }));
-    at(1, () => baseBtn(c, 22, 272, 392, 78, 'Upgrade', () => { G.shopFrom = 'prep'; go('shop'); }, { size: 40 }));
-    at(2, () => baseBtn(c, 22, 376, 392, 78, 'Equip', () => go('equip'), { size: 40 }));
+    at(0, () => baseBtn(c, 22, 168, 392, 78, 'Start!!', () => (inLegend() ? resumeStages() : baseSlide(resumeStages)), { size: 40 }));
+    at(1, () => baseBtn(c, 22, 272, 392, 78, 'Upgrade', () => baseSlide(() => { G.shopFrom = 'prep'; go('shop'); }), { size: 40 }));
+    at(2, () => baseBtn(c, 22, 376, 392, 78, 'Equip', () => baseSlide(() => go('equip')), { size: 40 }));
   }
   // wooden tray across the door gap: Storage + Ticket capsule + Sugar capsule (also drawn sliding down when Start!! is pressed)
   function drawBaseTray(c) {
@@ -4362,17 +4411,19 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'tap me for more', bx + bw - 26, by + bh - 20, 14, 'rgba(255,255,255,.5)', 'right'); }
     baseTopBar(c);
     drawSugarSale(c);
-    drawRankBar(c);
+    if (G.baseGo) drawBaseSlideAway(c, G.time - G.baseGo.t0);
+    else { drawRankBar(c);
     // big buttons
     drawBaseButtons(c);
     drawBaseIcons(c);
-    drawBaseTray(c);
+    drawBaseTray(c); }
     // bottom wood bar: back · Shop · Sugar Cubes
     baseBottom(c, () => go('title'));
     if (G.menuOpen) drawMenuPopup(c);
     if (G.goalsOpen) drawGoalsPopup(c);
     if (G.lbOpen) drawLeaderboard(c);
     if (G.rankOpen) drawRankPopup(c);
+    if (G.baseGo && G.time - G.baseGo.t0 >= BASE_SLIDE) { const fn = G.baseGo.fn; G.baseGo = null; fn(); }
   }
 
   // =====================================================================
@@ -4419,7 +4470,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if ((S.tickets || 0) > 0) g.push({ label: 'You have ' + S.tickets + ' Rare Ticket' + (S.tickets > 1 ? 's' : ''), hint: 'Try the Rare Capsule to recruit bakers', cur: 1, max: 1, ready: true, go: () => { G.gachaTab = 'rare'; go('gacha'); } });
     // long-term
     if (legendOpen(S) && !S.spDone.daily) g.push({ label: 'Play today\'s Daily Twist', hint: 'A Legend stage with a twist. The first win each day pays a Rare Ticket', cur: 0, max: 1, go: () => go('special') });
-    if (legendOpen(S)) g.push({ label: 'Climb the Heavenly Tower  (floor ' + ((S.tower || 0) + 1) + ')', hint: 'Endless floors in the Legend Stages. Best so far: ' + (S.tower || 0), cur: S.tower || 0, max: Math.max(10, Math.ceil(((S.tower || 0) + 1) / 10) * 10), go: () => go('special') });
+    if (legendOpen(S) && (S.tower || 0) < TOWER_MAX) g.push({ label: 'Climb the Heavenly Tower  (floor ' + ((S.tower || 0) + 1) + ')', hint: 'Endless floors in the Legend Stages. Best so far: ' + (S.tower || 0), cur: S.tower || 0, max: Math.max(10, Math.ceil(((S.tower || 0) + 1) / 10) * 10), go: () => go('special') });
     const nextRank = RANK_REWARDS[rankClaimed(S)];
     if (nextRank && rk.total < nextRank.rank) g.push({ label: 'Reach User Rank ' + nextRank.rank, hint: 'Reward: ' + rankRwText(nextRank.rw) + '  ·  level up bakers and Power Ups', cur: rk.total, max: nextRank.rank, go: () => go('shop') });
     const tr = Object.keys(S.treasure || {}).filter(k => S.treasure[k] > 0).length, trMax = TREASURES.length * SECTIONS.length;
@@ -5278,6 +5329,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       const bg2 = c.createLinearGradient(x, y, x + w, y + h); bg2.addColorStop(0, '#1d2a6a'); bg2.addColorStop(.5, '#4a7ad8'); bg2.addColorStop(1, '#ffd24a'); c.fillStyle = bg2; c.fillRect(x, y, w, h);
       c.translate(x + w / 2, y + h / 2); c.globalAlpha = .25; for (let k = 0; k < 14; k++) { c.rotate(TAU / 14); poly(c, [0, 0, 600, -40, 600, 40], '#fff', null); } c.globalAlpha = 1; c.setTransform(c.getTransform());
       c.restore(); c.save(); rrPath(c, x, y, w, h, 16); c.clip();
+      hit(x, y, w, h, () => { G.bnInfo = true; sfx('click'); });   // tap the banner: every baker in it and its chance
       const stars = bn ? UNIT_ORDER.filter(id => UNITS[id].banner === bn.id) : UNIT_ORDER.filter(id => (UNITS[id].rarity === 'UR' || UNITS[id].rarity === 'LR') && !UNITS[id].banner);
       stars.forEach((id, k) => { const px = x + 70 + k * (w - 140) / Math.max(1, stars.length - 1); c.save(); c.globalAlpha = .9; portrait(c, id, px, y + h - 8, k % 2 ? 120 : 150, { walk: G.time * 3 + k, pose: 0, hurt: false, t: G.time }); c.restore(); });
       c.restore();
@@ -5287,7 +5339,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       text(c, 'BAKER', x + w / 2 - 6, y + 118, 70, '#3b5bd8', 'right', '#fff', HEAD);
       text(c, 'BANNER', x + w / 2 + 6, y + 118, 70, '#ffd24a', 'left', '#3a2416', HEAD);
       rr(c, x + w / 2 - 170, y + h - 62, 340, 44, 22, 'rgba(255,255,255,.85)', '#3b5bd8', 3); text(c, 'Rate UP for Legend Rares!', x + w / 2, y + h - 40, 20, '#3b5bd8', 'center', null, HEAD); }
-      text(c, 'Rare 70%  ·  Super Rare 25%  ·  Uber Rare 4.7%  ·  Legend Rare 0.3%', 640, 462, 20, '#ff9ff0', 'center', '#3a1a4a', HEAD);
+      text(c, 'Rare 70%  ·  Super Rare 25%  ·  Uber Rare 4.7%  ·  Legend Rare 0.3%', 640, 462, 20, '#ff9ff0', 'center', '#3a1a4a', HEAD); text(c, 'Tap the banner to see every baker and its chance', 640, 514, 15, '#ffd6f6', 'center', '#3a1a4a');
       { const p = S.pity || { sr: 0, ur: 0 }; text(c, 'Bad-luck protection:  Super Rare+ within ' + (PITY_SR - p.sr) + ' draws  ·  Uber Rare+ within ' + (PITY_UR - p.ur), 640, 488, 15, '#ffd6f6', 'center', '#3a1a4a'); }
     }
     // Storage (bottom left)
@@ -5325,7 +5377,27 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       baseBtn(c, px + pw / 2 - 110, py + ph - 76, 220, 58, 'OK', () => { G.nres = null; sfx('click'); }, { size: 30 });
     }
     if (G.pullBox && !G.gacha) drawPullBox(c); else if (G.pullBox) G.pullBox = null;
+    if (G.bnInfo && !normal) drawBannerInfo(c, bn ? bn.id : null, bn ? bn.name : 'Baker Banner');
     if (G.gacha) drawGachaReveal(c);
+  }
+  // popup: who is in this banner and the chance of each (Rare at the top, Legend Rare at the bottom)
+  const oddsPct = v => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') + '%';
+  function drawBannerInfo(c, banner, title) {
+    c.fillStyle = 'rgba(0,0,0,.62)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => { G.bnInfo = false; sfx('click'); });
+    const x = 300, y = 56, w = 680, h = 596, list = bannerOdds(banner), rows = list.length + 4, rh = Math.min(48, Math.floor((h - 150) / rows));
+    rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#fff3d6', '#111', 5); hit(x, y, w, h, () => {});
+    text(c, title + '  ·  what you can get', x + w / 2, y + 36, 28, OUT, 'center', null, HEAD);
+    let yy = y + 66;
+    for (const r of ['R', 'SR', 'UR', 'LR']) {
+      const rar = RARITY[r], mine = list.filter(o => o.rarity === r); if (!mine.length) continue;
+      rr(c, x + 20, yy, w - 40, rh - 2, 6, rar.color, null); text(c, rar.name, x + 34, yy + rh / 2 - 1, Math.min(22, rh - 8), '#fff', 'left', '#111', HEAD); text(c, oddsPct(rar.rate * 100) + ' in total', x + w - 34, yy + rh / 2 - 1, Math.min(18, rh - 10), '#fff', 'right', '#111', HEAD); yy += rh;
+      for (const o of mine) {
+        const d = UNITS[o.id]; c.save(); c.beginPath(); c.rect(x + 28, yy, rh, rh - 2); c.clip(); portrait(c, o.id, x + 28 + rh / 2, yy + rh - 4, rh - 4); c.restore();
+        fitLine(c, d.name, x + 40 + rh, yy + rh / 2, 330, Math.min(20, rh - 8), OUT, 'left'); text(c, d.role ? (ROLES[d.role] ? ROLES[d.role].label : '') : '', x + 440, yy + rh / 2, Math.min(13, rh - 10), '#7c5432', 'left');
+        text(c, oddsPct(o.p * 100), x + w - 34, yy + rh / 2, Math.min(20, rh - 8), OUT, 'right', null, HEAD); yy += rh;
+      }
+    }
+    baseBtn(c, x + w / 2 - 90, y + h - 52, 180, 44, 'Close', () => { G.bnInfo = false; sfx('click'); }, { size: 24 });
   }
   // The pull has three beats: a tension build-up (longer for rarer pulls), a flash, then each card flips over in turn.
   const BUILD_T = { R: 2.2, SR: 3.0, UR: 4.0, LR: 5.0 };
@@ -5949,9 +6021,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   let EQSEL = null, EQCAT = 'main';
   function eqList(cat) {
     if (fltOn()) { const all = UNIT_ORDER.filter(fltMatch); return UPSORT === 'level' ? all.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a)) : all; }   // filter on: one flat list across every rarity
-    let ids = UNIT_ORDER.filter(id => isOwned(S, id) && rarityOf(id) === (cat === 'main' ? 'B' : cat));
+    let ids = catIds(cat);
     if (UPSORT === 'level') ids = ids.slice().sort((a, b) => unitLv(S, b) + plusOf(S, b) - unitLv(S, a) - plusOf(S, a));
-    return cat === 'main' ? UP_FOLDERS.map(f => 'f:' + f.id).concat(ids, UP_FOLDERS.slice().reverse().map(f => 'f:' + f.id)) : ids;
+    return cat === 'main' ? upFolders().map(f => 'f:' + f.id).concat(ids, upFolders().slice().reverse().map(f => 'f:' + f.id)) : ['k:back'].concat(ids);
   }
   function eqBack() { if (EQCAT !== 'main') { EQSEL = 'f:' + EQCAT; EQCAT = 'main'; sfx('click'); } else goBack(); }
   let STATIC_ART = false;
@@ -6000,10 +6072,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // ---- carousel (same as Upgrade: rarity folders, then normal bakers) ----
     if (G.eqSel) { const id = G.eqSel; G.eqSel = null; EQSEL = id; EQCAT = rarityOf(id) === 'B' ? 'main' : rarityOf(id); }   // tapped a slot: show that baker
     const items = eqList(EQCAT), key = fltOn() ? 'eq:filter' : 'eq:' + EQCAT, car = carousel(key, items.length);
-    if (car.sel !== EQSEL) { const j = items.indexOf(EQSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined || (EQSEL && !items.includes(car.sel))) car.target = car.pos = (EQCAT === 'main' && !fltOn()) ? Math.min(UP_FOLDERS.length, items.length - 1) : 0; }
+    if (car.sel !== EQSEL) { const j = items.indexOf(EQSEL); if (j >= 0) { car.target = j; if (car.sel === undefined) car.pos = j; } else if (car.sel === undefined || (EQSEL && !items.includes(car.sel))) car.target = car.pos = fltOn() ? 0 : EQCAT === 'main' ? Math.min(upFolders().length, items.length - 1) : Math.min(1, items.length - 1); }
     const cur = Math.round(car.target), sel = items[cur] || null; EQSEL = car.sel = sel;
     carSlider(c, key, items.length, car, 327, 953, 74);
-    const fold = UP_FOLDERS.find(f => f.id === EQCAT), onFolder = !!(sel && sel.startsWith('f:'));
+    const fold = UP_FOLDERS.find(f => f.id === EQCAT), onFolder = !!(sel && sel.startsWith('f:')), onBack = sel === 'k:back';
     rr(c, -30, 325, 330, 46, 23, '#111', null); if (fltOn()) text(c, 'Filter: ' + items.length + ' bakers', 135, 349, 22, '#9be3ff', 'center', null, HEAD); else if (!(EQCAT === 'main' && onFolder)) text(c, fold ? fold.one : 'Bakers', 135, 349, 26, '#fff', 'center', null, HEAD);
     btn(c, 24, 378, 160, 30, UPSORT === 'basic' ? 'Basic Order ▾' : 'By Level ▾', () => { UPSORT = UPSORT === 'basic' ? 'level' : 'basic'; if (CAR[key]) CAR[key].sel = null; sfx('click'); }, { size: 14, r: 15, color: '#d8d0c0' });
     if (!items.length) text(c, fltOn() ? 'No bakers match this filter.' : 'No ' + (fold ? fold.label : 'bakers') + ' yet. Find them in the Gacha!', 640, 480, 22, '#7c5432', 'center');
@@ -6015,16 +6087,17 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (cx < -150 || cx > VW + 150) continue;
       const W = 360, H = 288, k = sl.k * K, top = 335 + sl.f * 89, it = items[i];
       c.save(); c.translate(cx, top); c.scale(k, k); flipCard(c, it, () => upCard(c, it, W, H, sl.f < .5, true));
-      if (!it.startsWith('f:') && L.includes(it)) inUseStamp(c, W, H);
+      if (UNITS[it] && L.includes(it)) inUseStamp(c, W, H);
       if (sl.f > 0) { c.globalAlpha = sl.f * .35; rr(c, -W / 2, 0, W, H, 4, '#000', null); c.globalAlpha = 1; }
       c.restore();
       const w = W * k, h = H * k;
-      if (!it.startsWith('f:')) G.eqCards.push({ x: cx - w / 2, y: top, w, h, id: it });
-      hit(cx - w / 2, top, w, h, i === cur ? (it.startsWith('f:') ? () => openFolder(it) : () => {}) : () => { car.target = i; sfx('click'); });
+      if (UNITS[it]) G.eqCards.push({ x: cx - w / 2, y: top, w, h, id: it });
+      hit(cx - w / 2, top, w, h, i === cur ? (it.startsWith('f:') ? () => openFolder(it) : it === 'k:back' ? () => eqBack() : () => {}) : () => { car.target = i; sfx('click'); });
     }
     if (sel && UNITS[sel] && Math.abs(car.pos - cur) < .05) formBtn(c, sel, 640 + 166, 335 + 255);
     // ---- right of the cards: Unit Info (or Open) and an Equip / Remove button, as in Battle Cats ----
     if (onFolder) baseBtn(c, 980, 335, 290, 64, 'Open', () => openFolder(sel), { size: 34 });
+    else if (onBack) baseBtn(c, 980, 335, 290, 64, 'Back', () => eqBack(), { size: 34 });
     else if (sel) {
       baseBtn(c, 980, 335, 224, 64, G.eqInfo ? 'Close' : 'Unit Info', () => { G.eqInfo = !G.eqInfo; sfx('click'); }, { size: 30 });
       { const hv = inside(1212, 335, 58, 64), on = fltOn();   // the Filter button sits where Battle Cats puts its cat-with-star button
@@ -6388,7 +6461,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-2241';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-2259';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
