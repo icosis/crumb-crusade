@@ -4177,10 +4177,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // shared Bakery Base pieces (Legend Stages opens inside the base, like the event list in Battle Cats)
   function baseRoom(c, eq, open) {   // open: 0..1, the doors swing apart (Upgrade / Equip)
     // the two doors: dark gap down the middle, a knob on each door
-    const hw = 40 + (open || 0) * 330, x0 = 640 - hw;
+    const hw = 40 + (open || 0) * 620, x0 = 640 - hw;
     const pg = c.createLinearGradient(x0, 0, x0 + hw * 2, 0); pg.addColorStop(0, '#0d1312'); pg.addColorStop(.25, '#2c3b39'); pg.addColorStop(.5, '#0b1110'); pg.addColorStop(.75, '#2c3b39'); pg.addColorStop(1, '#0d1312');
     c.fillStyle = pg; c.fillRect(x0, 58, hw * 2, 592); c.fillStyle = '#060909'; c.fillRect(637, 58, 6, 592);
-    doorKnob(c, 530 - (open || 0) * 330, 422); doorKnob(c, 752 + (open || 0) * 330, 422);
+    doorKnob(c, 530 - (open || 0) * 620, 422); doorKnob(c, 752 + (open || 0) * 620, 422);
     // mascot peeking in from the bottom right (behind the bubble and the bottom bar)
     const mid = eq[0] || 'bun', md = defOf(mid), mk = 330 / (md.h + (md.hover || 0) * .5) / 1.25;
     c.save(); c.translate(1080, 700 + Math.sin(G.time * 2.2) * 3); c.scale(-mk, mk); portrait(c, mid, 0, 0, 1000, { walk: G.time * 1.5, pose: 0, hurt: false, t: G.time }); c.restore();
@@ -6480,7 +6480,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1155';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1126-1159';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
