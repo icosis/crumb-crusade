@@ -931,7 +931,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         for (const k of Object.keys(BASE_UP)) s.base[k] = clamp(Math.floor(+s.base[k] || 1), 1, baseNatMax(k));
         if (j.basePlus && typeof j.basePlus === 'object') { s.basePlus = {}; for (const k of Object.keys(BASE_UP)) { const n = Math.floor(+j.basePlus[k] || 0); if (n > 0) s.basePlus[k] = Math.min(basePlusMax(k), n); } }
         s.muted = !!j.muted; s.noSaveTips = j.noSaveTips === true;
-        s.tower = clamp(Math.floor(+j.tower || 0), 0, TOWER_MAX); s.dailyKey = Math.max(0, Math.floor(+j.dailyKey || 0)); if (j.lbMe && typeof j.lbMe === 'object' && typeof j.lbMe.id === 'string' && typeof j.lbMe.token === 'string') s.lbMe = { id: j.lbMe.id.slice(0, 32), token: j.lbMe.token.slice(0, 64), name: String(j.lbMe.name || '').slice(0, 16) };
+        s.tower = clamp(Math.floor(+j.tower || 0), 0, TOWER_MAX); s.dailyKey = Math.max(0, Math.floor(+j.dailyKey || 0)); if (j.lbMe && typeof j.lbMe === 'object' && typeof j.lbMe.id === 'string' && typeof j.lbMe.token === 'string') s.lbMe = { id: j.lbMe.id.slice(0, 32), token: j.lbMe.token.slice(0, 64), name: String(j.lbMe.name || '').slice(0, 16), acct: j.lbMe.acct === true };
         if (j.pity && typeof j.pity === 'object') s.pity = { sr: clamp(Math.floor(+j.pity.sr || 0), 0, PITY_SR), ur: clamp(Math.floor(+j.pity.ur || 0), 0, PITY_UR) }; Object.assign(s.seen, j.seen || {}); s.tickets = Math.max(0, Math.floor(+j.tickets || 0)); if (j.evolved && typeof j.evolved === 'object') for (const id of Object.keys(j.evolved)) if (UNITS[id]) s.evolved[id] = 1;
         s.gfx = clamp(Math.floor(+j.gfx || 0), 0, 4); s.gfxAuto = j.gfxAuto === true;   // older saves: manual (whatever setting they have stays put)
         if (j.treasure && typeof j.treasure === 'object') for (const key of Object.keys(j.treasure)) { const k = +key, g = Math.floor(+j.treasure[key] || 0); if (g > 0 && TREASURES[k % SEC_STRIDE] && Math.floor(k / SEC_STRIDE) < SECTIONS.length) s.treasure[k] = clamp(g, 1, 3); }
@@ -2610,7 +2610,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp')) { if (LV.st === 'search' || LV.st === 'room') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp')) { if (LV.st === 'search' || LV.st === 'room' || LV.st === 'invite') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -4290,6 +4290,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       dot(c, bx, by + 4, 29, 'rgba(0,0,0,.35)'); dot(c, bx, by, 29, '#111'); dot(c, bx, by, 25, hv ? '#ffe97a' : '#ffd23a');
       c.save(); c.translate(bx, by - 2); poly(c, [-11, -12, 11, -12, 9, 2, 4, 6, 4, 10, 9, 10, 9, 14, -9, 14, -9, 10, -4, 10, -4, 6, -9, 2], '#fff3b0', OUT, 2.5); line(c, [-11, -8, -17, -8, -15, 0, -9, 1], OUT, 2.5); line(c, [11, -8, 17, -8, 15, 0, 9, 1], OUT, 2.5); c.restore();
       text(c, 'Ranks', bx, by + 40, 14, '#fff', 'center', '#2b1a0e', HEAD); hit(bx - 30, by - 30, 60, 60, () => lbOpen()); }
+    { const bx = 444, by = 105, hv = inside(bx - 30, by - 30, 60, 60), n = INB.requests.length + INB.invites.length;   // Friends
+      dot(c, bx, by + 4, 29, 'rgba(0,0,0,.35)'); dot(c, bx, by, 29, '#111'); dot(c, bx, by, 25, hv ? '#ffe97a' : '#ffd23a');
+      ell(c, bx - 8, by + 9, 11, 8, '#fff3b0', OUT, 2); ell(c, bx + 10, by + 10, 9, 7, '#fff3b0', OUT, 2); dot(c, bx - 8, by - 5, 7, OUT); dot(c, bx - 8, by - 5, 5, '#fff3b0'); dot(c, bx + 9, by - 3, 6, OUT); dot(c, bx + 9, by - 3, 4, '#fff3b0');
+      text(c, 'Friends', bx, by + 40, 14, '#fff', 'center', '#2b1a0e', HEAD); if (n) bangBadge(c, bx + 24, by - 20);
+      hit(bx - 30, by - 30, 60, 60, () => { if (!LB.me) { acctDialog('register'); return; } INB.t = -99; sfx('click'); go('friends'); }); }
     if (rankReady()) { const fl = .6 + Math.sin(G.time * 8) * .4; c.globalAlpha = fl; rr(c, 250, 64, 70, 30, 10, '#e2483a', '#fff', 3); text(c, 'Pts!', 285, 80, 17, '#fff', 'center', null, HEAD); c.globalAlpha = 1; }
   }
   // the three small icons under the yellow buttons
@@ -4496,7 +4501,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     rr(c, x, y + 8, w, h, 24, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 24, '#3f5a5c', '#111', 5);
     const hg = c.createLinearGradient(0, y, 0, y + 80); hg.addColorStop(0, '#c98d4e'); hg.addColorStop(1, '#7d5129'); rr(c, x + 5, y + 5, w - 10, 76, 20, hg, null);
     text(c, 'Leaderboards', x + 36, y + 36, 34, '#fff', 'left', '#2b1a0e', HEAD);
-    text(c, on ? (LB.me ? 'Playing as ' + LB.me.name : 'Join to put your name on the boards') : 'Online play is not switched on for this copy of the game', x + 36, y + 64, 16, '#fff3d6', 'left');
+    text(c, on ? (LB.me ? 'Logged in as ' + LB.me.name : 'Log in to put your name on the boards') : 'Online play is not switched on for this copy of the game', x + 36, y + 64, 16, '#fff3d6', 'left');
     const close = () => { G.lbOpen = false; sfx('click'); };
     dot(c, x + w - 10, y + 6, 30, '#111'); dot(c, x + w - 10, y + 6, 26, '#ffd23a'); text(c, '✕', x + w - 10, y + 7, 30, '#fff', 'center', '#4a2f12', HEAD); hit(x + w - 40, y - 24, 60, 60, close);
     if (!on) { wrapLines(c, 'The leaderboards need a small server. Set API_URL in game.js to its address (see the server folder), then rebuild.', w - 120, 22).forEach((ln, i) => text(c, ln, x + w / 2, y + 220 + i * 34, 22, '#fff', 'center')); return; }
@@ -4514,7 +4519,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     });
     if (L.st === 'ok' && L.me && L.me.rank > 10) text(c, 'You: #' + L.me.rank + ' of ' + L.total + '  ·  ' + fmt(L.me.value), x + w / 2, y + 576, 20, '#fff3d6', 'center', null, HEAD);
     else if (L.st === 'ok') text(c, L.total + ' player' + (L.total === 1 ? '' : 's') + ' on this board', x + w / 2, y + 576, 16, '#b9d4cf', 'center');
-    if (LB.me) baseBtn(c, x + 20, y + h - 76, 220, 56, 'Change name', () => lbAskName(false), { size: 24 }); else baseBtn(c, x + 20, y + h - 76, 260, 56, 'Join the boards', () => lbAskName(true), { size: 24 });
+    if (LB.me) baseBtn(c, x + 20, y + h - 76, 220, 56, 'Log out', () => { close(); acctLogout(); }, { size: 26 }); else baseBtn(c, x + 20, y + h - 76, 330, 56, 'Create account / Log in', () => { close(); acctDialog('register'); }, { size: 22 });
     baseBtn(c, x + w - 200, y + h - 76, 180, 56, 'Close', close, { size: 26 });
   }
   // =====================================================================
@@ -4585,8 +4590,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const on = !!apiBase(), D = G.pvpd, me = D && D.me;
     if (!on) { text(c, 'Online play is not switched on for this copy of the game.', 640, 330, 24, '#fff', 'center'); baseBottom(c, () => goBack()); return; }
     if (!LB.me) {
-      text(c, 'Join the leaderboards to fight other players.', 640, 290, 28, '#fff', 'center'); text(c, 'You pick a display name (not your real name). Nothing else is shared except your team and scores.', 640, 330, 17, '#e0c8c0', 'center');
-      baseBtn(c, 500, 370, 280, 72, 'Join', () => { lbAskName(true); setTimeout(pvpLoad, 2500); }, { size: 40 }); baseBottom(c, () => goBack()); return;
+      text(c, 'Make an account to fight other players.', 640, 290, 28, '#fff', 'center'); text(c, 'Your username is what others see (not your real name). Only your team and scores are shared.', 640, 330, 17, '#e0c8c0', 'center');
+      baseBtn(c, 450, 370, 380, 72, 'Log in / Sign up', () => acctDialog('register'), { size: 34 }); baseBottom(c, () => goBack()); return;
     }
     if (!D) pvpLoad();
     // ---- left: you ----
@@ -4641,7 +4646,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const LV_SILENCE = 10;                      // seconds without a word from the other device = they left
   function lvSend(o) { try { if (LV.tr) LV.tr.send(JSON.stringify(o)); } catch (e) {} }
   function lvClose() { try { if (LV.tr) LV.tr.close(); } catch (e) {} LV.tr = null; }
-  function lvReset() { lvClose(); LV.st = 'idle'; LV.m = null; LV.L = null; LV.peerReady = false; LV.myReady = false; LV.view = null; LV.ff = false; LV.desyncShown = false; liveEndSeed(); }
+  function lvReset() { lvClose(); LV.st = 'idle'; LV.invite = null; LV.code = null; LV.m = null; LV.L = null; LV.peerReady = false; LV.myReady = false; LV.view = null; LV.ff = false; LV.desyncShown = false; liveEndSeed(); }
   function lvRecv(str) {
     let m; try { m = JSON.parse(str); } catch (e) { return; } if (!m || typeof m !== 'object') return; LV.lastRecv = lvNow();
     if (m.type === 'ready') { LV.peerReady = true; if (LV.st === 'play') lvSend({ type: 'ready' }); }   // a late-comer may still be waiting to hear it
@@ -4683,7 +4688,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     try { const j = await lbCall('POST', '/api/live/join', { id: LB.me.id, token: LB.me.token, code, team }); lvMatched(j); }
     catch (e) { LV.st = 'idle'; LV.err = String((e && e.message) || e).slice(0, 80); }
   }
-  async function lvCancel() { LV.polling++; const was = LV.st; lvReset(); if ((was === 'search' || was === 'room') && LB.me) { try { await lbCall('POST', '/api/live/cancel', { id: LB.me.id, token: LB.me.token }); } catch (e) {} } }
+  async function lvCancel() { LV.polling++; const was = LV.st; lvReset(); if ((was === 'search' || was === 'room' || was === 'invite') && LB.me) { try { await lbCall('POST', '/api/live/cancel', { id: LB.me.id, token: LB.me.token }); } catch (e) {} } }
   function lvMatched(j) {
     LV.m = j; LV.st = 'ready'; LV.t0 = G.time; LV.t0n = lvNow(); LV.myReady = false; sfx('boss');   // (a 'ready' that already arrived from the other side is kept)
     try { LV.tr = (LV.connect || lvWebSocket)(j); } catch (e) { LV.st = 'idle'; LV.err = 'Could not open the live connection.'; }
@@ -4774,6 +4779,166 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       baseBtn(c, cx - 150, 410, 300, 80, 'Find a match', () => lvFind(), { size: 36 });
       if (LV.err) text(c, LV.err, cx, 530, 17, '#ffb3a8', 'center'); text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers).', cx, 580, 15, '#d8bfb8', 'center');
     }
+  }
+  // =====================================================================
+  // ACCOUNTS (username + password), FRIENDS, and BATTLE REQUESTS that pop up wherever you are.
+  // The password is stretched on this device (PBKDF2) and only the resulting key is sent; the server stores a hash of that key.
+  // =====================================================================
+  const ACC = { el: null, asked: false, busy: false, test: false };
+  const INB = { t: -99, busy: false, requests: [], invites: [], friends: null, sent: [], gone: {} };
+  async function acctKey(user, pass) {
+    if (typeof crypto === 'undefined' || !crypto.subtle) throw new Error('This browser cannot create accounts (it needs a secure https page).');
+    const enc = new TextEncoder(), km = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode('crumb-crusade:' + user.toLowerCase()), iterations: 150000, hash: 'SHA-256' }, km, 256);
+    return Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function acctSetMe(j) {
+    LB.me = { id: j.id, token: j.token, name: j.name, acct: true }; lbSaveMe(); S.lbMe = Object.assign({}, LB.me); persist();
+    LB.sent = ''; LB.teamKey = null; G.pvpd = null; INB.t = -99; INB.friends = null; INB.requests = []; INB.invites = []; lbSubmit(true);
+  }
+  async function acctRegister(user, pass) { const key = await acctKey(user, pass), j = await lbCall('POST', '/api/account/register', { username: user, key }); acctSetMe(j); return j; }
+  async function acctLogin(user, pass) { const key = await acctKey(user, pass), j = await lbCall('POST', '/api/account/login', { username: user, key }); acctSetMe(j); return j; }
+  async function acctClaim(user, pass) { const key = await acctKey(user, pass), j = await lbCall('POST', '/api/account/claim', { id: LB.me.id, token: LB.me.token, username: user, key }); acctSetMe(j); return j; }
+  function acctLogout() { lvReset(); LB.me = null; S.lbMe = null; lbSaveMe(); persist(); INB.requests = []; INB.invites = []; INB.friends = null; G.pvpd = null; toast('Logged out.'); }
+  function acctClose() { if (ACC.el && ACC.el.parentNode) ACC.el.parentNode.removeChild(ACC.el); ACC.el = null; ACC.busy = false; }
+  // the sign-up / log-in box: a real HTML form on top of the game, so the browser can show the keyboard and hide the password
+  function acctDialog(mode) {
+    if (typeof document === 'undefined' || ACC.el) return;
+    mode = mode || (LB.me && !LB.me.acct ? 'claim' : 'register');
+    const root = document.createElement('div'); ACC.el = root; root.setAttribute('data-acct', '1');
+    root.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99;display:flex;align-items:center;justify-content:center;background:rgba(20,12,8,.74);font-family:' + FONT + ';';
+    const st = 'width:100%;box-sizing:border-box;margin:6px 0;padding:11px 12px;font-size:18px;border:3px solid #4a2f12;border-radius:12px;background:#fff;color:#4a2f12;font-family:inherit;';
+    const bt = 'width:100%;box-sizing:border-box;margin:8px 0 0;padding:12px;font-size:21px;font-weight:bold;border:4px solid #4a2f12;border-radius:14px;background:linear-gradient(#ffe45e,#f0a800);color:#4a2f12;font-family:inherit;cursor:pointer;';
+    root.innerHTML = '<form style="width:min(92vw,430px);max-height:92vh;overflow:auto;box-sizing:border-box;background:#fff3d6;border:5px solid #4a2f12;border-radius:22px;padding:20px 24px;color:#4a2f12;box-shadow:0 10px 30px rgba(0,0,0,.5);" autocomplete="on">'
+      + '<h2 id="at" style="margin:0 0 6px;font-size:28px"></h2><p id="as" style="margin:0 0 8px;font-size:15px;line-height:1.35"></p>'
+      + '<input id="au" name="username" autocomplete="username" maxlength="16" placeholder="Username" style="' + st + '">'
+      + '<input id="ap" name="password" type="password" autocomplete="current-password" placeholder="Password" style="' + st + '">'
+      + '<input id="ap2" name="password2" type="password" autocomplete="new-password" placeholder="Type the password again" style="' + st + '">'
+      + '<p id="ae" style="min-height:20px;margin:4px 0;color:#b3261e;font-size:15px;font-weight:bold"></p>'
+      + '<button id="ag" type="submit" style="' + bt + '"></button>'
+      + '<button id="aw" type="button" style="' + bt + 'background:#f3d49a;font-size:16px;"></button>'
+      + '<button id="ak" type="button" style="' + bt + 'background:transparent;border-color:transparent;font-size:15px;text-decoration:underline;"></button></form>';
+    const $ = id => root.querySelector('#' + id), form = root.querySelector('form'), u = $('au'), p = $('ap'), p2 = $('ap2'), err = $('ae'), go = $('ag');
+    const render = () => {
+      $('at').textContent = mode === 'login' ? 'Log in' : mode === 'claim' ? 'Make your account' : 'Create your account';
+      $('as').textContent = mode === 'login' ? 'Welcome back! Your progress for the leaderboards, friends and battles comes with you.' : mode === 'claim' ? 'Pick a username and password for the player you already have. Your scores stay.' : 'Pick a username and a password. Friends find you by your username. There is no way to recover a forgotten password, so remember it.';
+      p2.style.display = mode === 'login' ? 'none' : ''; p.setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+      go.textContent = mode === 'login' ? 'Log in' : mode === 'claim' ? 'Make my account' : 'Create account';
+      $('aw').textContent = mode === 'login' ? 'New here? Create an account' : 'I already have an account: log in'; $('aw').style.display = mode === 'claim' && LB.me ? 'none' : '';
+      $('ak').textContent = 'Not now'; err.textContent = '';
+    };
+    render();
+    const fail = m => { err.textContent = m; };
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault(); if (ACC.busy) return; const un = u.value.trim(), pw = p.value;
+      if (!/^[A-Za-z0-9_]{3,16}$/.test(un)) return fail('Username: 3 to 16 letters, numbers or _'); if (pw.length < 6) return fail('Password: at least 6 characters');
+      if (mode !== 'login' && pw !== p2.value) return fail('The two passwords do not match');
+      ACC.busy = true; go.disabled = true; go.textContent = 'Please wait…'; err.textContent = '';
+      try { if (mode === 'login') await acctLogin(un, pw); else if (mode === 'claim') await acctClaim(un, pw); else await acctRegister(un, pw); acctClose(); toast('Welcome, ' + LB.me.name + '!'); sfx('up'); }
+      catch (e) { ACC.busy = false; go.disabled = false; render(); fail(String((e && e.message) || e)); }
+    });
+    $('aw').addEventListener('click', () => { mode = mode === 'login' ? 'register' : 'login'; render(); });
+    $('ak').addEventListener('click', () => { try { localStorage.setItem('cc_acct_skip', String(Date.now())); } catch (e) {} acctClose(); });
+    for (const t of ['keydown', 'keyup', 'keypress']) root.addEventListener(t, e => { e.stopPropagation(); if (t === 'keydown' && e.key === 'Escape') $('ak').click(); });   // typing must not move the game
+    (document.body || document.documentElement).appendChild(root); setTimeout(() => { try { u.focus(); } catch (e) {} }, 50);
+  }
+  function acctMaybe() {   // the first time the game starts (and for old players, once): offer to make an account
+    if (ACC.asked || ACC.el || !apiBase() || G.screen !== 'prep' || G.lbOpen || (EXPOSE_HOOK && !ACC.test)) return;
+    let skip = 0; try { skip = +localStorage.getItem('cc_acct_skip') || 0; } catch (e) {} const recent = Date.now() - skip < 3 * 86400000;
+    if (!LB.me) { if (recent) return; ACC.asked = true; acctDialog('register'); }
+    else if (!LB.me.acct && !recent) { ACC.asked = true; acctDialog('claim'); }
+  }
+  // ---- inbox: every few seconds (only while the game is on screen) ask the server who is asking for me ----
+  function inboxTick() {
+    if (!LB.me || !apiBase() || INB.busy || (typeof document !== 'undefined' && document.visibilityState === 'hidden') || (EXPOSE_HOOK && !ACC.test)) return;
+    const fr = G.screen === 'friends'; if (G.time - INB.t < (fr ? 4 : 9)) return; INB.t = G.time; INB.busy = true;
+    lbCall('POST', fr ? '/api/friends' : '/api/inbox', { id: LB.me.id, token: LB.me.token })
+      .then(j => { INB.requests = j.requests || []; INB.invites = j.invites || []; if (j.friends) { INB.friends = j.friends; INB.sent = j.sent || []; } })
+      .catch(e => { if (e && e.status === 403) { LB.me = null; S.lbMe = null; lbSaveMe(); } }).then(() => { INB.busy = false; });
+  }
+  function inboxPopup() {   // the one thing to show now: a battle request first, then a friend request
+    if (LV.st === 'play' || LV.st === 'ready' || LV.st === 'invite' || ACC.el) return null;
+    const iv = INB.invites.find(i => !INB.gone['i' + i.id]); if (iv) return { kind: 'battle', id: iv.id, from: iv.from };
+    const rq = G.screen === 'friends' ? null : INB.requests.find(r => !INB.gone['f' + r.id]); if (rq) return { kind: 'friend', id: rq.id, from: rq };   // (the Friends screen lists requests itself)
+    return null;
+  }
+  async function inboxAnswerInvite(inv, accept) {
+    INB.gone['i' + inv.id] = 1; INB.invites = INB.invites.filter(i => i.id !== inv.id);
+    try {
+      if (!accept) { await lbCall('POST', '/api/battle/respond', { id: LB.me.id, token: LB.me.token, invite: inv.id, accept: false }); return; }
+      const team = pvpTeamNow(); if (!team.length) { sfx('deny'); toast('Equip some bakers first!'); return; }
+      const j = await lbCall('POST', '/api/battle/respond', { id: LB.me.id, token: LB.me.token, invite: inv.id, accept: true, team });
+      lvReset(); G.pvpTab = 'live'; lvMatched(j); toast('Connecting to ' + j.opp.name + '…');
+    } catch (e) { toast(e.message); }
+  }
+  async function inboxAnswerRequest(r, accept) {
+    INB.gone['f' + r.id] = 1; INB.requests = INB.requests.filter(x => x.id !== r.id);
+    try { await lbCall('POST', '/api/friends/respond', { id: LB.me.id, token: LB.me.token, from: r.id, accept }); if (accept) toast('You and ' + r.name + ' are friends!'); INB.t = -99; } catch (e) { toast(e.message); }
+  }
+  function drawInboxPopup(c) {
+    const pp = inboxPopup(); if (!pp) return; const x = 250, y = 62, w = 780, h = 86;
+    c.save(); rr(c, x, y + 6, w, h, 20, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, h, 20, '#fff3d6', pp.kind === 'battle' ? '#e2483a' : '#2c7a72', 5);
+    fitLine(c, pp.kind === 'battle' ? pp.from.name + ' challenges you to a casual battle!' : pp.from.name + ' wants to be your friend', x + 24, y + 34, 430, 24, OUT, 'left');
+    text(c, pp.kind === 'battle' ? 'Rating ' + pp.from.rating + '   ·   no rating change' : 'Accept to add each other as friends', x + 24, y + 64, 15, '#7c5432', 'left');
+    baseBtn(c, x + w - 326, y + 14, 150, 58, 'Accept', () => (pp.kind === 'battle' ? inboxAnswerInvite(pp, true) : inboxAnswerRequest(pp.from, true)), { size: 26 });
+    baseBtn(c, x + w - 164, y + 14, 150, 58, 'Decline', () => (pp.kind === 'battle' ? inboxAnswerInvite(pp, false) : inboxAnswerRequest(pp.from, false)), { size: 24 });
+    c.restore();
+  }
+  // ---- challenge a friend (they get the pop-up and can accept or decline) ----
+  async function friendChallenge(f) {
+    if (!LB.me) return; const team = pvpTeamNow(); if (!team.length) { sfx('deny'); toast('Equip some bakers first.'); return; }
+    lvReset(); LV.err = ''; const my = ++LV.polling;
+    try { const j = await lbCall('POST', '/api/battle/invite', { id: LB.me.id, token: LB.me.token, to: f.id, team }); if (LV.polling !== my) return; LV.st = 'invite'; LV.invite = j.invite; LV.oppName = f.name; LV.t0 = G.time; sfx('click'); }
+    catch (e) { toast(e.message); return; }
+    while (LV.st === 'invite' && LV.polling === my) {
+      await lvSleep(1200); if (LV.st !== 'invite' || LV.polling !== my) return;
+      try {
+        const r = await lbCall('POST', '/api/live/poll', { id: LB.me.id, token: LB.me.token, invite: LV.invite }); if (LV.st !== 'invite' || LV.polling !== my) return;
+        if (r.st === 'matched') { G.pvpTab = 'live'; lvMatched(r); return; }
+        if (r.st === 'declined') { lvReset(); toast(f.name + ' declined.'); return; } if (r.st === 'expired') { lvReset(); toast(f.name + ' did not answer.'); return; }
+      } catch (e) { if (LV.polling === my) { lvReset(); toast('Lost the connection to the server.'); } return; }
+    }
+  }
+  function drawInviteWait(c) {
+    if (LV.st !== 'invite') return;
+    c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
+    const x = 340, y = 230, w = 600, h = 230; rr(c, x, y + 8, w, h, 22, 'rgba(0,0,0,.4)', null); rr(c, x, y, w, h, 22, '#fff3d6', '#4a2f12', 5);
+    text(c, 'Challenge sent!', x + w / 2, y + 52, 36, OUT, 'center', null, HEAD); text(c, 'Waiting for ' + (LV.oppName || 'your friend') + ' to accept' + '.'.repeat(1 + Math.floor(G.time * 2) % 3), x + w / 2, y + 100, 22, '#7c5432', 'center');
+    text(c, Math.max(0, 90 - Math.floor(G.time - LV.t0)) + ' s left', x + w / 2, y + 134, 17, '#7c5432', 'center'); baseBtn(c, x + w / 2 - 100, y + 156, 200, 60, 'Cancel', () => lvCancel(), { size: 28 });
+  }
+  async function friendAdd(name) {
+    if (!LB.me) return; if (name == null) { try { name = window.prompt('Type your friend\'s username:', ''); } catch (e) { name = null; } } if (!name || !name.trim()) return;
+    try { const j = await lbCall('POST', '/api/friends/add', { id: LB.me.id, token: LB.me.token, username: name.trim() }); toast(j.state === 'friends' ? 'You are friends now!' : 'Friend request sent to ' + name.trim() + '.'); INB.t = -99; }
+    catch (e) { toast(e.message); }
+  }
+  async function friendRemove(f) {
+    let ok = true; try { ok = window.confirm('Remove ' + f.name + ' from your friends?'); } catch (e) {} if (!ok) return;
+    try { await lbCall('POST', '/api/friends/remove', { id: LB.me.id, token: LB.me.token, other: f.id }); INB.t = -99; } catch (e) { toast(e.message); }
+  }
+  function drawFriends(c) {
+    const g = c.createLinearGradient(0, 58, 0, 648); g.addColorStop(0, '#13343a'); g.addColorStop(1, '#0a1a1d'); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
+    baseTop(c, 'Friends');
+    if (!apiBase()) { text(c, 'Online play is not switched on for this copy of the game.', 640, 330, 24, '#fff', 'center'); baseBottom(c, () => goBack()); return; }
+    if (!LB.me) { text(c, 'Log in or make an account to add friends.', 640, 280, 28, '#fff', 'center'); baseBtn(c, 480, 330, 320, 76, 'Log in / Sign up', () => acctDialog('register'), { size: 32 }); baseBottom(c, () => goBack()); return; }
+    lbSyncId(); if (INB.friends === null && G.time - INB.t > 1) INB.t = -99;
+    rr(c, 40, 74, 1200, 566, 16, 'rgba(0,0,0,.3)', '#111', 3);
+    text(c, LB.me.name, 70, 104, 28, '#ffd24a', 'left', '#000', HEAD); text(c, 'Friends find you by this username.', 70, 134, 15, '#b9d4cf', 'left');
+    baseBtn(c, 940, 84, 270, 56, 'Add a friend', () => friendAdd(), { size: 28 });
+    let y = 160;
+    for (const r of INB.requests.slice(0, 3)) {
+      rr(c, 60, y, 1160, 54, 12, 'rgba(255,243,214,.95)', '#2c7a72', 3); fitLine(c, r.name + ' wants to be your friend', 80, y + 28, 700, 22, OUT, 'left');
+      baseBtn(c, 900, y + 5, 150, 44, 'Accept', () => inboxAnswerRequest(r, true), { size: 22 }); baseBtn(c, 1060, y + 5, 150, 44, 'Decline', () => inboxAnswerRequest(r, false), { size: 20 }); y += 62;
+    }
+    const list = INB.friends;
+    if (list === null) text(c, 'Loading…', 640, 340, 22, '#cfe', 'center');
+    else if (!list.length) { text(c, 'No friends yet.', 640, 330, 28, '#fff', 'center'); text(c, 'Press "Add a friend" and type their username.', 640, 370, 18, '#b9d4cf', 'center'); }
+    else list.slice(0, 8 - Math.min(3, INB.requests.length)).forEach(f => {
+      rr(c, 60, y, 1160, 54, 12, 'rgba(255,255,255,.1)', null); dot(c, 86, y + 27, 9, f.online ? '#5fe05a' : '#6b6b6b'); fitLine(c, f.name, 112, y + 28, 380, 24, '#fff', 'left');
+      text(c, 'Rating ' + f.rating, 520, y + 28, 17, '#b9d4cf', 'left'); text(c, f.online ? 'online' : 'offline', 700, y + 28, 16, f.online ? '#9be37a' : '#8a8a8a', 'left');
+      baseBtn(c, 880, y + 5, 230, 44, f.online ? 'Challenge' : 'Offline', f.online ? () => friendChallenge(f) : () => toast(f.name + ' is not online right now.'), { size: 22, disabled: !f.online }); btn(c, 1130, y + 7, 70, 40, 'Remove', () => friendRemove(f), { size: 13, r: 10, color: '#f3d49a' }); y += 62;
+    });
+    if (INB.sent && INB.sent.length) text(c, 'Waiting for: ' + INB.sent.map(s => s.name).join(', '), 70, 618, 15, '#b9d4cf', 'left');
+    baseBottom(c, () => goBack());
   }
   function drawMenuPopup(c) {
     c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH);
@@ -5989,10 +6154,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function draw() {
     const c = ctx; c.setTransform(scale, 0, 0, scale, 0, 0); c.globalAlpha = 1;
     UI.btns.length = 0; G.chipTip = null;
-    if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else if (G.screen === 'pvp') drawPvp(c); else drawBattle(c);
+    if (G.screen === 'title') drawTitle(c); else if (G.screen === 'map') drawMap(c); else if (G.screen === 'chapters') drawChapters(c); else if (G.screen === 'legendmap') drawLegendMap(c); else if (G.screen === 'expo') drawExpo(c); else if (G.screen === 'missions') drawMissions(c); else if (G.screen === 'shop') drawShop(c); else if (G.screen === 'index') drawIndex(c); else if (G.screen === 'prep') drawPrep(c); else if (G.screen === 'awaken') drawAwaken(c); else if (G.screen === 'special') drawSpecial(c); else if (G.screen === 'store') drawStore(c); else if (G.screen === 'units') drawUnits(c); else if (G.screen === 'equip') drawEquip(c); else if (G.screen === 'gacha') drawGacha(c); else if (G.screen === 'capsule') drawCapsule(c); else if (G.screen === 'treasure') drawTreasure(c); else if (G.screen === 'orbs') drawOrbs(c); else if (G.screen === 'info') drawInfo(c); else if (G.screen === 'pvp') drawPvp(c); else if (G.screen === 'friends') drawFriends(c); else drawBattle(c);
     if (G.pick) drawPick(c);
     drawChipTip(c);
     if (G.msgBox) drawMsgBox(c);
+    drawInviteWait(c); drawInboxPopup(c);
     if (G.trayOut != null && G.screen !== 'special') G.trayOut = null;   // the slide-away is drawn inside the Legend screen (under the orange buttons)
     if (G.toast) {
       const tt = G.time - G.toast.t0, a = clamp(Math.min(tt * 6, (2.4 - tt) * 3), 0, 1);   // real time, so it works at any frame rate
@@ -6037,7 +6203,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function frame(ts) {
     const raw = (ts - last) / 1000 || 0, dt = Math.min(.05, raw); last = ts; G.time += dt;
-    lvPump(); lbTeamSync();
+    lvPump(); lbTeamSync(); acctMaybe(); inboxTick();
     if (G.screen === 'battle') tickBattle(dt);
     const menu = G.screen !== 'battle' && !G.gacha;
     if (!menu || (frameNo++ & 1) === 0) draw();
@@ -6169,9 +6335,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-1910';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-1924';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
