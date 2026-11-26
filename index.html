@@ -49,7 +49,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const MAX_UNITS = 40, MAX_FOES = 40, MAX_LV = 10, UNIT_MAX_LV = 40, TF_LV = 30, LINEUP = 10, TEAMS = 5, SP_BASE = 100, SP_IDX = 100, SEC_STRIDE = 1000; // legend stages live at index SP_BASE + k (outside the normal stage line); SP_IDX = the Awakening stage // LINEUP = battle slots (2 rows of 5 on the Equip screen)
   const OUT = '#3a2416';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const rand = (a, b) => a + Math.random() * (b - a);
+  const rand = (a, b) => a + Math.random() * (b - a);   // looks only (particles, wobble): never use it for anything that changes the outcome of a battle
+  const REAL_DICE = () => Math.random();                   // looked up at every roll (so a test can still replace Math.random)
+  let RNG = REAL_DICE;                                    // battle dice. The Live Battle swaps in a seeded generator so both players' devices roll the same numbers
+  const lrand = (a, b) => a + RNG() * (b - a);
+  function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
   // =====================================================================
   // DATA
@@ -607,6 +611,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   STAGES.forEach(st => { st.mag = snapMag(st.mag); }); SPECIALS.forEach(st => { st.mag = snapMag(st.mag); });
   // Battle indexes: normal stages 0-24, Legend stages SP_BASE + k, Heavenly Tower floor f = TOWER_BASE + f, Section 2/3 stages from SEC_STRIDE
   const TOWER_BASE = 500, TOWER_MAX = 499;
+  const LIVE_IDX = 198;             // battle index of a Live Battle (head to head, real time)
   const PVP_IDX = 199;              // battle index of the PvP arena (between the Legend stages and the Heavenly Tower)
   let PVP_OPP = null;               // the opponent being fought: { id, name, rating, pw, team: [{ u, lv, p, e }] }
   const TOWER_BOSSES = ['ratking', 'queen', 'crow', 'crazed'], TOWER_THEMES = ['kitchen', 'pantry', 'sink', 'night', 'garden', 'cellar', 'roof'];
@@ -659,7 +664,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   const SP_STAGE = SPECIALS[0];
   const isSpecial = i => i >= SP_BASE && i < SEC_STRIDE;
-  const stageOf = i => (isSpecial(i) ? (i === PVP_IDX ? pvpStage() : i >= TOWER_BASE ? towerStage(i - TOWER_BASE) : SPECIALS[i - SP_BASE]) : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
+  const stageOf = i => (isSpecial(i) ? (i === PVP_IDX ? pvpStage() : i === LIVE_IDX ? liveStage() : i >= TOWER_BASE ? towerStage(i - TOWER_BASE) : SPECIALS[i - SP_BASE]) : i >= SEC_STRIDE ? secStage(i) : STAGES[i]);
   // Legend stages stay locked until the Crumb Rebellion (Section 2) is unlocked, i.e. every Section 1 stage is cleared;
   // after that each one also needs its own stage count, as before.
   const legendOpen = save => secOpen(save, 1);
@@ -837,7 +842,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // SAVE
   // =====================================================================
   const SAVE_KEY = 'crumb-crusade-save-v1';
-  function defaultSave() { return { teams: [], teamIdx: 0, cherry: 0, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
+  function defaultSave() { return { lbMe: null, teams: [], teamIdx: 0, cherry: 0, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
   let NO_PERSIST = !HAS_DOM;
   // Storage layers, tried in order. Some editors (w3editor, sandboxed iframes) block or wipe
   // localStorage, so we also mirror to window.name, which survives a refresh in the same tab.
@@ -926,7 +931,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         for (const k of Object.keys(BASE_UP)) s.base[k] = clamp(Math.floor(+s.base[k] || 1), 1, baseNatMax(k));
         if (j.basePlus && typeof j.basePlus === 'object') { s.basePlus = {}; for (const k of Object.keys(BASE_UP)) { const n = Math.floor(+j.basePlus[k] || 0); if (n > 0) s.basePlus[k] = Math.min(basePlusMax(k), n); } }
         s.muted = !!j.muted; s.noSaveTips = j.noSaveTips === true;
-        s.tower = clamp(Math.floor(+j.tower || 0), 0, TOWER_MAX); s.dailyKey = Math.max(0, Math.floor(+j.dailyKey || 0));
+        s.tower = clamp(Math.floor(+j.tower || 0), 0, TOWER_MAX); s.dailyKey = Math.max(0, Math.floor(+j.dailyKey || 0)); if (j.lbMe && typeof j.lbMe === 'object' && typeof j.lbMe.id === 'string' && typeof j.lbMe.token === 'string') s.lbMe = { id: j.lbMe.id.slice(0, 32), token: j.lbMe.token.slice(0, 64), name: String(j.lbMe.name || '').slice(0, 16) };
         if (j.pity && typeof j.pity === 'object') s.pity = { sr: clamp(Math.floor(+j.pity.sr || 0), 0, PITY_SR), ur: clamp(Math.floor(+j.pity.ur || 0), 0, PITY_UR) }; Object.assign(s.seen, j.seen || {}); s.tickets = Math.max(0, Math.floor(+j.tickets || 0)); if (j.evolved && typeof j.evolved === 'object') for (const id of Object.keys(j.evolved)) if (UNITS[id]) s.evolved[id] = 1;
         s.gfx = clamp(Math.floor(+j.gfx || 0), 0, 4); s.gfxAuto = j.gfxAuto === true;   // older saves: manual (whatever setting they have stays put)
         if (j.treasure && typeof j.treasure === 'object') for (const key of Object.keys(j.treasure)) { const k = +key, g = Math.floor(+j.treasure[key] || 0); if (g > 0 && TREASURES[k % SEC_STRIDE] && Math.floor(k / SEC_STRIDE) < SECTIONS.length) s.treasure[k] = clamp(g, 1, 3); }
@@ -1425,41 +1430,41 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (ad.only && aOn && !(hasAny(ad.strong, ed.traits) || hasAny(ad.massive, ed.traits) || hasAny(ad.insane, ed.traits))) return;   // Attacks Only
     if ((kind === 'wave' && (immune(e, 'wave') || ed.wshield || (ed.wblock && on(e)))) || (kind === 'surge' && immune(e, 'surge'))) { addTag(B, e, 'IMMUNE', '#cfd6e0'); return; }
     if (e.dodgeT > 0) { addTag(B, e, 'MISS', '#cfd6e0'); return; }
-    if (ed.dodge && on(e) && Math.random() < ed.dodge.ch) { e.dodgeT = ed.dodge.t; addTag(B, e, 'DODGE', '#cfd6e0'); return; }
+    if (ed.dodge && on(e) && RNG() < ed.dodge.ch) { e.dodgeT = ed.dodge.t; addTag(B, e, 'DODGE', '#cfd6e0'); return; }
     const m = traitMul(a, e); let dmg = raw * m, tag = null;
     const metal = hasAny(['metal'], ed.traits);
-    const crit = !!ad.crit && Math.random() < ad.crit;
+    const crit = !!ad.crit && RNG() < ad.crit;
     if (metal) dmg = crit ? raw * CRIT : 1;                                    // Metal: 1 damage, unless Critical
     else if (crit) { dmg *= CRIT; tag = 'CRITICAL!'; }
-    else if (ad.savage && Math.random() < ad.savage) { dmg *= SAVAGE; tag = 'SAVAGE!'; }
+    else if (ad.savage && RNG() < ad.savage) { dmg *= SAVAGE; tag = 'SAVAGE!'; }
     if (metal && crit) tag = 'CRITICAL!';
     if (kind === 'mini') dmg *= MINI;
     // Barrier: blocks every hit smaller than it; a big enough hit (or Barrier Breaker) shatters it
     if (e.barrier > 0) {
       if (kind === 'pin') { e.barrier = 0; addTag(B, e, 'BARRIER BROKEN', '#9bd0ff'); return; }   // the Rolling Pin always shatters barriers
-      if (ad.bbreak && Math.random() < ad.bbreak) { e.barrier = 0; addTag(B, e, 'BARRIER BROKEN', '#9bd0ff'); return; }
+      if (ad.bbreak && RNG() < ad.bbreak) { e.barrier = 0; addTag(B, e, 'BARRIER BROKEN', '#9bd0ff'); return; }
       if (dmg >= e.barrier) { e.barrier = 0; addTag(B, e, 'BARRIER BROKEN', '#9bd0ff'); } else { addTag(B, e, 'BLOCKED', '#9bd0ff'); return; }
     }
     if (metal && ad.mkill && e.hp > 1) dmg += e.hp * ad.mkill;                 // Metal Killer: a slice of its current HP
     // Aku shield: soaks up damage until it breaks (Shield Piercing breaks it in one hit)
     if (e.shield > 0) {
-      if (ad.spierce && Math.random() < ad.spierce) { e.shield = 0; addTag(B, e, 'SHIELD PIERCED', '#a8acff'); }
+      if (ad.spierce && RNG() < ad.spierce) { e.shield = 0; addTag(B, e, 'SHIELD PIERCED', '#a8acff'); }
       else { e.shield -= dmg; addNum(B, e.x, GROUND_Y - ed.h * .6 - (ed.hover || 0) - 20, Math.round(dmg), '#a8acff'); if (e.shield <= 0) { e.shield = 0; addTag(B, e, 'SHIELD BROKEN', '#a8acff'); } return; }
     }
-    if (ad.toxic && aOn && e.side > 0 && !immune(e, 'toxic') && Math.random() < ad.toxic.ch) { dmg += e.maxHp * ad.toxic.pct; tag = 'TOXIC'; }
+    if (ad.toxic && aOn && e.side > 0 && !immune(e, 'toxic') && RNG() < ad.toxic.ch) { dmg += e.maxHp * ad.toxic.pct; tag = 'TOXIC'; }
     dmg = Math.max(1, Math.round(dmg));
-    if (dmg >= e.hp && ed.survive && !e.survived && on(e) && Math.random() < ed.survive) { e.survived = true; dmg = Math.max(1, Math.round(e.hp - 1)); addTag(B, e, 'SURVIVED', '#ffe9a8'); }
+    if (dmg >= e.hp && ed.survive && !e.survived && on(e) && RNG() < ed.survive) { e.survived = true; dmg = Math.max(1, Math.round(e.hp - 1)); addTag(B, e, 'SURVIVED', '#ffe9a8'); }
     if (tag) addTag(B, e, tag, tag === 'TOXIC' ? '#a6e36a' : '#ffd24a');
     hurt(B, e, dmg, crit ? 2 : m, a);
     if (e.hp <= 0 || !aOn) return;
     // ---- statuses (Battle Cats chances; bosses shake them off faster) ----
     const bossK = ed.boss ? BOSS_SLOW : 1;
-    if (ad.slow && !immune(e, 'slow') && e.slowT <= 0 && e.slowImm <= 0 && Math.random() < SLOW_CHANCE) e.slowT = ad.slow * bossK;
-    if (ad.freeze && !immune(e, 'freeze') && !(e.frozenT > 0) && Math.random() < ad.freeze.ch) { e.frozenT = ad.freeze.t * bossK; addTag(B, e, 'FROZEN', '#bfe8ff'); }
-    if (ad.weaken && !immune(e, 'weaken') && Math.random() < ad.weaken.ch) { e.weakT = ad.weaken.t * bossK; e.weakTo = ad.weaken.to; addTag(B, e, 'WEAKENED', '#ffb3b3'); }
-    if (ad.curse && !immune(e, 'curse') && Math.random() < ad.curse.ch) { e.curseT = ad.curse.t * bossK; addTag(B, e, 'CURSED', '#c9a0ff'); }
-    if (ad.kbc && !immune(e, 'kb') && e.state !== 'kb' && Math.random() < ad.kbc) { startKb(e); addTag(B, e, 'KNOCKBACK', '#ffe9a8'); }
-    if (ad.warp && e.side > 0 && !immune(e, 'warp') && !(e.warpT > 0) && Math.random() < ad.warp.ch) { e.warpT = .7; e.warpDist = ad.warp.dist; e.state = 'walk'; addTag(B, e, 'WARPED', '#8fe3ff'); }
+    if (ad.slow && !immune(e, 'slow') && e.slowT <= 0 && e.slowImm <= 0 && RNG() < SLOW_CHANCE) e.slowT = ad.slow * bossK;
+    if (ad.freeze && !immune(e, 'freeze') && !(e.frozenT > 0) && RNG() < ad.freeze.ch) { e.frozenT = ad.freeze.t * bossK; addTag(B, e, 'FROZEN', '#bfe8ff'); }
+    if (ad.weaken && !immune(e, 'weaken') && RNG() < ad.weaken.ch) { e.weakT = ad.weaken.t * bossK; e.weakTo = ad.weaken.to; addTag(B, e, 'WEAKENED', '#ffb3b3'); }
+    if (ad.curse && !immune(e, 'curse') && RNG() < ad.curse.ch) { e.curseT = ad.curse.t * bossK; addTag(B, e, 'CURSED', '#c9a0ff'); }
+    if (ad.kbc && !immune(e, 'kb') && e.state !== 'kb' && RNG() < ad.kbc) { startKb(e); addTag(B, e, 'KNOCKBACK', '#ffe9a8'); }
+    if (ad.warp && e.side > 0 && !immune(e, 'warp') && !(e.warpT > 0) && RNG() < ad.warp.ch) { e.warpT = .7; e.warpDist = ad.warp.dist; e.state = 'walk'; addTag(B, e, 'WARPED', '#8fe3ff'); }
   }
   // ---- Battle Cats wave / surge attacks ----
   // Wave: a chance on each hit to send a wave rolling forward; it hits every enemy in its path once (Lv1 reaches WAVE_STEP).
@@ -1536,11 +1541,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }
     if (tx == null) return;
     if (on(u)) {
-      if (d.wave && Math.random() < d.wave.ch) sendWave(B, u, d.wave.lv, d.wave.mini, dmgNow);
-      if (d.surge && Math.random() < d.surge.ch) sendSurge(B, u, u.x + u.dir * rand(d.surge.min, d.surge.max), d.surge.lv, false, d.surge.mini, dmgNow);
+      if (d.wave && RNG() < d.wave.ch) sendWave(B, u, d.wave.lv, d.wave.mini, dmgNow);
+      if (d.surge && RNG() < d.surge.ch) sendSurge(B, u, u.x + u.dir * lrand(d.surge.min, d.surge.max), d.surge.lv, false, d.surge.mini, dmgNow);
     }
     const tl = u.side > 0 && d.talent === 'explode' ? (B.talents && B.talents[u.type]) || 0 : 0;
-    if (tl && Math.random() < explodeChance(tl, u.type)) explode(B, u, tx, dmgNow);
+    if (tl && RNG() < explodeChance(tl, u.type)) explode(B, u, tx, dmgNow);
     const y0 = GROUND_Y - d.h * .7 * 1 - (d.hover || 0);
     if (d.proj) B.projs.push({ x0: u.x + u.dir * 20, y0, x1: tx, y1: GROUND_Y - 30, t: 0, dur: .16, kind: d.proj });
     if (d.slow) B.rings.push({ x: u.x, y: GROUND_Y - 40, r0: 20, r1: d.range + 30, t: 0, dur: .35, color: 'rgba(255,130,190,' });
@@ -1633,10 +1638,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (w.left <= 0) continue;
       w.timer -= dt;
       if (w.timer <= 0) {
-        if (countSide(B, -1) < MAX_FOES) { spawnFoe(B, w); w.left--; w.timer = (w.e || 0) * rand(.85, 1.15); } else w.timer = .5;
+        if (countSide(B, -1) < MAX_FOES) { spawnFoe(B, w); w.left--; w.timer = (w.e || 0) * lrand(.85, 1.15); } else w.timer = .5;
       }
     }
-    if (B.st.kind === 'pvp') pvpStep(B, dt);
+    if (B.st.kind === 'pvp') pvpStep(B, dt); else if (B.live) pvEco(B, dt);
     for (let i = 0; i < B.units.length; i++) { stepUnit(B, B.units[i], dt); if (B.over) break; }
     if (!B.over && B.ripples) stepWaves(B, dt);
     if (B.pin && !B.over) {
@@ -1647,10 +1652,80 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
           if (e.hp > 0 && !immune(e, 'kb') && !(e.state === 'kb' && e.t < .05)) startKb(e, e.def.boss ? 70 : 130);
         }
       }
-      if (Math.random() < .5) burst(B, p.x - 20, GROUND_Y + 8, 1, '#e8d8b8', 90);
+      if (RNG() < .5) burst(B, p.x - 20, GROUND_Y + 8, 1, '#e8d8b8', 90);
       if (p.x >= Math.min(B.eEdge - 10, B.pEdge + (B.pinReach || 1e9))) { burst(B, p.x, GROUND_Y - 30, 16, '#d9a05a', 300); B.pin = null; }
     }
     B.units = B.units.filter(u => !u.dead);
+  }
+  // =====================================================================
+  // LIVE BATTLE core: two players fight head to head, in real time. Both devices run the SAME battle (same seed, same rules);
+  // only the players' moves travel over the network. A move made now happens LIVE_D ticks later on BOTH devices, so the other
+  // device has time to hear about it ("lockstep"). Every second the two devices compare a checksum to be sure they agree.
+  // Player 1 (side +1) stands on the left, player 2 (side -1) on the right. Nothing here reads the local save.
+  // =====================================================================
+  const LIVE_D = 12;                    // a move happens 12 ticks (0.2 s) after it is made
+  const LIVE_MAX_TICK = 60 * 300;       // five minutes, then the healthier base wins
+  const LIVE_BASE_HP = 3000;
+  function liveSetSeed(seed) { RNG = mulberry32(seed >>> 0); }
+  function liveEndSeed() { RNG = REAL_DICE; }
+  function liveFake(team) {               // a neutral save made only from a team snapshot: the same on both devices
+    const f = defaultSave(); f.cleared = 99;
+    for (const m of team) if (UNITS[m.u]) { f.owned[m.u] = 1; f.levels[m.u] = Math.min(m.lv, UNIT_MAX_LV); f.plus[m.u] = m.p || 0; if (m.e) f.evolved[m.u] = 1; }
+    return f;
+  }
+  function liveStage() { return { key: 'live', kind: 'live', name: 'Live Battle', diff: 'PvP', theme: 'night', len: 2300, hp: LIVE_BASE_HP, mag: 1, need: 0, reward: 0, waves: [] }; }
+  function liveBuildP2(B, team, fake) {   // player 2's side lives in B.pv: money, wallet level, cooldowns and the team's ready-made stats
+    const P = B.pv = { money: 100, wl: 1, rech: {}, team: [], t: 0, think: 0 };
+    for (const m of team) if (UNITS[m.u] && !P.team.some(x => x.id === m.u)) { const d = defFor(fake, m.u), st = unitStats(m.u, fake); P.team.push({ id: m.u, def: Object.assign({}, d, { bounty: 0 }), hp: st.hp, dmg: st.dmg, cost: d.cost, rech: d.recharge }); }
+    return P;
+  }
+  function newBattleLive(teamA, teamB) {
+    const fa = liveFake(teamA), fb = liveFake(teamB), ids = [];
+    for (const m of teamA) if (UNITS[m.u] && !ids.includes(m.u) && ids.length < LINEUP) ids.push(m.u);
+    const roster = ids.concat(new Array(LINEUP - ids.length).fill(null)), B = newBattle(LIVE_IDX, fa, roster);
+    for (const id of ids) B.pstats[id] = Object.assign({}, unitStats(id, fa));         // no combos, no bonuses: fair for both
+    B.combos = []; B.incomeMul = 1; B.cdMul = 1; B.capMul = 1; B.bountyMul = 1; B.money = 100; B.wallet = 1; B.orbs = {}; B.talents = {};
+    B.pinMax = 1e12; B.pinCharge = 0;                                                  // no Rolling Pin in a duel
+    B.pbase = { hp: LIVE_BASE_HP, maxHp: LIVE_BASE_HP, shake: 0 }; B.ebase = { hp: LIVE_BASE_HP, maxHp: LIVE_BASE_HP, shake: 0 };
+    liveBuildP2(B, teamB, fb); B.live = true; return B;
+  }
+  function pvEco(B, dt) {                  // player 2's money, same wallet rules as player 1
+    const P = B.pv; P.t += dt; const capm = WALLET_CAP[P.wl - 1];
+    if (P.money < capm) P.money = Math.min(capm, P.money + WALLET_INCOME[P.wl - 1] * dt);
+  }
+  function liveApplyCmd(B, c) {
+    if (B.over) return;
+    if (c.s > 0) { if (c.k === 'dep') deploy(B, c.u); else if (c.k === 'wal') upgradeWallet(B); return; }
+    const P = B.pv;
+    if (c.k === 'dep') {
+      const m = P.team.find(x => x.id === c.u); if (!m || (P.rech[m.id] || 0) > P.t || P.money < m.cost || countSide(B, -1) >= MAX_UNITS) return;
+      P.money -= m.cost; P.rech[m.id] = P.t + m.rech; spawn(B, -1, m.id, m.def, m.hp, m.dmg);
+    } else if (c.k === 'wal') { const cost = P.wl >= 8 ? Infinity : WALLET_COST[P.wl - 1]; if (P.money >= cost) { P.money -= cost; P.wl++; } }
+  }
+  function liveHash(B) {                   // a checksum of everything that matters, to catch the two devices drifting apart
+    let h = 2166136261 >>> 0; const mix = n => { h = Math.imul(h ^ (n | 0), 16777619) >>> 0; };
+    for (const u of B.units) { mix(u.side + 3); mix(u.type.length); for (let i = 0; i < u.type.length; i++) mix(u.type.charCodeAt(i)); mix(Math.round(u.x * 4)); mix(Math.round(u.hp)); mix(u.state.length); }
+    mix(Math.round(B.pbase.hp)); mix(Math.round(B.ebase.hp)); mix(Math.round(B.money * 4)); mix(Math.round(B.pv.money * 4)); mix(B.units.length); return h;
+  }
+  function liveNew(B, side) { return { B, side, tick: 0, peerT: 0, cmds: {}, seq: 0, out: [], hashes: {}, peerHashes: {}, desync: false, lastSync: 0 }; }
+  function liveCan(L) { return !L.B.over && L.tick < L.peerT + LIVE_D; }
+  function liveStepOnce(L) {
+    const B = L.B, list = L.cmds[L.tick];
+    if (list) { list.sort((a, b) => (a.s !== b.s ? b.s - a.s : a.q - b.q)); for (const c of list) liveApplyCmd(B, c); delete L.cmds[L.tick]; }
+    step(B, STEP); L.tick++;
+    if (!B.over && L.tick >= LIVE_MAX_TICK) { const a = B.pbase.hp / B.pbase.maxHp, b = B.ebase.hp / B.ebase.maxHp; B.over = a > b ? 'win' : a < b ? 'lose' : 'draw'; }
+    if (L.tick % 60 === 0) { const h = liveHash(B); L.hashes[L.tick] = h; L.out.push({ type: 'hash', t: L.tick, h }); if (L.peerHashes[L.tick] != null && L.peerHashes[L.tick] !== h) L.desync = true; }
+    if (L.tick - L.lastSync >= 2 || B.over) { L.lastSync = L.tick; L.out.push({ type: 'sync', t: L.tick }); }
+  }
+  function liveIssue(L, k, u) {
+    if (L.B.over) return false; const c = { t: L.tick + LIVE_D, s: L.side, k, u, q: L.seq++ };
+    (L.cmds[c.t] = L.cmds[c.t] || []).push(c); L.out.push({ type: 'cmd', t: c.t, s: c.s, k, u, q: c.q }); return true;
+  }
+  function liveRecv(L, m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'cmd' && (m.k === 'dep' || m.k === 'wal') && (m.s === 1 || m.s === -1) && m.s !== L.side && Number.isFinite(m.t) && m.t >= L.tick) (L.cmds[m.t] = L.cmds[m.t] || []).push({ t: m.t, s: m.s, k: m.k, u: String(m.u || ''), q: m.q | 0 });
+    else if (m.type === 'sync' && Number.isFinite(m.t)) L.peerT = Math.max(L.peerT, m.t);
+    else if (m.type === 'hash' && Number.isFinite(m.t)) { L.peerHashes[m.t] = m.h; if (L.hashes[m.t] != null && L.hashes[m.t] !== m.h) L.desync = true; }
   }
   // Simple auto-player, used by the demo/self-test modes.
   function autoPlay(B) {
@@ -1782,7 +1857,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { LIVE_IDX, LIVE_D, LIVE_MAX_TICK, newBattleLive, liveNew, liveCan, liveStepOnce, liveIssue, liveRecv, liveHash, liveSetSeed, liveEndSeed, PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 5, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2535,7 +2610,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const from = G.screen;
     if (!isBack && from !== screen) { const j = HIST.lastIndexOf(screen); if (j >= 0) HIST.length = j; else pushHist(from); }
     if (screen === 'title' || screen === 'prep') HIST.length = 0;
-    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
+    G.screen = screen; G.paused = false; G.result = null; G.gacha = null; G.pullBox = null; G.msgBox = null; G.spOut = null; G.eqInfo = false; G.lbOpen = false; if (LV.st === 'over' || (LV.st !== 'idle' && screen !== 'battle' && screen !== 'pvp')) { if (LV.st === 'search') lvCancel(); else lvReset(); } if (LV.L && screen !== 'battle' && LV.st === 'play') lvReset(); if (screen === 'prep' && from !== 'prep' && from !== 'special') G.bunSay = null; if (screen === 'special' && from !== 'special') G.spIn = G.time; sfx('click');
     if (screen === 'special' || screen === 'map') noteStages(screen);
   }
   // Start!! (Battle Cats style) reopens the stage list you were last on, even after closing the game:
@@ -2648,9 +2723,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     baseBtn(c, x + 30, y + h - 74, 200, 56, 'Cancel', () => { G.pick = null; sfx('click'); }, { size: 26 });
     baseBtn(c, x + w - 270, y + h - 74, 240, 56, 'Start!', () => { if (!P.sel.length) { sfx('deny'); toast('Pick at least one baker.'); return; } const sel = P.sel.slice(), idx = P.idx; G.pick = null; startBattle(idx, sel); }, { size: 30, disabled: !P.sel.length });
   }
-  function tryDeploy(id) { if (!deploy(G.battle, id)) sfx('deny'); }
-  function tryWallet() { if (!upgradeWallet(G.battle)) sfx('deny'); }
-  function tryPin() { if (!firePin(G.battle)) sfx('deny'); }
+  const inLive = () => !!(LV.L && G.battle === LV.L.B);
+  function tryDeploy(id) { if (inLive()) return lvDeploy(id); if (!deploy(G.battle, id)) sfx('deny'); }
+  function tryWallet() { if (inLive()) return lvWallet(); if (!upgradeWallet(G.battle)) sfx('deny'); }
+  function tryPin() { if (inLive()) return sfx('deny'); if (!firePin(G.battle)) sfx('deny'); }
   function buyNp(cost, apply) {
     if ((S.np || 0) < cost) { sfx('deny'); toast('Not enough NP (' + (S.np || 0) + '/' + cost + '). Sell Storage units for NP.'); return; }
     S.np -= cost; apply(); persist(); markDirty(); sfx('up');
@@ -2837,11 +2913,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function drawHud(c, B) {
     c.fillStyle = 'rgba(30,20,12,.82)'; c.fillRect(0, 0, VW, TOP);
-    btn(c, 10, 8, 44, 34, G.paused ? '▶' : 'II', () => { G.paused = !G.paused; sfx('click'); }, { r: 9, size: 18, color: '#f3d49a' });
-    btn(c, 62, 8, 56, 34, 'x' + G.speed, () => { G.speed = G.speed === 1 ? 2 : 1; sfx('click'); }, { r: 9, size: 18, color: G.speed > 1 ? '#ff9d5c' : '#f3d49a' });
+    if (B.live) btn(c, 10, 8, 108, 34, 'Quit', lvQuit, { r: 9, size: 18, color: '#ffb3a8' });
+    if (!B.live) btn(c, 10, 8, 44, 34, G.paused ? '▶' : 'II', () => { G.paused = !G.paused; sfx('click'); }, { r: 9, size: 18, color: '#f3d49a' });
+    if (!B.live) btn(c, 62, 8, 56, 34, 'x' + G.speed, () => { G.speed = G.speed === 1 ? 2 : 1; sfx('click'); }, { r: 9, size: 18, color: G.speed > 1 ? '#ff9d5c' : '#f3d49a' });
     btn(c, 126, 8, 44, 34, S.muted ? '✕' : '♪', () => { S.muted = !S.muted; persist(); }, { r: 9, size: 18, color: '#f3d49a' });
     // Cat CPU (Battle Cats' auto-battle item): plays the battle for you while switched on. You can still deploy by hand.
-    btn(c, 178, 8, 72, 34, G.auto ? 'CPU ON' : 'CPU', () => { G.auto = !G.auto; S.cpu = G.auto; persist(); sfx('click'); toast(G.auto ? 'Cat CPU on: it will fight for you.' : 'Cat CPU off.'); }, { r: 9, size: 14, color: G.auto ? '#9be37a' : '#f3d49a' });
+    if (!B.live) btn(c, 178, 8, 72, 34, G.auto ? 'CPU ON' : 'CPU', () => { G.auto = !G.auto; S.cpu = G.auto; persist(); sfx('click'); toast(G.auto ? 'Cat CPU on: it will fight for you.' : 'Cat CPU off.'); }, { r: 9, size: 14, color: G.auto ? '#9be37a' : '#f3d49a' });
     fitText(c, stageLabel(B.idx) + '  ' + B.st.name, 262, 26, 200, 19, '#fff3d6');
     // minimap
     const mx = 470, mw = 420, my = 17, mh = 18, k = mw / B.len;
@@ -2924,7 +3001,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       }
       G.hoverUnit = best;
     }
-    for (let i = 0; i < LINEUP; i++) if (B.roster[i] && inside(190 + i * 89, PANEL_Y + 14, 84, 138)) G.rangePreview = B.roster[i];
+    { const R = lvViewOf(B).roster; for (let i = 0; i < LINEUP; i++) if (R[i] && inside(190 + i * 89, PANEL_Y + 14, 84, 138)) G.rangePreview = R[i]; }
     // Batched: all markers with the same colour + fade share one path (2 strokes total instead of 6 per unit).
     const groups = new Map(), pulse = .6 + Math.sin(G.time * 10) * .1;
     for (const u of B.units) {
@@ -3025,7 +3102,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       c.globalAlpha = a; c.fillStyle = 'rgba(160,20,20,.82)'; c.fillRect(0, 190, VW, 74);
       text(c, B.banner.text, 640 + (1 - a) * 80, 228, 40, '#fff', 'center', '#3a0c0c', HEAD); c.globalAlpha = 1;
     }
-    drawHud(c, B); drawPanel(c, B);
+    { const V = lvViewOf(B); drawHud(c, V); drawPanel(c, V); }
     if (inTutorial(B.idx) && !B.over && !G.result && !G.paused) drawTutorial(c, B);
     else if (!B.over && !G.result && !G.paused) drawStageTips(c, B);
     if (B.combos && B.combos.length && B.time < 7 && !B.over && !G.result && !G.paused) {   // which Bakery Combos are working this battle
@@ -3039,9 +3116,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }
     if (G.result) {
       const r = G.result, p = overlayPanel(c, 560, (r.unlocked.length ? 460 : 370) + (r.treasure ? 46 : 0) + (r.orb ? 46 : 0));
-      text(c, r.win ? 'VICTORY!' : 'BURNT OUT...', 640, p.y + 62, 54, r.win ? '#e2483a' : '#6d5f50', 'center', OUT, HEAD);
+      text(c, r.draw ? 'DRAW' : r.win ? 'VICTORY!' : 'BURNT OUT...', 640, p.y + 62, 54, r.win ? '#e2483a' : '#6d5f50', 'center', OUT, HEAD);
       // headline under VICTORY: an unlock (new section / new map) gets its own red line, with the usual note underneath
-      const sub = r.pvp ? (r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
+      const sub = r.pvp ? (r.pvp.desync ? 'The two devices disagreed, so this match does not count.' : r.pvp.conflict ? 'The two reports disagreed: no rating change.' : r.pvp.waiting ? 'Waiting for the other player to report…' : r.draw ? 'Draw: no rating change.' : r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
       const unlock = r.newSec >= 0 ? 'SECTION ' + (r.newSec + 1) + ' UNLOCKED: ' + SECTIONS[r.newSec].name + '  ·  Lv cap ' + lvCap(S) : r.newMap >= 0 ? 'NEW MAP UNLOCKED: ' + MAPS[r.newMap].name + ' (' + MAPS[r.newMap].diff + ')' : '';
       if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
       else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
@@ -3079,9 +3156,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         btn(c, p.x + 150, yy + 16, 260, 60, 'Retry', () => startBattle(B.idx));
       } else {
         // like Battle Cats: a big Ok that goes back to the map (or the Legend Stages list)
-        btn(c, p.x + 30, yy + 16, 280, 64, 'Ok', () => { go(r.pvp ? 'pvp' : backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 34 });
+        btn(c, p.x + 30, yy + 16, 280, 64, 'Ok', () => { if (r.pvp && r.pvp.live) G.pvpTab = 'live'; go(r.pvp ? 'pvp' : backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 34 });
         text(c, r.pvp ? 'back to the Arena' : backSp ? 'back to Legend Stages' : 'back to the map', p.x + 170, yy + 94, 13, '#7c5432', 'center');
-        btn(c, p.x + 326, yy + 16, 200, 64, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
+        if (!(r.pvp && r.pvp.live)) btn(c, p.x + 326, yy + 16, 200, 64, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
       }
     } else if (G.paused) {
       const p = overlayPanel(c, 420, 300);
@@ -4384,34 +4461,34 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const j = await r.json().catch(() => null); if (!r.ok) { const e = new Error((j && j.error) || 'error ' + r.status); e.status = r.status; throw e; } return j;
   }
   async function lbJoin(name) {
-    const j = await lbCall('POST', '/api/join', { name }); LB.me = { id: j.id, token: j.token, name: j.name }; lbSaveMe(); LB.sent = ''; return j;
+    const j = await lbCall('POST', '/api/join', { name }); LB.me = { id: j.id, token: j.token, name: j.name }; lbSaveMe(); S.lbMe = Object.assign({}, LB.me); persist(); LB.sent = ''; LB.teamKey = null; return j;
   }
   // send my scores (only when something changed, and not more than every 15 s unless forced)
   async function lbSubmit(force) {
-    if (!apiBase() || !LB.me || LB.busy) return; const sc = lbScores(), key = JSON.stringify(sc);
+    lbSyncId(); if (!apiBase() || !LB.me || LB.busy) return; const sc = lbScores(), key = JSON.stringify(sc);
     if (!force && (key === LB.sent || Date.now() - LB.t < 15000)) return;
     LB.busy = true; LB.t = Date.now();
     try { const j = await lbCall('POST', '/api/score', { id: LB.me.id, token: LB.me.token, name: LB.me.name, scores: sc }); LB.sent = key; if (j.name) { LB.me.name = j.name; lbSaveMe(); } }
-    catch (e) { if (e.status === 403) { LB.me = null; lbSaveMe(); } }   // the server forgot me: join again next time
+    catch (e) { if (e.status === 403) { LB.me = null; S.lbMe = null; lbSaveMe(); } }   // the server forgot me: join again next time
     LB.busy = false;
   }
   // Daily Twist score: faster wins and a healthier oven score more (at most about 1100); one board per day
   const dailyPoints = B => Math.max(1, 1000 - Math.round(B.time)) + Math.round(100 * clamp(B.pbase.hp / B.pbase.maxHp, 0, 1));
   async function lbSubmitDaily(pts) {
     if (!apiBase() || !LB.me) return;
-    try { await lbCall('POST', '/api/daily', { id: LB.me.id, token: LB.me.token, day: dayKey(), value: pts }); } catch (e) { if (e.status === 403) { LB.me = null; lbSaveMe(); } }
+    try { await lbCall('POST', '/api/daily', { id: LB.me.id, token: LB.me.token, day: dayKey(), value: pts }); } catch (e) { if (e.status === 403) { LB.me = null; S.lbMe = null; lbSaveMe(); } }
   }
   async function lbLoad(board) {
     G.lb = { board, st: 'loading', rows: [], me: null, total: 0 }; const mine = G.lb;
     try { const j = await lbCall('GET', board === 'daily' ? '/api/daily?day=' + dayKey() + (LB.me ? '&id=' + LB.me.id : '') : '/api/board/' + board + (LB.me ? '?id=' + LB.me.id : '')); if (G.lb === mine) { mine.rows = j.top || []; mine.me = j.me; mine.total = j.total || 0; mine.st = 'ok'; } }
     catch (e) { if (G.lb === mine) { mine.st = 'err'; mine.why = (e && e.status ? 'server said ' + e.status + ': ' : '') + String((e && e.message) || e).slice(0, 80); } }
   }
-  function lbOpen() { G.lbOpen = true; sfx('click'); const go2 = () => lbLoad((G.lb && G.lb.board) || 'tower'); if (apiBase()) { if (LB.me) lbSubmit(true).then(go2); else go2(); } }
+  function lbOpen() { lbSyncId(); G.lbOpen = true; sfx('click'); const go2 = () => lbLoad((G.lb && G.lb.board) || 'tower'); if (apiBase()) { if (LB.me) lbSubmit(true).then(go2); else go2(); } }
   function lbAskName(first) {
     let n; try { n = window.prompt('Pick a display name for the leaderboards (up to 16 letters or numbers). Please do not use your real name.', LB.me ? LB.me.name : ''); } catch (e) { n = null; }
     if (!n || !n.trim()) return;
     if (first || !LB.me) lbJoin(n).then(() => lbSubmit(true)).then(() => lbLoad((G.lb && G.lb.board) || 'tower')).catch(e => toast('Could not join: ' + e.message));
-    else { LB.me.name = n.trim().slice(0, 16); lbSaveMe(); lbSubmit(true).then(() => lbLoad((G.lb && G.lb.board) || 'tower')); }
+    else { LB.me.name = n.trim().slice(0, 16); lbSaveMe(); if (S.lbMe) S.lbMe.name = LB.me.name; persist(); lbSubmit(true).then(() => lbLoad((G.lb && G.lb.board) || 'tower')); }
   }
   function drawLeaderboard(c) {
     c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, VW, VH); hit(0, 0, VW, VH, () => {});
@@ -4476,13 +4553,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (!apiBase() || !LB.me) return; const d = G.pvpd = { st: 'loading', me: null, opps: [], board: [] };
     try {
       const [me, op, bd] = await Promise.all([lbCall('GET', '/api/pvp/me?id=' + LB.me.id), lbCall('GET', '/api/pvp/opponents?id=' + LB.me.id), lbCall('GET', '/api/pvp/board')]);
-      if (G.pvpd === d) { d.me = me; d.opps = op.opponents || []; d.board = bd.top || []; d.st = 'ok'; }
+      if (G.pvpd === d) { d.me = me; d.opps = op.opponents || []; d.board = bd.top || []; d.st = 'ok'; if (me.hasTeam && me.team) LB.teamKey = pvpKey(me.team); else if (pvpTeamNow().length) pvpSaveTeam(true); }
     } catch (e) { if (G.pvpd === d) { d.st = 'err'; d.why = String((e && e.message) || e).slice(0, 80); } }
   }
-  async function pvpSaveTeam() {
-    const t = pvpTeamNow(); if (!t.length) { sfx('deny'); toast('Equip some bakers first.'); return; }
-    try { await lbCall('POST', '/api/team', { id: LB.me.id, token: LB.me.token, team: t, pw: pvpPower(t) }); toast('Your arena team is saved. Other players can now fight it!'); sfx('click'); pvpLoad(); }
-    catch (e) { toast('Could not save: ' + e.message); }
+  async function pvpSaveTeam(quiet) {
+    const t = pvpTeamNow(); if (!t.length) { if (!quiet) { sfx('deny'); toast('Equip some bakers first.'); } return; }
+    try { await lbCall('POST', '/api/team', { id: LB.me.id, token: LB.me.token, team: t, pw: pvpPower(t) }); LB.teamKey = pvpKey(t); if (!quiet) { toast('Your arena team is saved. Other players can now fight it!'); sfx('click'); } pvpLoad(); }
+    catch (e) { if (!quiet) toast('Could not save: ' + e.message); }
   }
   function pvpFight(o) {
     if (!lineupOf(S).some(Boolean)) { sfx('deny'); toast('Equip at least one baker first!'); return; }
@@ -4502,7 +4579,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function drawPvp(c) {
     const g = c.createLinearGradient(0, 58, 0, 648); g.addColorStop(0, '#2a0f0f'); g.addColorStop(.5, '#5a1f1a'); g.addColorStop(1, '#1a0a0a'); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
-    baseTop(c, 'PvP Arena');
+    baseTop(c, 'PvP Arena'); lbSyncId();
+    const tab = G.pvpTab === 'live' ? 'live' : 'slot';
+    [['slot', 'Slot Battle', 300], ['live', 'Live Battle', 520]].forEach(([k, l, x]) => btn(c, x, 8, 200, 36, l, () => { G.pvpTab = k; sfx('click'); }, { r: 14, size: 20, color: tab === k ? '#ffd24a' : '#f3d49a' }));
     const on = !!apiBase(), D = G.pvpd, me = D && D.me;
     if (!on) { text(c, 'Online play is not switched on for this copy of the game.', 640, 330, 24, '#fff', 'center'); baseBottom(c, () => goBack()); return; }
     if (!LB.me) {
@@ -4519,10 +4598,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const now = pvpTeamNow();
     now.slice(0, 10).forEach((m, i) => { const x = 62 + (i % 5) * 68, y = 252 + Math.floor(i / 5) * 76; rr(c, x, y, 62, 68, 8, '#e8d8c8', '#111', 2); c.save(); c.beginPath(); c.rect(x, y, 62, 68); c.clip(); portrait(c, m.u, x + 31, y + 62, 54, { walk: 0, pose: 0, hurt: false, t: 0 }); c.restore(); });
     text(c, 'Power ' + pvpPower(now) + (me && me.hasTeam ? '   ·   saved: ' + pvpPower(me.team || []) : ''), 220, 420, 16, '#f0d8d0', 'center');
-    baseBtn(c, 50, 436, 340, 64, me && me.hasTeam ? 'Update my team' : 'Save my team', () => pvpSaveTeam(), { size: 30 });
-    text(c, 'Others fight the team you save. Fight on any day.', 220, 520, 14, '#d8bfb8', 'center');
+    baseBtn(c, 50, 436, 340, 64, 'Edit team', () => { sfx('click'); go('equip'); }, { size: 34 });
+    text(c, 'Saved automatically: others fight this team.', 220, 520, 14, '#d8bfb8', 'center');
     text(c, 'Top players', 220, 552, 18, '#fff', 'center', '#000', HEAD);
     (D && D.board || []).slice(0, 3).forEach((r, i) => fitLine(c, '#' + r.rank + '  ' + r.name + '  ' + r.rating, 130, 574 + i * 20, 260, 15, '#f0d8d0', 'left'));
+    if (tab === 'live') { drawLivePane(c, me, D); baseBottom(c, () => goBack()); return; }
     // ---- right: opponents ----
     text(c, 'Pick an opponent', 830, 100, 26, '#fff', 'center', '#000', HEAD);
     btn(c, 1090, 82, 150, 36, 'Refresh ⟳', () => { sfx('click'); pvpLoad(); }, { size: 16, r: 14, color: '#ffe7c0' });
@@ -4538,6 +4618,133 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     baseBottom(c, () => goBack());
   }
   function pvpSetOpp(o) { PVP_OPP = o; }
+  // One leaderboard identity per SAVE (so your phone and your computer are the same player once the save is shared), and an
+  // arena team that follows your lineup by itself.
+  function lbSyncId() {
+    if (S.lbMe && S.lbMe.id && (!LB.me || LB.me.id !== S.lbMe.id)) { LB.me = Object.assign({}, S.lbMe); lbSaveMe(); G.pvpd = null; }
+    else if (LB.me && (!S.lbMe || S.lbMe.id !== LB.me.id)) { S.lbMe = Object.assign({}, LB.me); persist(); }
+  }
+  const pvpKey = team => JSON.stringify(team.map(m => [m.u, m.lv, m.p, m.e]));
+  function lbTeamSync() {   // every frame, cheap: once the arena team exists, keep it equal to your lineup (after you stop tinkering for a moment)
+    if (!LB.me || !apiBase() || LB.teamKey == null || LB.teamBusy) return;
+    const now = pvpTeamNow(), k = pvpKey(now); if (!now.length || k === LB.teamKey) { LB.teamDirty = 0; return; }
+    if (!LB.teamDirty) { LB.teamDirty = G.time; return; } if (G.time - LB.teamDirty < 2.5) return;
+    LB.teamBusy = true;
+    lbCall('POST', '/api/team', { id: LB.me.id, token: LB.me.token, team: now, pw: pvpPower(now) }).then(() => { LB.teamKey = k; }).catch(() => {}).then(() => { LB.teamBusy = false; LB.teamDirty = 0; });
+  }
+  // =====================================================================
+  // LIVE BATTLE (client): find an opponent, then both devices run the same battle and swap moves (see the "LIVE BATTLE core" above).
+  // =====================================================================
+  const LV = { st: 'idle', m: null, L: null, tr: null, peerReady: false, myReady: false, lastRecv: 0, err: '', t0: 0, polling: false, view: null, connect: null };
+  const lvSleep = ms => new Promise(r => setTimeout(r, ms));
+  const lvNow = () => G.time;                 // game time: it only runs while frames are drawn, so a throttled background tab is never mistaken for a dropped connection
+  const LV_SILENCE = 10;                      // seconds without a word from the other device = they left
+  function lvSend(o) { try { if (LV.tr) LV.tr.send(JSON.stringify(o)); } catch (e) {} }
+  function lvClose() { try { if (LV.tr) LV.tr.close(); } catch (e) {} LV.tr = null; }
+  function lvReset() { lvClose(); LV.st = 'idle'; LV.m = null; LV.L = null; LV.peerReady = false; LV.myReady = false; LV.view = null; LV.ff = false; LV.desyncShown = false; liveEndSeed(); }
+  function lvRecv(str) {
+    let m; try { m = JSON.parse(str); } catch (e) { return; } if (!m || typeof m !== 'object') return; LV.lastRecv = lvNow();
+    if (m.type === 'ready') LV.peerReady = true;
+    else if (m.type === 'peer') { if (m.on && LV.st === 'ready') lvSend({ type: 'ready' }); }
+    else if (m.type === 'bye') { LV.peerBye = true; }
+    else if (LV.L) liveRecv(LV.L, m);
+  }
+  function lvWebSocket(j) {                                   // the real connection; tests plug in their own through LV.connect
+    const url = apiBase().replace(/^http/, 'ws') + '/api/live/ws?match=' + encodeURIComponent(j.match) + '&id=' + encodeURIComponent(LB.me.id) + '&token=' + encodeURIComponent(LB.me.token);
+    const ws = new WebSocket(url); const tr = { send: s => { if (ws.readyState === 1) ws.send(s); }, close: () => ws.close(), open: false };
+    ws.onopen = () => { tr.open = true; LV.myReady = true; lvSend({ type: 'ready' }); }; ws.onmessage = ev => lvRecv(String(ev.data));
+    ws.onclose = () => { tr.open = false; }; ws.onerror = () => { tr.open = false; }; return tr;
+  }
+  async function lvFind() {
+    if (!apiBase() || !LB.me) return; const team = pvpTeamNow(); if (!team.length) { sfx('deny'); toast('Equip some bakers first.'); return; }
+    lvReset(); LV.st = 'search'; LV.err = ''; LV.t0 = G.time; const my = ++LV.polling;
+    while (LV.st === 'search' && LV.polling === my) {
+      try { const j = await lbCall('POST', '/api/live/find', { id: LB.me.id, token: LB.me.token, team }); if (LV.st !== 'search' || LV.polling !== my) return; if (j.st === 'matched') { lvMatched(j); return; } }
+      catch (e) { if (LV.polling === my) { LV.st = 'idle'; LV.err = 'Could not reach the server (' + String((e && e.message) || e).slice(0, 60) + ')'; } return; }
+      await lvSleep(1100);
+    }
+  }
+  async function lvCancel() { LV.polling++; const was = LV.st; lvReset(); if (was === 'search' && LB.me) { try { await lbCall('POST', '/api/live/cancel', { id: LB.me.id, token: LB.me.token }); } catch (e) {} } }
+  function lvMatched(j) {
+    LV.m = j; LV.st = 'ready'; LV.t0 = G.time; LV.t0n = lvNow(); LV.peerReady = false; LV.myReady = false; sfx('boss');
+    try { LV.tr = (LV.connect || lvWebSocket)(j); } catch (e) { LV.st = 'idle'; LV.err = 'Could not open the live connection.'; }
+  }
+  function lvBegin() {   // both are connected and ready: start the shared battle
+    const j = LV.m; liveSetSeed(j.seed); const B = newBattleLive(j.teams[0], j.teams[1]); B.st.name = 'vs ' + j.opp.name;
+    LV.L = liveNew(B, j.side); LV.st = 'play'; LV.lastRecv = lvNow(); LV.peerBye = false; LV.waiting = false;
+    G.battle = B; G.screen = 'battle'; G.paused = false; G.speed = 1; G.auto = false; G.result = null; G.acc = 0; G.zoom = 1; G.cam = j.side > 0 ? 0 : maxCam(); sfx('up');
+    toast(j.side > 0 ? 'You are on the LEFT. Defend your oven!' : 'You are on the RIGHT. Defend your oven!');
+  }
+  function lvTick(dt) {
+    const L = LV.L, B = L.B; G.paused = false; G.speed = 1; G.auto = false;
+    if (G.result) return;
+    if (B.over) { step(B, dt); if (B.overT > 1.6) lvFinish(); return; }
+    G.acc = (G.acc || 0) + dt; let n = 0;
+    while (G.acc >= STEP && liveCan(L) && n++ < 8 && !B.over) { liveStepOnce(L); G.acc -= STEP; }
+    if (G.acc > .5) G.acc = .5;                               // no debt builds up while waiting for the other device
+    for (const m of L.out.splice(0)) lvSend(m);
+    LV.waiting = !liveCan(L) && !B.over;
+    if (L.desync && !LV.desyncShown) { LV.desyncShown = true; B.over = 'void'; toast('The two devices disagreed: this match is cancelled.'); }
+    if (LV.peerBye && !B.over) { B.over = L.side > 0 ? 'win' : 'lose'; LV.ff = true; }
+    else if (!B.over && lvNow() - LV.lastRecv > (LV.silence || LV_SILENCE)) { B.over = L.side > 0 ? 'win' : 'lose'; LV.ff = true; toast('Your opponent left. You win!'); }
+  }
+  function lvDeploy(id) {
+    const L = LV.L, B = L.B; if (!L || B.over) return;
+    const V = lvViewOf(B), d = UNITS[id]; if (!d || !V.roster.includes(id)) return sfx('deny');
+    if (V.money < d.cost || (V.recharge[id] || 0) > 0) return sfx('deny');
+    if (liveIssue(L, 'dep', id)) sfx('spawn');
+  }
+  function lvWallet() { const L = LV.L, B = L.B, V = lvViewOf(B); if (!L || B.over || V.wallet >= 8 || V.money < WALLET_COST[V.wallet - 1]) return sfx('deny'); liveIssue(L, 'wal'); sfx('up'); }
+  function lvQuit() { const L = LV.L; if (!L || L.B.over) return; lvSend({ type: 'bye' }); L.B.over = L.side > 0 ? 'lose' : 'win'; sfx('click'); }
+  // what the panel at the bottom shows: your own side (player 2's numbers live in B.pv)
+  function lvViewOf(B) {
+    if (!LV.L || LV.L.B !== B || LV.L.side > 0) return B;
+    if (LV.view && LV.view.__b === B) return LV.view;
+    const P = () => B.pv, V = Object.create(B), ids = B.pv.team.map(m => m.id).slice(0, LINEUP), roster = ids.concat(new Array(LINEUP - ids.length).fill(null));
+    const rech = new Proxy({}, { get: (_, id) => Math.max(0, (P().rech[id] || 0) - P().t) });
+    Object.defineProperties(V, { __b: { value: B }, money: { get: () => P().money }, wallet: { get: () => P().wl }, roster: { value: roster }, recharge: { value: rech }, incomeMul: { value: 1 }, capMul: { value: 1 }, cdMul: { value: 1 } });
+    return (LV.view = V);
+  }
+  function lvFinish() {
+    if (G.result) return; const L = LV.L, B = L.B, over = B.over, draw = over === 'draw', voided = over === 'void', win = !draw && !voided && (over === 'win') === (L.side === 1);
+    const crumbs = voided ? 0 : win ? 800 : draw ? 300 : 150; S.crumbs += crumbs; persist(); if (win) markDirty();
+    G.result = { win, draw, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: 0, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: 0, pvp: { opp: LV.m.opp.name, live: true, desync: voided } };
+    lvSend({ type: 'done' }); LV.st = 'over'; if (!voided) lvReport(win, draw, LV.ff); setTimeout(lvClose, 2500);   // 'done' is NOT a quit: the other device may still be a few ticks behind
+  }
+  async function lvReport(win, draw, ff) {
+    const r = G.result, m = LV.m;
+    for (let i = 0; i < 8; i++) {
+      try { const j = await lbCall('POST', '/api/live/result', { id: LB.me.id, token: LB.me.token, match: m.match, win: draw ? null : win, ff: !!ff }); if (j.pending) { await lvSleep(2000); continue; }
+        r.pvp = Object.assign(r.pvp, { rating: j.rating, delta: j.delta, conflict: !!j.conflict }); G.pvpd = null; return; }
+      catch (e) { r.pvp.err = true; return; }
+    }
+    r.pvp.waiting = true;
+  }
+  function lvPump() {   // called every frame from the main loop (menus too): connection handshake and the start signal
+    if (LV.st !== 'ready') return;
+    const tr = LV.tr; if (!tr) return;
+    if (tr.open && !LV.myReady) LV.myReady = true;
+    if (G.time - (LV.rt || 0) > .6) { LV.rt = G.time; if (tr.open || tr.open === undefined) lvSend({ type: 'ready' }); }
+    if (LV.myReady && LV.peerReady) { lvBegin(); return; }
+    if (lvNow() - LV.t0n > 20) { lvReset(); LV.err = 'The other player did not connect.'; }
+  }
+  function drawLivePane(c, me, D) {
+    rr(c, 430, 76, 810, 566, 16, 'rgba(0,0,0,.35)', '#111', 3);
+    const cx = 835, dots = '.'.repeat(1 + Math.floor(G.time * 2) % 3);
+    if (LV.st === 'search') {
+      text(c, 'Looking for an opponent' + dots, cx, 250, 34, '#fff', 'center', '#000', HEAD); text(c, Math.floor(G.time - LV.t0) + ' s', cx, 296, 22, '#f0d8d0', 'center');
+      text(c, 'Another player has to press Find at the same time.', cx, 336, 17, '#d8bfb8', 'center'); baseBtn(c, cx - 110, 380, 220, 64, 'Cancel', () => lvCancel(), { size: 32 });
+    } else if (LV.st === 'ready' && LV.m) {
+      text(c, 'Match found!', cx, 230, 40, '#ffd24a', 'center', '#000', HEAD); text(c, LV.m.opp.name + '   ·   Rating ' + LV.m.opp.rating, cx, 290, 28, '#fff', 'center', '#000', HEAD);
+      text(c, LV.peerReady ? 'Starting' + dots : 'Connecting' + dots, cx, 340, 22, '#f0d8d0', 'center');
+    } else {
+      text(c, 'Live Battle', cx, 190, 48, '#fff', 'center', '#000', HEAD); text(c, 'Fight a real player, right now, in real time.', cx, 240, 22, '#f0d8d0', 'center');
+      ['Both of you play at once: deploy bakers and upgrade your Oven Heat.', 'Destroy their oven before they destroy yours. 5 minutes, then the healthier oven wins.', 'Same rules for both: your bakers\' levels count, but no items, combos or Rolling Pin.'].forEach((t, i) => text(c, t, cx, 292 + i * 28, 16, '#d8bfb8', 'center'));
+      baseBtn(c, cx - 150, 410, 300, 80, 'Find a match', () => lvFind(), { size: 36 });
+      if (LV.err) text(c, LV.err, cx, 530, 17, '#ffb3a8', 'center');
+      text(c, 'Uses your current lineup (' + pvpTeamNow().length + ' bakers).', cx, 580, 15, '#d8bfb8', 'center');
+    }
+  }
   function drawMenuPopup(c) {
     c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 0, VW, VH);
     hit(0, 0, VW, VH, () => {});                                        // swallow clicks on the base behind
@@ -5767,7 +5974,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function tickBattle(dt) {
     const B = G.battle;
-    if (!G.paused && !G.result) {
+    if (LV.L && B === LV.L.B) lvTick(dt);
+    else if (!G.paused && !G.result) {
       G.acc = (G.acc || 0) + dt * G.speed;
       while (G.acc >= STEP) {
         if (G.auto) autoPlay(B);
@@ -5799,6 +6007,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   function frame(ts) {
     const raw = (ts - last) / 1000 || 0, dt = Math.min(.05, raw); last = ts; G.time += dt;
+    lvPump(); lbTeamSync();
     if (G.screen === 'battle') tickBattle(dt);
     const menu = G.screen !== 'battle' && !G.gacha;
     if (!menu || (frameNo++ & 1) === 0) draw();
@@ -5872,7 +6081,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (e.repeat) return;
     if (k === 'p' || k === 'Escape') { if (!G.result) G.paused = !G.paused; return; }
     if (G.paused || G.result) return;
-    if (/^[0-9]$/.test(k)) { const id = G.battle.roster[(+k + 9) % 10]; if (id) tryDeploy(id); else sfx('deny'); }
+    if (/^[0-9]$/.test(k)) { const id = lvViewOf(G.battle).roster[(+k + 9) % 10]; if (id) tryDeploy(id); else sfx('deny'); }
     else if (k === 'q' || k === 'w') tryWallet();
     else if (k === ' ') tryPin();
     else if (k === 'f') G.speed = G.speed === 1 ? 2 : 1;
@@ -5930,9 +6139,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1125-1746';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1125-1848';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
