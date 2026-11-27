@@ -215,7 +215,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   }
   const UNIT_ORDER = Object.keys(UNITS);
   const isOwned = (save, id) => (UNITS[id].special ? !!(save.awakened && save.awakened[id]) : UNITS[id].gacha ? !!(save.owned && save.owned[id]) : UNITS[id].unlock <= save.cleared);
-  const stageLabel = i => { if (isSpecial(i)) return i >= TOWER_BASE ? 'Floor ' + (i - TOWER_BASE) : 'SP'; const sec = secOf(i), b = baseOf(i), m = MAPS.findIndex(mp => b >= mp.first && b <= mp.last); return (sec ? 'S' + (sec + 1) + ' ' : '') + (m + 1) + '-' + (b - MAPS[m].first + 1); };
+  const stageLabel = i => { if (isSpecial(i)) return i >= TOWER_BASE ? 'Floor ' + (i - TOWER_BASE) : 'SP'; const sec = secOf(i); return (sec ? 'S' + (sec + 1) + ' ' : '') + (baseOf(i) + 1); };
   const lockText = d => (d.special ? 'Beat the Awakening stage (on the map) to unlock' : d.gacha ? 'Find in the Gacha' : 'Clear stage ' + stageLabel(d.unlock - 1) + ' to recruit');
   const RARITY = {
     R:  { name: 'Rare',        color: '#6fb7d9', light: '#cfe8f5', dark: '#0f2438', rate: .70 },
@@ -449,7 +449,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const orbShort = k => { const o = orbParse(k); return !o ? '' : o.e === 'atk' ? '+' + Math.round(ORB_ATK * 100) + '% dmg' : '-' + Math.round(ORB_DEF * 100) + '% taken'; };
   const orbDesc = k => { const o = orbParse(k); return !o ? '' : o.e === 'atk' ? '+' + Math.round(ORB_ATK * 100) + '% damage to ' + TRAIT_INFO[o.t].name + ' pests' : '-' + Math.round(ORB_DEF * 100) + '% damage from ' + TRAIT_INFO[o.t].name + ' pests'; };
   // orb drop chance per win, by section
-  const ORB_DROP = [.15, .3, .45];
+  const ORB_DROP = [.15, .3, .45, .5, .55, .6, .65, .7, .75];
   function rollOrb(traits, rnd) {
     rnd = rnd || Math.random; const pool = traits && traits.length ? traits : ORB_TRAITS;
     const t = pool[Math.floor(rnd() * pool.length) % pool.length]; return t + '.' + (t === 'metal' || rnd() < .5 ? 'def' : 'atk');
@@ -457,6 +457,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // damage multiplier when attacker `a` hits defender `e` (both battle units)
   function traitMul(a, e) {
     const ad = a.def, ed = e.def; let m = 1;
+    if (a.fruit && ed.traits) for (const t of ed.traits) if (a.fruit[t]) m *= 1 + a.fruit[t];   // Void / Blood / Sky / Heaven / Titanium / Antimatter / Enigma Fruit
     if (a.orb && a.orb.e === 'atk' && ed.traits && ed.traits.includes(a.orb.t)) m *= 1 + ORB_ATK;
     if (e.orb && e.orb.e === 'def' && ad.traits && ad.traits.includes(e.orb.t)) m *= 1 - ORB_DEF;
     // a cursed unit's trait abilities switch off (Battle Cats Curse)
@@ -679,6 +680,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     { name: 'The Crumb Rebellion',    short: 'Rebellion',    color: '#ff8a5c', mapMul: [17.5, 8.69, 2.03, 3.05, 1.38], hpMul: 1.5, hpAdd: 20000, push: 1.8, reward: 4 },
     { name: "Crumb World's End",       short: "World's End",  color: '#c0457a', mapMul: [19, 13.18, 2.65, 4.24, 1.79], hpMul: 2,   hpAdd: 40000, push: 2.0, reward: 8 },
   ];
+  // Like Battle Cats: 3 sagas (Empire of Cats / Into the Future / Cats of the Cosmos) x 3 chapters = 9 sections. Every section replays the 25 stages, harder each time.
+  [['Neon Kitchen', '#4fd6e0'], ['Chrome Bakery', '#6aa8ff'], ['Quantum Oven', '#8a7bff'], ['Starlit Pantry', '#ff9ad5'], ['Nebula Bakery', '#c07bff'], ['Galactic Oven', '#ffd24a']].forEach((x, j) => {
+    const k = j + 1, f = Math.pow(1.4, k), L = SECTIONS[2];
+    SECTIONS.push({ name: x[0], short: x[0], color: x[1], mapMul: L.mapMul.map(v => Math.round(v * f * 100) / 100), hpMul: L.hpMul + .5 * k, hpAdd: L.hpAdd + 20000 * k, push: Math.min(2.6, L.push + .1 * k), reward: Math.round(L.reward * Math.pow(1.5, k)) });
+  });
+  const sagaOf = sec => Math.min(2, Math.floor(sec / 3));
   const secOf = idx => (idx >= SEC_STRIDE ? Math.floor(idx / SEC_STRIDE) : 0);
   const baseOf = idx => idx % SEC_STRIDE;
   const encIdx = (sec, i) => sec * SEC_STRIDE + i;
@@ -708,12 +715,14 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     { name: 'Pest Empire',        diff: 'Legend',   color: '#8a5cff', tint: 'rgba(110,70,200,.16)', first: 20, last: 24 },
   ];
   // 3 chapters per section (like Empire of Cats / Into the Future / Cats of the Cosmos: 3 sections x 3 chapters = 9). The BANDS above only set how hard each stage is.
-  const MAPS = [
+  const TPAGES = [
     { name: 'Kitchen & House',   diff: 'Easy',   color: '#9be37a', tint: 'rgba(110,180,90,.13)', first: 0, last: 7 },
     { name: 'Garden & Dumpsters', diff: 'Hard',   color: '#ff8a5c', tint: 'rgba(214,90,60,.14)', first: 8, last: 15 },
     { name: 'Pest Empire',       diff: 'Legend', color: '#8a5cff', tint: 'rgba(110,70,200,.16)', first: 16, last: 24 },
   ];
+  const MAPS = BANDS;   // (hidden: pest-strength bands, band ends pay tickets and cherries)
   const mapOf = i => MAPS.findIndex(m => i >= m.first && i <= m.last);
+  const tpageOf = i => TPAGES.findIndex(m => i >= m.first && i <= m.last);
   const mapOpen = (save, m) => save.cleared >= MAPS[m].first;
 
   const WALLET_INCOME = [11, 15, 20, 26, 33, 41, 49, 59];   // dough per second at each Oven Heat level (was 14 to 78: it filled up too fast)
@@ -822,34 +831,51 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
 
   // ---- treasures (one per stage; Battle Cats grades Inferior / Normal / Superior; each gives a small permanent bonus) ----
   const TREASURE_GRADES = [null, { name: 'Inferior', color: '#c98a4b' }, { name: 'Normal', color: '#c3ccd6' }, { name: 'Superior', color: '#ffd24a' }];
+  // Treasures are Battle Cats' SETS: every stage holds one treasure that belongs to a set. A set's effect is its maximum x (sum of its treasures' grades) / (3 x its size)
+  // (Inferior 1, Normal 2, Superior 3). Each section is one saga: Empire of Cats / Into the Future / Cats of the Cosmos sets, spread over its 25 stages.
+  const pct0 = v => Math.floor(v * 100 + 1e-9);
   const TREASURE_STATS = {
-    atk:    { label: 'Attack',        per: .01,  fmt: v => '+' + Math.round(v * 100) + '% attack' },
-    hp:     { label: 'Health',        per: .01,  fmt: v => '+' + Math.round(v * 100) + '% health' },
-    cd:     { label: 'Cooldown',      per: .0075, fmt: v => '-' + Math.round(v * 1000) / 10 + '% recharge' },
-    wallet: { label: 'Giant Safe (wallet)', per: 65, fmt: v => '+' + Math.round(v) + ' wallet' },   // like the Battle Cats Giant Safe: a flat wallet bonus (all 45 grades = +2925)
-    crumbs: { label: 'Crumb rewards', per: .015,  fmt: v => '+' + Math.round(v * 100) + '% crumbs' },
+    income: { label: 'Dough income', fmt: v => '+' + pct0(v) + '% dough income' },
+    wallet: { label: 'Wallet size', fmt: v => '+' + Math.floor(v + 1e-9) + ' wallet' },
+    cdsub:  { label: 'Recharge', fmt: v => '-' + Math.floor(v * 10 + 1e-9) / 10 + ' s baker recharge' },
+    crumbs: { label: 'Crumb rewards', fmt: v => '+' + pct0(v) + '% crumbs' },
+    ovenhp: { label: 'Oven health', fmt: v => '+' + Math.floor(v + 1e-9) + ' oven HP' },
+    bounty: { label: 'Dough per pest', fmt: v => '+' + pct0(v) + '% dough per pest' },
+    hp:     { label: 'Baker health', fmt: v => '+' + pct0(v) + '% baker health' },
+    atk:    { label: 'Baker attack', fmt: v => '+' + pct0(v) + '% baker attack' },
+    pin:    { label: 'Rolling Pin attack', fmt: v => '+' + Math.floor(v + 1e-9) + ' Rolling Pin attack' },
+    pinsec: { label: 'Rolling Pin charge', fmt: v => '-' + Math.floor(v * 10 + 1e-9) / 10 + ' s Rolling Pin charge' },
+    start:  { label: 'Starting dough', fmt: v => '+' + Math.floor(v + 1e-9) + ' starting dough' },
+    mag:    { label: 'Pest strength', fmt: v => '-' + pct0(v) + '% pest strength' },
+    binhp:  { label: 'Bin health', fmt: v => '-' + pct0(v) + '% pest bin HP' },
+    vs_black: { label: 'vs Black', fmt: v => '+' + pct0(v) + '% damage vs Black' }, vs_red: { label: 'vs Red', fmt: v => '+' + pct0(v) + '% damage vs Red' },
+    vs_floating: { label: 'vs Floating', fmt: v => '+' + pct0(v) + '% damage vs Floating' }, vs_angel: { label: 'vs Angel', fmt: v => '+' + pct0(v) + '% damage vs Angel' },
+    vs_metal: { label: 'vs Metal', fmt: v => '+' + pct0(v) + '% damage vs Metal' }, vs_zombie: { label: 'vs Zombie', fmt: v => '+' + pct0(v) + '% damage vs Zombie' },
+    vs_alien: { label: 'vs Alien', fmt: v => '+' + pct0(v) + '% damage vs Alien' },
   };
-  const TREASURES = [
-    { name: "Baker's Whisk", stat: 'atk' }, { name: 'Sugar-Cube Crown', stat: 'hp' }, { name: 'Ancient Recipe', stat: 'cd' },
-    { name: 'Silver Spatula', stat: 'wallet' }, { name: 'Midnight Lantern', stat: 'crumbs' }, { name: 'Garden Rolling Pin', stat: 'atk' },
-    { name: 'Gatekeeper Apron', stat: 'hp' }, { name: 'Cellar Hourglass', stat: 'cd' }, { name: "Rat King's Coin", stat: 'wallet' },
-    { name: 'Crow Feather Quill', stat: 'crumbs' },
-    { name: 'Thorny Trowel', stat: 'atk' }, { name: 'Compost Crown', stat: 'hp' }, { name: 'Firefly Jar', stat: 'cd' },
-    { name: 'Greenhouse Key', stat: 'wallet' }, { name: 'Scarecrow Hat', stat: 'crumbs' }, { name: 'Alley Brass Knuckle', stat: 'atk' },
-    { name: 'Sewer Lantern', stat: 'hp' }, { name: 'Burrow Clock', stat: 'cd' }, { name: 'Trash Gold Nugget', stat: 'wallet' },
-    { name: 'Dumpster Crown', stat: 'crumbs' },
-    { name: 'Empire Banner', stat: 'atk' }, { name: 'Hive Royal Jelly', stat: 'hp' }, { name: 'Iron Nest Gear', stat: 'cd' }, { name: 'Cathedral Bell', stat: 'wallet' }, { name: "Emperor's Scepter", stat: 'crumbs' },
-  ];
-  // total bonus for a stat (e.g. atk 0.06 = +6%). 4 treasures per stat; max with all 20 Superior: atk/hp +12%, cd -9%, dough +12%, crumbs +18%.
-  // keys of save.treasure are stage indices (section 2 = 1000+, section 3 = 2000+); every section's treasures add up
-  const treasureBonus = (save, stat) => { const t = save && save.treasure; if (!t) return 0; let v = 0; for (const k of Object.keys(t)) { const tr = TREASURES[+k % SEC_STRIDE]; if (tr && tr.stat === stat) v += (t[k] || 0) * TREASURE_STATS[stat].per; } return v; };
+  // [name, stat, max, number of stages] (the real sets span 48 stages a chapter; ours span 25)
+  const TREASURE_SETS = [
+    [['Energy Drink', 'income', 1, 4], ['Giant Safe', 'wallet', 1000, 2], ['Relativity Clock', 'cdsub', 1, 2], ["Philosopher's Stone", 'crumbs', .5, 4], ['Smart Material Wall', 'ovenhp', 3500, 1], ['Super Register', 'bounty', .5, 1],
+     ['Legendary Cat Shield', 'hp', .5, 1], ['Legendary Cat Sword', 'atk', .5, 4], ['Energy Core', 'pin', 250, 3], ['Turbo Machine', 'pinsec', 5, 1], ['Management Bible', 'start', 200, 2]],
+    [['Aqua Crystal', 'mag', .08, 4], ['Plasma Crystal', 'mag', .08, 4], ['Ancient Tablet', 'ovenhp', 3500, 1], ['Mysterious Force', 'pinsec', 5, 1], ['Cosmic Energy', 'pin', 250, 3], ['Void Fruit', 'vs_black', .3, 2],
+     ['Blood Fruit', 'vs_red', .3, 2], ['Sky Fruit', 'vs_floating', .3, 2], ["Heaven's Fruit", 'vs_angel', .3, 2], ['Time Machine', 'start', 300, 3], ['Future Tech', 'wallet', 500, 1]],
+    [['Stellar Garnet', 'mag', .04, 3], ['Titanium Fruit', 'vs_metal', .3, 2], ['Phoebe Beryl', 'mag', .04, 3], ['Antimatter Fruit', 'vs_zombie', .3, 2], ['Lunar Citrine', 'mag', .04, 2], ['Enigma Fruit', 'vs_alien', .3, 2],
+     ['Ganymede Topaz', 'mag', .04, 3], ['Callisto Amethyst', 'mag', .04, 3], ['Dark Matter', 'start', 300, 2], ['Neutrino', 'crumbs', .25, 2], ['Mystery Mask', 'binhp', .12, 1]],
+  ].map(sets => { let at = 0; return sets.map(x => { const o = { name: x[0], stat: x[1], max: x[2], n: x[3], first: at, last: at + x[3] - 1 }; at += x[3]; return o; }); });
+  const SAGA_NAMES = ['Empire of Cats sets', 'Into the Future sets', 'Cats of the Cosmos sets'];
+  const setOfStage = (sec, i) => TREASURE_SETS[sagaOf(sec)].find(x => i >= x.first && i <= x.last);
+  const TREASURES = TREASURE_SETS[0].reduce((l, x) => l.concat(Array.from({ length: x.n }, () => ({ name: x.name, stat: x.stat }))), []);   // (the 25 stage treasures of the first saga)
+  // a set's current effect: its max x the sum of its grades / (3 x its size)
+  function setValue(save, sec, set) { const t = (save && save.treasure) || {}; let g = 0; for (let i = set.first; i <= set.last; i++) g += t[encIdx(sec, i)] || 0; return set.max * g / (3 * set.n); }
+  // total bonus for a stat, adding up every set (of every saga) that gives it
+  function treasureBonus(save, stat) { if (!save || !save.treasure) return 0; let v = 0; for (let sec = 0; sec < SECTIONS.length; sec++) for (const x of TREASURE_SETS[sagaOf(sec)]) if (x.stat === stat) v += setValue(save, sec, x); return v; }
   // Win -> maybe find (or improve) this stage's treasure. Battle Cats drop table (35% per win, never a downgrade):
   //   nothing yet: Inferior 16% / Normal 10% / Superior 9%    have Inferior: Normal 25% / Superior 10%    have Normal: Superior 35%
   const TREASURE_TABLE = [[[.09, 3], [.19, 2], [.35, 1]], [[.10, 3], [.35, 2]], [[.35, 3]], []];
   function rollTreasure(save, i, first, rnd) {
     rnd = rnd || Math.random;
     if (isSpecial(i) || !TREASURES[baseOf(i)]) return null;
-    const old = (save.treasure && save.treasure[i]) || 0, x = rnd(), hitRow = TREASURE_TABLE[old].find(r => x < r[0]);
+    const old = (save.treasure && save.treasure[i]) || 0, x = rnd(), hitRow = baseOf(i) === 0 && !old ? [1, 3] : TREASURE_TABLE[old].find(r => x < r[0]);   // the first stage always gives a Superior the first time
     if (!hitRow) return null;
     if (!save.treasure) save.treasure = {};
     save.treasure[i] = hitRow[1];
@@ -1343,21 +1369,23 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return t;
   }
   function newBattle(idx, save, rosterOverride) {
-    const st = stageOf(idx), len = Math.round(st.len * .7);
+    let st = stageOf(idx); const len = Math.round(st.len * .7);
+    const tmag = treasureBonus(save, 'mag'), tbin = treasureBonus(save, 'binhp');
+    if (tmag > 0 || tbin > 0) st = Object.assign({}, st, { mag: snapMag(st.mag * (1 - tmag)), hp: Math.round(st.hp * (1 - tbin)) });   // Aqua / Plasma / crystal sets and the Mystery Mask weaken the pests
     const roster = rosterOverride || lineupOf(save);
     const cmb = comboTotals(roster);
     const pstats = {}; for (const id of roster) if (id) { const p = unitStats(id, save), tw = st.unitHp || 1; pstats[id] = Object.assign({}, p, { hp: Math.max(1, Math.round(p.hp * (1 + cmb.hp) * tw)), dmg: Math.round(p.dmg * (1 + cmb.atk)) }); }
     const defs = {}; for (const id of roster) if (id) defs[id] = talentDef(save, id, defFor(save, id));
     const talents = {}; for (const id of roster) if (id && UNITS[id].talent) talents[id] = talentLv(save, id);
     const orbs = {}; for (const id of roster) if (id && orbOk(save, id) && save.orbEq && save.orbEq[id]) orbs[id] = orbParse(save.orbEq[id]);
-    const bl = k => baseLv(save, k), php = Math.round((1000 + 500 * (bl('oven') - 1)) * (1 + cmb.oven));
+    const bl = k => baseLv(save, k), php = Math.round((1000 + 500 * (bl('oven') - 1)) * (1 + cmb.oven) + treasureBonus(save, 'ovenhp'));
     return {
       idx, st, len, diffMul: 1, pEdge: 190, eEdge: len - 190, time: 0, combos: cmb.list,
       units: [], parts: [], nums: [], projs: [], rings: [], booms: [], ripples: [], surges: [],
-      money: 80 + cmb.start, wallet: 1, incomeMul: (1 + .12 * softLv(bl('wallet')) + cmb.income) * (st.incomeMul || 1), cdMul: (1 - treasureBonus(save, 'cd')) * (1 - .02 * softLv(bl('research'))) * (1 - cmb.cd),
-      tinLv: bl('tin'), walletBase: walletBaseOf(save), capAdd: Math.round(treasureBonus(save, 'wallet')), capMul: 1 + cmb.cap, bountyMul: 1 + .1 * softLv(bl('accounting')), orbs, roster, pstats, talents, defs, recharge: {},
+      money: 80 + cmb.start + Math.round(treasureBonus(save, 'start')), wallet: 1, incomeMul: (1 + .12 * softLv(bl('wallet')) + treasureBonus(save, 'income') + cmb.income) * (st.incomeMul || 1), cdMul: (1 - .02 * softLv(bl('research'))) * (1 - cmb.cd), cdSub: treasureBonus(save, 'cdsub'), fruit: { black: treasureBonus(save, 'vs_black'), red: treasureBonus(save, 'vs_red'), floating: treasureBonus(save, 'vs_floating'), angel: treasureBonus(save, 'vs_angel'), metal: treasureBonus(save, 'vs_metal'), zombie: treasureBonus(save, 'vs_zombie'), alien: treasureBonus(save, 'vs_alien') },
+      tinLv: bl('tin'), walletBase: walletBaseOf(save), capAdd: Math.round(treasureBonus(save, 'wallet')), capMul: 1 + cmb.cap, bountyMul: 1 + .1 * softLv(bl('accounting')) + treasureBonus(save, 'bounty'), orbs, roster, pstats, talents, defs, recharge: {},
       pbase: { hp: php, maxHp: php, shake: 0 }, ebase: { hp: st.hp, maxHp: st.hp, shake: 0 },
-      pinMax: pinCharge(bl('charge')) * (1 - cmb.pin), pinCharge: 0, pinDmg: pinDmgAt(bl('pin')), pinReach: pinReach(bl('range')), pin: null,
+      pinMax: Math.max(15, pinCharge(bl('charge')) * (1 - cmb.pin) - treasureBonus(save, 'pinsec')), pinCharge: 0, pinDmg: pinDmgAt(bl('pin')) + Math.round(treasureBonus(save, 'pin')), pinReach: pinReach(bl('range')), pin: null,
       waves: st.waves.map(w => Object.assign({}, w, { active: w.hp == null, timer: w.t || 0, left: w.n != null ? w.n : (w.e ? Infinity : 1) })),
       over: null, overT: 0, shake: 0, banner: null, kills: 0,
     };
@@ -1376,12 +1404,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     };
     B.units.push(u); return u;
   }
+  const rechargeOf = (B, d) => Math.max(Math.min(2, d.recharge), d.recharge * (B.cdMul || 1) - (B.cdSub || 0));   // Relativity Clock: flat seconds off, never below 2 s
   function deploy(B, id) {
     const d = (B.defs && B.defs[id]) || UNITS[id];
     if (B.over || !d || !B.roster.includes(id)) return false;
     if (B.recharge[id] > 0 || B.money < d.cost || countSide(B, 1) >= MAX_UNITS) return false;
-    B.money -= d.cost; B.recharge[id] = d.recharge * (B.cdMul || 1);
-    const u = spawn(B, 1, id, d, B.pstats[id].hp, B.pstats[id].dmg); if (B.orbs && B.orbs[id]) u.orb = B.orbs[id]; sfx('spawn');
+    B.money -= d.cost; B.recharge[id] = rechargeOf(B, d);
+    const u = spawn(B, 1, id, d, B.pstats[id].hp, B.pstats[id].dmg); if (B.fruit) u.fruit = B.fruit; if (B.orbs && B.orbs[id]) u.orb = B.orbs[id]; sfx('spawn');
     return true;
   }
   function upgradeWallet(B) {
@@ -1917,7 +1946,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return out;
   }
 
-  if (typeof module !== 'undefined' && module.exports) module.exports = { LIVE_IDX, LIVE_D, LIVE_MAX_TICK, newBattleLive, liveNew, liveCan, liveStepOnce, liveIssue, liveRecv, liveHash, liveSetSeed, liveEndSeed, PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS, BANDS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 3, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { LIVE_IDX, LIVE_D, LIVE_MAX_TICK, newBattleLive, liveNew, liveCan, liveStepOnce, liveIssue, liveRecv, liveHash, liveSetSeed, liveEndSeed, PVP_IDX, pvpSetOpp, PACK, BANNERS, BANNER_BY, rollGacha, gachaPull, tfAble, totalLv, snapMag, useAllCapsule, FORM_DESC, descOf, traitMul, coreTraits, TRAIT_INFO, hasEdge, groupUnits, SORT_MODES, UNITS, FOES, STAGES, newBattle, step, deploy, upgradeWallet, firePin, autoPlay, defaultSave, STEP, gachaPull, rollGacha, capsuleUse, capsuleSell, rollTreasure, treasureBonus, TREASURES, unitUpCost, stageReward, MAPS: TPAGES, BANDS, TREASURE_SETS, isOwned, lineupOf, unitStats, isEvolved, evoCost, UNIT_MAX_LV, SP_IDX, SP_STAGE, capsuleSellAll, capsuleSellPlan, talentLv, explodeChance, defFor, TRUE_FORMS, SPECIALS, SP_BASE, SHOP_ITEMS, SUGAR_PULL, SECTIONS, encIdx, secCleared, secOpen, stageOf, lvCap, lvMul, TF_LV, grainCost, npValue, capsuleSellNp, MAPS_N: 3, talentCost, explode, orbParse, rollOrb, orbOk, ORB_ATK, ORB_DEF, hitFoe, FOES_LIST: null, PITY_SR, PITY_UR, COMBOS, comboTotals, towerStage, TOWER_BASE, TOWER_MAX, DAILY_MODS, rollTickets, applyDaily };
   if (!HAS_DOM) return;
 
   // =====================================================================
@@ -2703,7 +2732,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function rollTickets(i, first) {
     if (isSpecial(i) && i >= TOWER_BASE) return first && (i - TOWER_BASE) % 10 === 0 ? 1 : 0;   // the Heavenly Tower: a ticket for every 10th floor, first time only
     if (isSpecial(i)) return first ? 1 : Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
-    if (first) return MAPS.some(m => m.last === baseOf(i)) ? 1 + secOf(i) : Math.random() < TICKET_FIRST_CHANCE ? 1 : 0;
+    if (first) return MAPS.some(m => m.last === baseOf(i)) ? 1 + Math.min(secOf(i), 3) : Math.random() < TICKET_FIRST_CHANCE ? 1 : 0;
     return Math.random() < TICKET_REPEAT_CHANCE ? 1 : 0;
   }
   function finishPvp(B, win) {   // arena fight: a few crumbs, and the rating result goes to the server
@@ -2711,7 +2740,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     G.result = { win, crumbs, first: false, unlocked: [], tickets: 0, treasure: null, newMap: -1, grain: null, newSec: -1, sugar: 0, orb: null, nt: 0, np: 0, cherry: null, pvp: { opp: PVP_OPP ? PVP_OPP.name : '' } };
     if (PVP_OPP) pvpReport(PVP_OPP.id, win);
   }
-  const TOWER_CHERRY = { 10: { R: 2 }, 20: { SR: 2 }, 30: { UR: 2 }, 40: { UR: 2 }, 50: { LR: 2 } }, TOWER_GRAIN = { 30: { UR: 1 }, 40: { UR: 2 }, 50: { LR: 3 } }, MAP_CHERRY = { 1: { R: 3 }, 2: { SR: 3, UR: 2 } };
+  const TOWER_CHERRY = { 10: { R: 2 }, 20: { SR: 2 }, 30: { UR: 2 }, 40: { UR: 2 }, 50: { LR: 2 } }, TOWER_GRAIN = { 30: { UR: 1 }, 40: { UR: 2 }, 50: { LR: 3 } }, MAP_CHERRY = [null, { R: 2 }, { SR: 2, UR: 1 }, { SR: 2, UR: 2 }, { UR: 2 }, { UR: 2, LR: 1 }, { UR: 3, LR: 1 }, { LR: 2 }, { LR: 3 }];
   function finishBattle() {
     const B = G.battle, i = B.idx, win = B.over === 'win';
     if (typeof setTimeout === "function") setTimeout(() => { try { lbSubmit(false); } catch (e) {} }, 1500);   // keep the online leaderboard up to date
@@ -2755,7 +2784,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (win) { missStats(S).wins++; const dd = missDaily(S); dd.wins++; if (isSpecial(i)) dd.legend++; }
     const tickets = win ? rollTickets(i, first) : 0; S.tickets = (S.tickets || 0) + tickets;
     const nt = win ? (first ? 2 : 1) : 0; S.ntickets = (S.ntickets || 0) + nt; S.crumbs += crumbs; persist(); if (win) markDirty();
-    const newMap = win && first && !isSpecial(i) ? MAPS.findIndex(m => m.first === baseOf(i) + 1) : -1;          // just opened the next map?
+    const newMap = -1;          // just opened the next map?
     const newSec = win && first && !isSpecial(i) && baseOf(i) === STAGES.length - 1 && secOf(i) + 1 < SECTIONS.length ? secOf(i) + 1 : -1;   // just opened the next section?
     if (newMap >= 0) G.map = newMap;
     if (newSec >= 0) { G.sec = newSec; G.map = null; }
@@ -3020,7 +3049,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       portrait(c, id, x + w / 2 - (d.proj || id === 'baguette' ? 4 : 0), y + h - 46 + press, 74, { walk: can ? G.time * 7 : 0, pose: 0, hurt: false, t: G.time });
       if (!can) { c.fillStyle = 'rgba(120,108,92,.5)'; c.fillRect(x, y, w, h); }
       c.restore();
-      if (rc > 0) { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = 'rgba(30,20,12,.6)'; c.fillRect(x, y, w, h * Math.min(1, rc / (d.recharge * (B.cdMul || 1)))); c.restore(); }
+      if (rc > 0) { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = 'rgba(30,20,12,.6)'; c.fillRect(x, y, w, h * Math.min(1, rc / rechargeOf(B, d))); c.restore(); }
       doughIcon(c, x + w / 2 - 24, y + h - 18 + press, 8); text(c, String(d.cost), x + w / 2 - 12, y + h - 17 + press, 19, can ? OUT : '#5c5045');
       rr(c, x + 5, y + 5 + press, 20, 20, 6, 'rgba(58,36,22,.75)', null); text(c, String((i + 1) % 10), x + 15, y + 16 + press, 13, '#fff', 'center');
       drawBadge(c, x + w - 15, y + 15 + press, traitBadges(d)[0], 9);
@@ -3179,11 +3208,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (r.tickets || tierSum(r.grain) || r.sugar || r.nt || r.np || tierSum(r.cherry)) fitText(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.np ? '+' + r.np + ' NP' : '', tierSum(r.grain) ? '+' + tierWords(r.grain, 'Golden Grain', 'Golden Grain') : '', tierSum(r.cherry) ? '+' + tierWords(r.cherry, 'Golden Cherry', 'Golden Cherries') : ''].filter(Boolean).join('   ·   '), 640, p.y + 212, 520, 22, '#7a3fa0', 'center');
       let yy = p.y + 245;
       if (r.treasure) {
-        const t = TREASURES[baseOf(r.treasure.i)], g = TREASURE_GRADES[r.treasure.grade];
+        const t = setOfStage(secOf(r.treasure.i), baseOf(r.treasure.i)), g = TREASURE_GRADES[r.treasure.grade];
         rr(c, p.x + 60, yy - 6, 440, 38, 12, r.treasure.upgraded ? '#2b1a0e' : 'rgba(58,36,22,.12)', g.color, 3);
         chestIcon(c, p.x + 86, yy + 13, .55);
         text(c, (r.treasure.upgraded ? (r.treasure.radar ? 'RADAR FOUND: ' : 'TREASURE: ') : 'Found again: ') + g.name + ' ' + t.name, p.x + 110, yy + 7, 15, r.treasure.upgraded ? g.color : '#7c5432');
-        text(c, r.treasure.upgraded ? TREASURE_STATS[t.stat].fmt(TREASURE_STATS[t.stat].per * r.treasure.grade) + ' total from this treasure' : 'You already have this one at ' + TREASURE_GRADES[r.treasure.old].name, p.x + 110, yy + 23, 12, r.treasure.upgraded ? '#fff3d6' : '#a8702e');
+        text(c, r.treasure.upgraded ? 'Set effect now: ' + TREASURE_STATS[t.stat].fmt(setValue(S, secOf(r.treasure.i), t)) : 'You already have this one at ' + TREASURE_GRADES[r.treasure.old].name, p.x + 110, yy + 23, 12, r.treasure.upgraded ? '#fff3d6' : '#a8702e');
         yy += 46;
       }
       if (r.orb) {
@@ -3599,7 +3628,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     }
     const m = mapOf(G.sel); G.map = m;
     drawStageSelect(c, { key: 'st:' + G.sec, stages, sel: G.sel, setSel: k => { G.sel = k; }, page: Math.floor(G.sel / 5), back: () => goBack('chapters'),
-      title: 'Section ' + (G.sec + 1) + ': ' + SECTIONS[G.sec].short + '  ·  Chapter ' + (m + 1) + ' ' + MAPS[m].name, sub: MAPS[m].name + '  ·  ' + MAPS[m].diff });
+      title: 'Section ' + (G.sec + 1) + ': ' + SECTIONS[G.sec].short, sub: SECTIONS[G.sec].name });
   }
 
   // ---------------- carousel (Battle Cats style): one big card in the middle, smaller dimmed cards either side ----------------
@@ -5227,8 +5256,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const MISSIONS = {
     main: [
       { id: 'm1', text: 'Clear stage 1-1', goal: 1, val: s => s.cleared, rw: { tickets: 1 } },
-      { id: 'm2', text: 'Clear every stage of Chapter 1', goal: 8, val: s => s.cleared, rw: { tickets: 2 } },
-      { id: 'm3', text: 'Clear every stage of Chapter 2', goal: 16, val: s => s.cleared, rw: { sugar: 30 } },
+      { id: 'm2', text: 'Clear the first 5 stages', goal: 5, val: s => s.cleared, rw: { tickets: 2 } },
+      { id: 'm3', text: 'Clear the first 10 stages', goal: 10, val: s => s.cleared, rw: { sugar: 30 } },
       { id: 'm4', text: 'Clear all of Section 1', goal: 25, val: s => s.cleared, rw: { tickets: 3, sugar: 50 } },
       { id: 'm5', text: 'Clear all of Section 2', goal: 25, val: s => secCleared(s, 1), rw: { tickets: 5 } },
       { id: 'm6', text: 'Clear all of Section 3', goal: 25, val: s => secCleared(s, 2), rw: { tickets: 10, sugar: 150 } },
@@ -6248,44 +6277,44 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     fitText(c, 'TREASURES · SECTION ' + (G.tsec + 1), 640, 36, 440, 28, '#fff', 'center');
     btn(c, 906, 14, 44, 42, '▶', () => tsw(1), { size: 18, r: 10, color: '#f3d49a', disabled: G.tsec >= SECTIONS.length - 1 });
     rr(c, 1046, 14, 208, 42, 21, '#2b1a0e', '#e0b060', 3); crumbIcon(c, 1072, 35, 13); text(c, String(S.crumbs), 1236, 36, 22, '#ffd24a', 'right');
-    // totals per bonus
-    rr(c, 14, 80, 1252, 118, 14, '#ecc766', '#8a5a14', 3);
-    rr(c, 28, 86, 230, 26, 13, '#161616', '#e0b060', 2); text(c, 'CURRENT BONUSES', 143, 99, 14, '#fff', 'center');
-    Object.keys(TREASURE_STATS).forEach((k, i) => {
-      const st = TREASURE_STATS[k], v = treasureBonus(S, k), max = st.per * 3 * TREASURES.filter(t => t.stat === k).length * SECTIONS.length, x = 28 + i * 248;
-      rr(c, x, 120, 236, 68, 10, '#fff3d6', OUT, 2);
-      text(c, st.label, x + 12, 138, 15, '#7c5432');
-      text(c, v ? st.fmt(v) : 'none yet', x + 12, 166, 19, v ? '#2c7a72' : '#a89c8e', 'left', null, HEAD);
-      text(c, 'max ' + st.fmt(max).split(' ')[0], x + 224, 138, 12, '#a8702e', 'right');
+    // the sets of this saga: effect now / at most
+    const sets = TREASURE_SETS[sagaOf(G.tsec)];
+    rr(c, 14, 78, 1252, 152, 14, '#ecc766', '#8a5a14', 3);
+    rr(c, 28, 84, 330, 24, 12, '#161616', '#e0b060', 2); text(c, SAGA_NAMES[sagaOf(G.tsec)].toUpperCase(), 193, 96, 13, '#fff', 'center');
+    sets.forEach((x, k) => {
+      const st = TREASURE_STATS[x.stat], v = setValue(S, G.tsec, x), bx = 24 + (k % 6) * 207, by = 114 + Math.floor(k / 6) * 56, got = (() => { let n = 0; for (let i = x.first; i <= x.last; i++) if (S.treasure && S.treasure[encIdx(G.tsec, i)]) n++; return n; })();
+      rr(c, bx, by, 199, 50, 9, '#fff3d6', OUT, 2);
+      fitText(c, x.name + '  ' + got + '/' + x.n, bx + 8, by + 14, 183, 13, '#7c5432', 'left');
+      fitText(c, v > 0 ? st.fmt(v) : 'none yet', bx + 8, by + 34, 183, 14, v > 0 ? '#2c7a72' : '#a89c8e', 'left');
     });
-    // map tabs: each map has one treasure per stage
-    if (G.tmap == null || G.tmap >= MAPS.length) G.tmap = Math.max(0, mapOf(Math.min(S.cleared, STAGES.length - 1)));
-    MAPS.forEach((m, k) => {
+    // chapter tabs (three chapters a saga)
+    if (G.tmap == null || G.tmap >= TPAGES.length) G.tmap = Math.max(0, tpageOf(Math.min(S.cleared, STAGES.length - 1)));
+    TPAGES.forEach((m, k) => {
       const x = 28 + k * 328, on = k === G.tmap, got = TREASURES.filter((t, i) => i >= m.first && i <= m.last && S.treasure && S.treasure[encIdx(G.tsec, i)]).length;
-      btn(c, x, 206, 320, 44, 'Chapter ' + (k + 1) + ': ' + m.name + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
+      btn(c, x, 238, 320, 40, 'Stages ' + (m.first + 1) + '-' + (m.last + 1) + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
     });
-    const TM = MAPS[G.tmap];
-    // one card per stage of the selected map
-    TREASURES.forEach((t, i) => {
+    const TM = TPAGES[G.tmap];
+    // one card per stage of the selected chapter: the set its treasure belongs to
+    TREASURES.forEach((t0, i) => {
       if (i < TM.first || i > TM.last) return;
-      const j = i - TM.first, x = 28 + (j % 5) * 248, y = 264 + Math.floor(j / 5) * 208, w = 236, h = 200, g = (S.treasure && S.treasure[encIdx(G.tsec, i)]) || 0, gr = TREASURE_GRADES[g];
+      const t = setOfStage(G.tsec, i), j = i - TM.first, x = 28 + (j % 5) * 248, y = 286 + Math.floor(j / 5) * 200, w = 236, h = 192, g = (S.treasure && S.treasure[encIdx(G.tsec, i)]) || 0, gr = TREASURE_GRADES[g];
       const st = TREASURE_STATS[t.stat], played = secCleared(S, G.tsec) > i;
       rr(c, x, y + 4, w, h, 12, 'rgba(0,0,0,.25)', null); rr(c, x, y, w, h, 12, '#111', null);
       rr(c, x + 3, y + 3, w - 6, h - 6, 10, g ? gr.color : '#8a7f70', null); rr(c, x + 6, y + 6, w - 12, h - 12, 8, g ? '#fff3d6' : '#d6cdbf', null);
-      text(c, 'Stage ' + (G.tmap + 1) + '-' + (i - TM.first + 1), x + 16, y + 24, 13, '#a8702e'); text(c, STAGES[i].name, x + 16, y + 42, 14, '#7c5432');
-      c.globalAlpha = g ? 1 : .35; chestIcon(c, x + w / 2, y + 92, 1.5); c.globalAlpha = 1;
+      text(c, 'Stage ' + (i + 1), x + 16, y + 22, 13, '#a8702e'); fitText(c, STAGES[i].name, x + 16, y + 40, 130, 13, '#7c5432', 'left');
+      c.globalAlpha = g ? 1 : .35; chestIcon(c, x + w / 2, y + 84, 1.4); c.globalAlpha = 1;
       if (g) {
-        rr(c, x + w - 82, y + 14, 68, 22, 8, gr.color, OUT, 2); text(c, gr.name.toUpperCase(), x + w - 48, y + 25, 12, OUT, 'center');
-        text(c, t.name, x + w / 2, y + 140, 16, OUT, 'center', null, HEAD);
-        text(c, st.fmt(st.per * g), x + w / 2, y + 164, 15, '#2c7a72', 'center');
-        text(c, g < 3 ? 'Win again for a better grade' : 'Maxed!', x + w / 2, y + 188, 12, g < 3 ? '#a8702e' : '#c98a1a', 'center');
+        rr(c, x + w - 82, y + 12, 68, 22, 8, gr.color, OUT, 2); text(c, gr.name.toUpperCase(), x + w - 48, y + 23, 12, OUT, 'center');
+        fitText(c, t.name, x + w / 2, y + 130, w - 24, 16, OUT, 'center');
+        fitText(c, 'Set: ' + st.label, x + w / 2, y + 152, w - 24, 14, '#2c7a72', 'center');
+        text(c, g < 3 ? 'Win again for a better grade' : 'Maxed!', x + w / 2, y + 176, 12, g < 3 ? '#a8702e' : '#c98a1a', 'center');
       } else {
-        text(c, '???', x + w / 2, y + 140, 18, '#6d5f50', 'center', null, HEAD);
-        text(c, st.label + ' bonus', x + w / 2, y + 164, 14, '#6d5f50', 'center');
-        text(c, played ? 'Win this stage to find it' : 'Clear stage ' + (G.tmap + 1) + '-' + (i - TM.first + 1) + ' to find it', x + w / 2, y + 188, 12, '#6d5f50', 'center');
+        text(c, '???', x + w / 2, y + 130, 18, '#6d5f50', 'center', null, HEAD);
+        fitText(c, 'Set: ' + st.label, x + w / 2, y + 152, w - 24, 14, '#6d5f50', 'center');
+        text(c, played ? 'Win this stage to find it' : 'Clear stage ' + (i + 1) + ' to find it', x + w / 2, y + 176, 12, '#6d5f50', 'center');
       }
     });
-    text(c, 'Every win has a 35% chance to find or improve the stage treasure: Inferior, Normal, then Superior.', 640, 704, 13, '#7c5432', 'center');
+    text(c, 'Every win has a 35% chance to find or improve the stage treasure (stage 1 always finds a Superior). A set gives its maximum x (grades found) / (3 x its size).', 640, 704, 13, '#7c5432', 'center');
   }
 
   // ---------------- pest index ----------------
@@ -6531,7 +6560,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1126-1639';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-1213';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
