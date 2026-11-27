@@ -6351,43 +6351,57 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     fitText(c, 'TREASURES · SECTION ' + (G.tsec + 1), 640, 36, 440, 28, '#fff', 'center');
     btn(c, 906, 14, 44, 42, '▶', () => tsw(1), { size: 18, r: 10, color: '#f3d49a', disabled: G.tsec >= SECTIONS.length - 1 });
     rr(c, 1046, 14, 208, 42, 21, '#2b1a0e', '#e0b060', 3); crumbIcon(c, 1072, 35, 13); text(c, String(S.crumbs), 1236, 36, 22, '#ffd24a', 'right');
-    // the sets of this saga: effect now / at most
-    const sets = TREASURE_SETS[sagaOf(G.tsec)];
+    // the sets of this saga: pick one to see it (like Battle Cats' treasure screen)
+    const sets = TREASURE_SETS[sagaOf(G.tsec)], gotOf = x => { let n = 0; for (let i = x.first; i <= x.last; i++) if (S.treasure && S.treasure[encIdx(G.tsec, i)]) n++; return n; };
+    if (G.tset == null || G.tset >= sets.length) G.tset = 0;
     rr(c, 14, 78, 1252, 152, 14, '#ecc766', '#8a5a14', 3);
     rr(c, 28, 84, 330, 24, 12, '#161616', '#e0b060', 2); text(c, SAGA_NAMES[sagaOf(G.tsec)].toUpperCase(), 193, 96, 13, '#fff', 'center');
     sets.forEach((x, k) => {
-      const st = TREASURE_STATS[x.stat], v = setValue(S, G.tsec, x), bx = 24 + (k % 6) * 207, by = 114 + Math.floor(k / 6) * 56, got = (() => { let n = 0; for (let i = x.first; i <= x.last; i++) if (S.treasure && S.treasure[encIdx(G.tsec, i)]) n++; return n; })();
-      rr(c, bx, by, 199, 50, 9, '#fff3d6', OUT, 2);
-      fitText(c, x.name + '  ' + got + '/' + x.n, bx + 8, by + 14, 183, 13, '#7c5432', 'left');
+      const st = TREASURE_STATS[x.stat], v = setValue(S, G.tsec, x), bx = 24 + (k % 6) * 207, by = 114 + Math.floor(k / 6) * 56, on = k === G.tset;
+      rr(c, bx, by, 199, 50, 9, on ? '#fff' : '#fff3d6', on ? '#7a2fd0' : OUT, on ? 4 : 2);
+      fitText(c, x.name + '  ' + gotOf(x) + '/' + x.n, bx + 8, by + 14, 183, 13, '#7c5432', 'left');
       fitText(c, v > 0 ? st.fmt(v) : 'none yet', bx + 8, by + 34, 183, 14, v > 0 ? '#2c7a72' : '#a89c8e', 'left');
+      hit(bx, by, 199, 50, () => { G.tset = k; G.tmed = null; sfx('click'); });
     });
-    // chapter tabs (three chapters a saga)
-    if (G.tmap == null || G.tmap >= TPAGES.length) G.tmap = Math.max(0, tpageOf(Math.min(S.cleared, STAGES.length - 1)));
-    TPAGES.forEach((m, k) => {
-      const x = 28 + k * 248, on = k === G.tmap, got = TREASURES.filter((t, i) => i >= m.first && i <= m.last && S.treasure && S.treasure[encIdx(G.tsec, i)]).length;
-      btn(c, x, 238, 240, 40, 'Stages ' + (m.first + 1) + '-' + (m.last + 1) + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
-    });
-    const TM = TPAGES[G.tmap];
-    // one card per stage of the selected chapter: the set its treasure belongs to
-    TREASURES.forEach((t0, i) => {
-      if (i < TM.first || i > TM.last) return;
-      const t = setOfStage(G.tsec, i), j = i - TM.first, x = 28 + (j % 5) * 248, y = 286 + Math.floor(j / 5) * 200, w = 236, h = 192, g = (S.treasure && S.treasure[encIdx(G.tsec, i)]) || 0, gr = TREASURE_GRADES[g];
-      const st = TREASURE_STATS[t.stat], played = secCleared(S, G.tsec) > i;
-      rr(c, x, y + 4, w, h, 12, 'rgba(0,0,0,.25)', null); rr(c, x, y, w, h, 12, '#111', null);
-      rr(c, x + 3, y + 3, w - 6, h - 6, 10, g ? gr.color : '#8a7f70', null); rr(c, x + 6, y + 6, w - 12, h - 12, 8, g ? '#fff3d6' : '#d6cdbf', null);
-      text(c, 'Stage ' + (i + 1), x + 16, y + 22, 13, '#a8702e'); fitText(c, STAGES[i].name, x + 16, y + 40, 130, 13, '#7c5432', 'left');
-      c.globalAlpha = g ? 1 : .35; chestIcon(c, x + w / 2, y + 84, 1.4); c.globalAlpha = 1;
-      if (g) {
-        rr(c, x + w - 82, y + 12, 68, 22, 8, gr.color, OUT, 2); text(c, gr.name.toUpperCase(), x + w - 48, y + 23, 12, OUT, 'center');
-        fitText(c, t.name, x + w / 2, y + 130, w - 24, 16, OUT, 'center');
-        fitText(c, 'Set: ' + st.label, x + w / 2, y + 152, w - 24, 14, '#2c7a72', 'center');
-        text(c, g < 3 ? 'Win again for a better grade' : 'Maxed!', x + w / 2, y + 176, 12, g < 3 ? '#a8702e' : '#c98a1a', 'center');
-      } else {
-        text(c, '???', x + w / 2, y + 130, 18, '#6d5f50', 'center', null, HEAD);
-        fitText(c, 'Set: ' + st.label, x + w / 2, y + 152, w - 24, 14, '#6d5f50', 'center');
-        text(c, played ? 'Win this stage to find it' : 'Clear stage ' + (i + 1) + ' to find it', x + w / 2, y + 176, 12, '#6d5f50', 'center');
-      }
-    });
+    // the chosen set: a title with its power, a banner, and one medal per stage
+    const X = sets[G.tset], XS = TREASURE_STATS[X.stat], XV = setValue(S, G.tsec, X), pw = Math.round(100 * (XV / X.max)), nst = X.last - X.first + 1;
+    if (G.tmed == null || G.tmed < X.first || G.tmed > X.last) G.tmed = X.first;
+    const PX = 40, PY = 246, PW = 700, PH = 450;
+    rr(c, PX, PY, PW, PH, 6, '#111', '#fff', 4);
+    const bg = c.createLinearGradient(0, PY + 4, 0, PY + 250); bg.addColorStop(0, '#2a2a2a'); bg.addColorStop(.5, '#585858'); bg.addColorStop(1, '#2a2a2a');
+    c.fillStyle = bg; c.fillRect(PX + 4, PY + 4, PW - 8, 250);
+    text(c, X.name, PX + PW / 2 - 70, PY + 30, 26, '#fff', 'center', '#000', HEAD); text(c, 'Power: ' + pw + '%', PX + PW / 2 + 130, PY + 30, 26, '#ffd24a', 'center', '#000', HEAD);
+    const gl = c.createRadialGradient(PX + PW / 2, PY + 130, 10, PX + PW / 2, PY + 130, 120); gl.addColorStop(0, XV > 0 ? 'rgba(160,255,60,.55)' : 'rgba(255,255,255,.12)'); gl.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = gl; c.fillRect(PX + PW / 2 - 130, PY + 40, 260, 180);
+    c.globalAlpha = XV > 0 ? 1 : .4; chestIcon(c, PX + PW / 2, PY + 130, 3); c.globalAlpha = 1;
+    rr(c, PX + 4, PY + 176, PW - 8, 78, 0, 'rgba(0,0,0,.72)', null);
+    text(c, XV > 0 ? 'Activated!' : 'Not activated yet', PX + PW / 2, PY + 202, 26, '#fff', 'center', '#000', HEAD);
+    fitText(c, XV > 0 ? XS.fmt(XV) : 'Find treasures from stages ' + (X.first + 1) + '-' + (X.last + 1), PX + PW / 2, PY + 234, PW - 40, 20, '#fff', 'center');
+    // medals, four to a row
+    const medal = (cx, cy, r, g) => {
+      const cols = [['#2a2a2a', '#555', '#777'], ['#b9803f', '#7a4a1a', '#f0c58a'], ['#dfe6f0', '#7f8fa6', '#4a7fd0'], ['#ffd24a', '#c98a1a', '#e03030']][g];
+      dot(c, cx, cy, r, cols[1]); dot(c, cx, cy, r - 4, cols[0]);
+      if (!g) { text(c, '?', cx, cy + 1, r, '#999', 'center', null, HEAD); return; }
+      c.beginPath(); for (let q = 0; q < 10; q++) { const rad = (q % 2 ? r * .22 : r * .55), ang = -Math.PI / 2 + q * Math.PI / 5; c.lineTo(cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad); } c.closePath();
+      c.fillStyle = g === 1 ? '#8a5a2a' : cols[2]; c.fill(); c.strokeStyle = '#111'; c.lineWidth = 1.5; c.stroke();
+    };
+    for (let i = X.first; i <= X.last; i++) {
+      const j = i - X.first, cx = PX + 90 + (j % 4) * 175, cy = PY + 300 + Math.floor(j / 4) * 80, g = (S.treasure && S.treasure[encIdx(G.tsec, i)]) || 0;
+      if (i === G.tmed) { c.strokeStyle = '#d020f0'; c.lineWidth = 4; c.strokeRect(cx - 34, cy - 34, 68, 68); }
+      medal(cx, cy, 30, g); text(c, String(i + 1), cx + 44, cy + 24, 12, '#bbb', 'center');
+      hit(cx - 34, cy - 34, 68, 68, () => { G.tmed = i; sfx('click'); });
+    }
+    // the chosen medal, on the right
+    const mi = G.tmed, mg = (S.treasure && S.treasure[encIdx(G.tsec, mi)]) || 0, mgr = TREASURE_GRADES[mg], RX = 770, RW = 480;
+    rr(c, RX, PY, RW, PH, 12, '#fff3d6', OUT, 3);
+    text(c, 'Stage ' + (mi + 1), RX + 24, PY + 34, 16, '#a8702e', 'left'); fitText(c, STAGES[mi].name, RX + 24, PY + 66, RW - 48, 26, OUT, 'left', null, HEAD);
+    medal(RX + RW / 2, PY + 150, 56, mg);
+    text(c, mg ? mgr.name + ' treasure' : 'Not found yet', RX + RW / 2, PY + 232, 22, mg ? OUT : '#6d5f50', 'center');
+    text(c, mg ? (mg < 3 ? 'Win this stage again for a better grade.' : 'Maxed!') : (secCleared(S, G.tsec) > mi ? 'Win this stage to find it.' : 'Clear stage ' + (mi + 1) + ' to find it.'), RX + RW / 2, PY + 262, 15, '#7c5432', 'center');
+    text(c, 'If you complete this set, by obtaining:', RX + 24, PY + 318, 16, OUT, 'left');
+    text(c, nst + ' treasures (' + gotOf(X) + ' found)', RX + 24, PY + 348, 15, '#7c5432', 'left');
+    text(c, 'Power = grades found / ' + (3 * nst) + '  (Inferior 1, Normal 2, Superior 3)', RX + 24, PY + 376, 14, '#7c5432', 'left');
+    fitText(c, 'Full power: ' + XS.fmt(X.max), RX + 24, PY + 404, RW - 48, 15, '#2c7a72', 'left');
     text(c, 'Every win has a 35% chance to find or improve the stage treasure (stage 1 always finds a Superior). A set gives its maximum x (grades found) / (3 x its size).', 640, 704, 13, '#7c5432', 'center');
   }
 
@@ -6634,7 +6648,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-1250';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-1509';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
