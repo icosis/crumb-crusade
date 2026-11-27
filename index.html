@@ -896,7 +896,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const UP_CURVE = { N: { mul: .75, grow: .10 }, R: { base: 70, grow: .12 }, SR: { base: 150, grow: .18 }, UR: { base: 240, grow: .24 }, LR: { base: 320, grow: .28 } };
   const upCurve = id => UP_CURVE[UNITS[id].curve || UNITS[id].rarity || 'N'];
   const unitUpBase = id => { const k = upCurve(id); return k.base || Math.round(UNITS[id].up * k.mul); };
-  const unitUpCost = (id, lv) => Math.round(unitUpBase(id) * lv * (1 + upCurve(id).grow * lv) / 5) * 5;
+  // Battle Cats' XP curve (wiki 'Basic Cat and Friends'): cost to REACH level T = scale x decade[(T-1)/10] x shape[(T-1)%10]; shape = 1 + triangle numbers, decades x1 x2 x3 x3.5 x4 (then x4).
+  const UP_SHAPE = [2, 4, 7, 11, 16, 22, 29, 37, 46, 56], UP_DECADE = [1, 2, 3, 3.5, 4], UP_SCALE = .32;
+  const unitUpCost = (id, lv) => { const T = lv + 1, d = Math.min(UP_DECADE.length - 1, Math.floor((T - 1) / 10)); return Math.max(5, Math.round(unitUpBase(id) * UP_SCALE * UP_DECADE[d] * UP_SHAPE[(T - 1) % 10] / 5) * 5); };
   const evoCost = id => Math.round(unitUpBase(id) * 200 / 50) * 50;
   // Golden Grain (Battle Cats' Catfruit) needed for a True Form, on top of crumbs. Earned in the Golden Field legend stages.
   const GRAIN_COST = { N: 3, R: 3, SR: 4, UR: 6, LR: 8 };
@@ -973,14 +975,16 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return { hp: Math.round(base.hp * m * (e ? EVO_MUL.hp : 1) * th * tH), dmg: Math.round(base.dmg * m * (e ? EVO_MUL.dmg : 1) * ta * tA) };
   };
   const upCost = (base, lv) => Math.round(base * lv * (1 + lv * .25) / 5) * 5;
-  const baseReward = i => (i < 10 ? Math.round((300 + 150 * i) * Math.pow(1.13, i) / 10) * 10 : i < 25 ? Math.round(4960 * Math.pow(1.08, i - 9) / 10) * 10 : Math.round(15730 * Math.pow(1.05, i - 24) / 10) * 10);   // maps 1-2: 300 ... 4960; maps 3-4 keep climbing ~8% per stage (x2 on first clear)
+  const baseReward = i => 1000 + 300 * i;   // Battle Cats: the first stage pays 1000 XP, every later stage +300
+  const REPLAY_STEPS = 14, clearMul = (save, i) => Math.max(1, REPLAY_STEPS - ((save && save.clears && save.clears[i]) || 0)) / REPLAY_STEPS;   // Battle Cats' ClearModifier: max(1, 14 - earlier clears) / 14
+  const rewardNow = (save, i) => isSpecial(i) ? stageReward(i) : Math.round(stageReward(i) * clearMul(save, i) / 10) * 10;
   const stageReward = i => (isSpecial(i) ? stageOf(i).reward : secOf(i) ? Math.round(baseReward(baseOf(i)) * SECTIONS[secOf(i)].reward / 10) * 10 : baseReward(i));
 
   // =====================================================================
   // SAVE
   // =====================================================================
   const SAVE_KEY = 'crumb-crusade-save-v1';
-  function defaultSave() { return { lbMe: null, teams: [], teamIdx: 0, cherries: {}, grains: {}, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
+  function defaultSave() { return { clears: {}, lbMe: null, teams: [], teamIdx: 0, cherries: {}, grains: {}, pity: { sr: 0, ur: 0 }, crumbs: 0, cleared: 0, levels: {}, base: { oven: 1, wallet: 1, pin: 1, range: 1, charge: 1, tin: 1, research: 1, accounting: 1, study: 1 }, muted: false, seen: {}, lineup: null, owned: {}, tickets: 0, evolved: {}, capsule: [], secCleared: {}, sugar: 0, items: {}, spDone: {}, gfxAuto: false, plus: {}, awakened: {}, talents: {}, cpu: false, grain: 0, np: 0, treasure: {}, tSeen: {}, gfx: 0, sortMode: 'rarity', sortV: 2, sortRev: false, orbs: {}, orbEq: {} }; }
   let NO_PERSIST = !HAS_DOM;
   // Storage layers, tried in order. Some editors (w3editor, sandboxed iframes) block or wipe
   // localStorage, so we also mirror to window.name, which survives a refresh in the same tab.
@@ -1081,6 +1085,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         if (j.treasure && typeof j.treasure === 'object') for (const key of Object.keys(j.treasure)) { const k = +key, g = Math.floor(+j.treasure[key] || 0); if (g > 0 && TREASURES[k % SEC_STRIDE] && Math.floor(k / SEC_STRIDE) < SECTIONS.length) s.treasure[k] = clamp(g, 1, 3); }
         // treasures already looked at (for the hub badge). Older saves: treat everything found so far as seen.
         if (j.tSeen && typeof j.tSeen === 'object') { for (const k of Object.keys(s.treasure)) if (+j.tSeen[k] > 0) s.tSeen[k] = clamp(Math.floor(+j.tSeen[k]), 1, 3); } else Object.assign(s.tSeen, s.treasure);
+        if (j.clears && typeof j.clears === 'object') for (const key of Object.keys(j.clears)) { const n = Math.floor(+j.clears[key] || 0); if (n > 0 && +key >= 0) s.clears[key] = Math.min(n, 999); }
         if (j.secCleared && typeof j.secCleared === 'object') for (let k = 1; k < SECTIONS.length; k++) { const n = Math.floor(+j.secCleared[k] || 0); if (n > 0) s.secCleared[k] = clamp(n, 0, STAGES.length); }
         // Sugar Cubes: older saves get what their first clears would have paid (30 / 50 / 80 per stage by section)
         s.sugar = j.sugar != null ? Math.max(0, Math.floor(+j.sugar || 0)) : 30 * s.cleared + 50 * (s.secCleared[1] || 0) + 80 * (s.secCleared[2] || 0);
@@ -1441,6 +1446,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     for (const cb of COMBOS) if (comboActive(cb, roster)) { t.list.push(cb); for (const k of Object.keys(cb.eff)) t[k] += cb.eff[k]; }
     return t;
   }
+  const CHAPTER_COST = [1, 1.5, 2];   // Section 1 / 2 / 3 = the three chapters of the first saga
+  const chapterCost = idx => (isSpecial(idx) ? 1 : CHAPTER_COST[secOf(idx)] || 1);
   function newBattle(idx, save, rosterOverride) {
     let st = stageOf(idx); const len = Math.round(st.len * .7);
     const tmag = treasureBonus(save, 'mag'), tbin = treasureBonus(save, 'binhp');
@@ -1448,7 +1455,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const roster = rosterOverride || lineupOf(save);
     const cmb = comboTotals(roster);
     const pstats = {}; for (const id of roster) if (id) { const p = unitStats(id, save), tw = st.unitHp || 1; pstats[id] = Object.assign({}, p, { hp: Math.max(1, Math.round(p.hp * (1 + cmb.hp) * tw)), dmg: Math.round(p.dmg * (1 + cmb.atk)) }); }
-    const defs = {}; for (const id of roster) if (id) defs[id] = talentDef(save, id, defFor(save, id));
+    const cf = chapterCost(idx), defs = {}; for (const id of roster) if (id) { const d0 = talentDef(save, id, defFor(save, id)); defs[id] = cf === 1 ? d0 : Object.assign({}, d0, { cost: Math.round(d0.cost * cf / 5) * 5 }); }
     const talents = {}; for (const id of roster) if (id && UNITS[id].talent) talents[id] = talentLv(save, id);
     const orbs = {}; for (const id of roster) if (id && orbOk(save, id) && save.orbEq && save.orbEq[id]) orbs[id] = orbParse(save.orbEq[id]);
     const bl = k => baseLv(save, k), php = Math.round((1000 + 500 * (bl('oven') - 1)) * (1 + cmb.oven) + treasureBonus(save, 'ovenhp'));
@@ -1888,10 +1895,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (B.wallet < Math.min(8, 2 + Math.floor(B.time / 18)) && B.money >= walletCost(B) && B.money >= cap(B) * .8) { upgradeWallet(B); return; }   // upgrade when the wallet is nearly full (the upgrades are expensive now)
     const ready = B.roster.filter(id => id && !(B.recharge[id] > 0)), wall = id => UNITS[id].role === 'tank' || UNITS[id].role === 'swarm';
     const walls = B.units.filter(u => u.side > 0 && u.hp > 0 && wall(u.type)).length, foesNear = B.units.some(u => u.side < 0 && u.hp > 0);
-    const tanks = ready.filter(wall).sort((a, b) => UNITS[a].cost - UNITS[b].cost);
-    const strong = ready.filter(id => UNITS[id].cost <= cap(B)).sort((a, b) => UNITS[b].cost - UNITS[a].cost);
+    const cst = id => ((B.defs && B.defs[id]) || UNITS[id]).cost;
+    const tanks = ready.filter(wall).sort((a, b) => cst(a) - cst(b));
+    const strong = ready.filter(id => cst(id) <= cap(B)).sort((a, b) => cst(b) - cst(a));
     const pick = foesNear && walls < 3 && tanks.length ? tanks[0] : strong[0];          // wall first, then the strongest unit the wallet can hold
-    if (pick && B.money >= UNITS[pick].cost) deploy(B, pick);
+    if (pick && B.money >= cst(pick)) deploy(B, pick);
   }
 
   // Put a unit in the first empty lineup slot (only matters once the player has a custom lineup).
@@ -2830,11 +2838,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         if ((sp.kind === 'daily' || sp.kind === 'trial') && !S.spDone[sp.key]) { first = true; crumbs *= 2; }
       } else if (secOf(i)) {
         const sc = secOf(i), b = baseOf(i); S.secCleared = S.secCleared || {};
-        if ((S.secCleared[sc] || 0) <= b) { first = true; crumbs *= 2; S.secCleared[sc] = b + 1; unlocked = unlocked.concat(grantSectionUnits(S)); }
-      } else if (S.cleared <= i) { first = true; crumbs *= 2; const before = S.cleared; S.cleared = i + 1; unlocked = UNIT_ORDER.filter(id => UNITS[id].unlock > before && UNITS[id].unlock <= S.cleared).concat(grantSectionUnits(S));
+        if ((S.secCleared[sc] || 0) <= b) { first = true; S.secCleared[sc] = b + 1; unlocked = unlocked.concat(grantSectionUnits(S)); }
+      } else if (S.cleared <= i) { first = true; const before = S.cleared; S.cleared = i + 1; unlocked = UNIT_ORDER.filter(id => UNITS[id].unlock > before && UNITS[id].unlock <= S.cleared).concat(grantSectionUnits(S));
       }
+      if (!isSpecial(i)) { S.clears = S.clears || {}; crumbs = Math.round(crumbs * clearMul(S, i) / 10) * 10; S.clears[i] = (S.clears[i] || 0) + 1; }   // replays pay less, like Battle Cats
     } else crumbs = 20 + Math.round(stageReward(i) * .2 * (1 - B.ebase.hp / B.ebase.maxHp));
-    crumbs = Math.round(crumbs * (1 + treasureBonus(S, 'crumbs') + .03 * (baseLv(S, 'study') - 1)));
+    crumbs = Math.round(crumbs * (1 + treasureBonus(S, 'crumbs') + .05 * (baseLv(S, 'study') - 1)));
     let treasure = null;
     if (win && S.items && S.items.radar > 0 && !isSpecial(i) && (S.treasure[i] || 0) < 3) { const old = S.treasure[i] || 0; S.items.radar--; S.treasure[i] = 3; treasure = { i, grade: 3, old, upgraded: true, radar: true }; }
     else if (win) treasure = rollTreasure(S, i, first);
@@ -3114,9 +3123,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, 'Q', 24, y + 16 + pr, 13, 'rgba(58,36,22,.6)', 'center');
     // units
     for (let i = 0; i < LINEUP; i++) {
-      const id = B.roster[i], d = UNITS[id], x = 190 + i * 89, w = 84;
+      const id = B.roster[i], d = UNITS[id], dc = id ? ((B.defs && B.defs[id]) || d).cost : 0, x = 190 + i * 89, w = 84;
       if (!id) { rr(c, x, y, w, h, 12, '#4a3020', '#2a1a10'); continue; }
-      const rc = B.recharge[id] || 0, can = B.money >= d.cost && rc <= 0, hov = inside(x, y, w, h), press = hov && G.down && can ? 3 : 0;
+      const rc = B.recharge[id] || 0, can = B.money >= dc && rc <= 0, hov = inside(x, y, w, h), press = hov && G.down && can ? 3 : 0;
       rr(c, x, y + 5, w, h, 12, 'rgba(0,0,0,.3)', null);
       rr(c, x, y + press, w, h, 12, can ? (hov ? '#fffaf0' : '#fdeecb') : '#b3a48c');
       c.save(); c.beginPath(); c.rect(x + 4, y + 4 + press, w - 8, h - 40); c.clip(); c.fillStyle = can ? '#bfe6df' : '#9d9483'; c.fillRect(x, y, w, h); c.fillStyle = can ? '#e8cfa0' : '#8f8573'; c.fillRect(x, y + h - 54 + press, w, 30);
@@ -3124,7 +3133,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (!can) { c.fillStyle = 'rgba(120,108,92,.5)'; c.fillRect(x, y, w, h); }
       c.restore();
       if (rc > 0) { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = 'rgba(30,20,12,.6)'; c.fillRect(x, y, w, h * Math.min(1, rc / rechargeOf(B, d))); c.restore(); }
-      doughIcon(c, x + w / 2 - 24, y + h - 18 + press, 8); text(c, String(d.cost), x + w / 2 - 12, y + h - 17 + press, 19, can ? OUT : '#5c5045');
+      doughIcon(c, x + w / 2 - 24, y + h - 18 + press, 8); text(c, String(dc), x + w / 2 - 12, y + h - 17 + press, 19, can ? OUT : '#5c5045');
       rr(c, x + 5, y + 5 + press, 20, 20, 6, 'rgba(58,36,22,.75)', null); text(c, String((i + 1) % 10), x + 15, y + 16 + press, 13, '#fff', 'center');
       drawBadge(c, x + w - 15, y + 15 + press, traitBadges(d)[0], 9);
       hit(x, y, w, h, () => tryDeploy(id));
@@ -3205,7 +3214,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // First-stage coaching (new game only): one tip at a time, with a pulsing ring on the thing to press.
   function tutorialTip(B) {
     const y = PANEL_Y + 14, h = 138, mine = B.units.some(u => u.side > 0 && u.hp > 0);
-    const pick = B.roster.findIndex(id => id && B.money >= UNITS[id].cost && (B.recharge[id] || 0) <= 0);
+    const pick = B.roster.findIndex(id => id && B.money >= ((B.defs && B.defs[id]) || UNITS[id]).cost && (B.recharge[id] || 0) <= 0);
     if (B.pinCharge >= B.pinMax && !B.pin) return { msg: 'The ROLLING PIN is ready! Press it!', sub: 'It rolls across the field and flattens every pest in its path.', ring: [1082, y, 188, h] };
     if (!mine) {
       if (pick >= 0) return { msg: 'Tap a baker card to send it out!', sub: 'Bakers cost dough. You can also press the number keys 1 to 0.', ring: [190 + pick * 89, y, 84, h] };
@@ -3646,7 +3655,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     { const x = 552, y = 196, w = 150, h = 46, hv = inside(x, y, w, h), g5 = c.createLinearGradient(0, y, 0, y + h); g5.addColorStop(0, hv ? '#ffe97a' : '#ffd23a'); g5.addColorStop(1, '#e0a000');
       rr(c, x, y + 4, w, h, 14, 'rgba(0,0,0,.3)', null); rr(c, x, y, w, h, 14, g5, '#111', 4); dot(c, x + 28, y + h / 2, 14, '#fff'); text(c, 'i', x + 28, y + h / 2 + 1, 22, '#2b1a0e', 'center', null, HEAD); text(c, 'Info', x + 88, y + h / 2 + 1, 26, '#fff', 'center', '#111', HEAD);
       hit(x, y, w, h, () => { G.stInfo = true; sfx('click'); }); }
-    if (st.first) { rr(c, 846, 186, 236, 56, 14, '#3fd6d0', '#fff', 3); poly(c, [846, 200, 832, 186, 858, 190], '#3fd6d0', null); text(c, 'First clear: ×2 reward', 964, 214, 16, '#fff', 'center', '#1f6a66', HEAD); }
+    if (st.first) { rr(c, 846, 186, 236, 56, 14, '#3fd6d0', '#fff', 3); poly(c, [846, 200, 832, 186, 858, 190], '#3fd6d0', null); text(c, 'First clear: Sugar Cubes!', 964, 214, 16, '#fff', 'center', '#1f6a66', HEAD); }
     // ---- bottom right: reward, Equip, Attack!, items ----
     { const x = 920, y = 410, w = 330, h = 46, g2 = c.createLinearGradient(0, y, 0, y + h); g2.addColorStop(0, '#ffd23a'); g2.addColorStop(1, '#e0a000');
       rr(c, x, y, w, h, 23, g2, '#2b1a0e', 3); text(c, 'Reward', x + 22, y + h / 2 + 1, 22, '#fff', 'left', '#2b1a0e', HEAD);
@@ -3698,7 +3707,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     for (let i = 0; i <= last; i++) {
       const idx = encIdx(G.sec, i), st = stageOf(idx), m = mapOf(i);
       stages.push({ name: st.name, open: true, done: i < cl, boss: st.waves.some(w => FOES[w.u].boss), grade: (S.treasure && S.treasure[idx]) || 0, mag: st.mag, hp: st.hp,
-        reward: String(stageReward(idx)), first: i >= cl, go: () => startBattle(idx), map: m, pests: [...new Set(st.waves.map(w => w.u))] });
+        reward: String(rewardNow(S, idx)), first: i >= cl, go: () => startBattle(idx), map: m, pests: [...new Set(st.waves.map(w => w.u))] });
     }
     const m = mapOf(G.sel); G.map = m;
     drawStageSelect(c, { key: 'st:' + G.sec, stages, sel: G.sel, setSel: k => { G.sel = k; }, page: Math.floor(G.sel / 5), back: () => goBack('chapters'),
@@ -6684,7 +6693,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-1526';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-1749';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
