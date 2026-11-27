@@ -433,6 +433,33 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const NP_VALUE = { R: 5, SR: 15, UR: 50, LR: 150 };                     // Battle Cats' NP for selling a Rare / Super / Uber / Legend
   const EXPLODE_STEP = { bakemut: .1 };                                                  // Bakemut: +10% per level, 100% at Lv10
   const explodeChance = (lv, id) => (!lv ? 0 : EXPLODE_STEP[id] ? Math.min(1, EXPLODE_STEP[id] * lv) : .05 + .02 * lv);   // usually Lv1 7% ... Lv10 25%
+  // ---- the pests of the late stages (26-48): each has one thing it is good at, and the stage is built around it ----
+  const B0 = { windup: .4, interval: 1.8, kb: 2, r: 28, h: 44 };
+  Object.assign(FOES, {
+    carapace:  Object.assign({}, B0, { name: 'Shell Beetle',     hp: 900,   dmg: 34,  range: 40,  speed: 28,  kb: 1, r: 40, h: 66, bounty: 150, area: true, s: 1.15, art: 'beetle', barrier: 1500 }),
+    bulwark:   Object.assign({}, B0, { name: 'Bulwark Beetle',    hp: 2500,  dmg: 50,  range: 40,  speed: 22,  kb: 1, r: 46, h: 66, bounty: 220, area: true, s: 1.3, art: 'beetle', wblock: true, wshield: true, immune: ['kb'] }),
+    dasher:    Object.assign({}, B0, { name: 'Dash Cricket',      hp: 350,   dmg: 48,  range: 40,  speed: 150, windup: .15, interval: .6, kb: 3, r: 18, h: 34, bounty: 60, art: 'termite', strengthen: { at: .5, mul: 2 } }),
+    frostfly:  Object.assign({}, B0, { name: 'Frost Fly',         hp: 700,   dmg: 40,  range: 150, speed: 80,  windup: .3, kb: 3, r: 18, h: 34, bounty: 130, hover: 46, art: 'fly', freeze: { ch: .4, t: 1.6 } }),
+    venomwasp: Object.assign({}, B0, { name: 'Venom Wasp',        hp: 1200,  dmg: 55,  range: 44,  speed: 110, windup: .15, interval: .9, kb: 3, r: 22, h: 40, bounty: 160, hover: 50, art: 'wasp', toxic: { ch: .4, pct: .12 } }),
+    wraith:    Object.assign({}, B0, { name: 'Phantom Flea',      hp: 2200,  dmg: 85,  range: 44,  speed: 70,  windup: .3, interval: 1.3, kb: 3, r: 22, h: 34, bounty: 220, art: 'flea', dodge: { ch: .5, t: 1.8 }, warp: { ch: .2, dist: 220 } }),
+    ghoul:     Object.assign({}, B0, { name: 'Grave Ghoul',       hp: 5000,  dmg: 120, range: 50,  speed: 34,  windup: .5, interval: 2, kb: 2, r: 36, h: 50, bounty: 300, s: 1.4, art: 'grub', revive: { t: 4, hp: .6 }, burrow: { dist: 250, n: 1 } }),
+    longshot:  Object.assign({}, B0, { name: 'Longshot Roach',    hp: 600,   dmg: 110, range: 420, speed: 34,  windup: .8, interval: 3.0, kb: 3, r: 22, h: 40, bounty: 140, proj: 'goo', art: 'roach' }),
+    berserker: Object.assign({}, B0, { name: 'Berserk Beetle',    hp: 3500,  dmg: 70,  range: 44,  speed: 36,  windup: .4, interval: 1.6, kb: 1, r: 40, h: 66, bounty: 260, area: true, s: 1.2, art: 'beetle', strengthen: { at: .7, mul: 3 } }),
+    veteran:   Object.assign({}, B0, { name: 'Veteran Roach',     hp: 3000,  dmg: 90,  range: 50,  speed: 44,  windup: .3, interval: 1.4, kb: 2, r: 28, h: 40, bounty: 240, art: 'roach', survive: .7 }),
+    sentinel:  Object.assign({}, B0, { name: 'Relic Sentinel',    hp: 9000,  dmg: 90,  range: 60,  speed: 20,  windup: .6, interval: 2.4, kb: 1, r: 36, h: 40, bounty: 500, art: 'tick', curse: { ch: .8, t: 6 } }),
+    regent:    Object.assign({}, B0, { name: 'Shadow Regent',     hp: 6500,  dmg: 110, range: 60,  speed: 60,  windup: .3, interval: 1.3, kb: 3, r: 28, h: 46, bounty: 600, hover: 40, art: 'hornet', shield: .8, dsurge: { lv: 2 } }),
+    seraph:    Object.assign({}, B0, { name: 'Halo Seraph Moth',  hp: 3200,  dmg: 40,  range: 140, speed: 70,  windup: .4, interval: 1.8, kb: 3, r: 28, h: 44, bounty: 300, hover: 44, area: true, art: 'moth', weaken: { ch: .6, t: 4, to: .3 } }),
+    mantis:    Object.assign({}, B0, { name: 'Mantis Marshal',    hp: 14000, dmg: 90,  range: 80,  speed: 60,  windup: .4, interval: 1.6, kb: 2, r: 70, h: 190, bounty: 2500, area: true, s: 2.2, boss: true, art: 'ratking', multi: 3, strengthen: { at: .3, mul: 1.8 } }),
+    tortoise:  Object.assign({}, B0, { name: 'Bulwark Tortoise',  hp: 32000, dmg: 170, range: 70,  speed: 12,  windup: .9, interval: 3.6, kb: 1, r: 100, h: 200, bounty: 4000, area: true, s: 2.8, boss: true, art: 'ratking', immune: ['kb', 'freeze', 'slow', 'weaken'], wshield: true, barrier: 2500 }),
+    lich:      Object.assign({}, B0, { name: 'Revenant Rat King', hp: 16000, dmg: 160, range: 100, speed: 26,  windup: .8, interval: 3.0, kb: 2, r: 90, h: 200, bounty: 3500, area: true, s: 2.4, boss: true, art: 'ratking', revive: { t: 6, hp: .5 }, curse: { ch: .4, t: 4 } }),
+    empress:   Object.assign({}, B0, { name: 'Hive Empress',      hp: 24000, dmg: 220, range: 240, speed: 18,  windup: .9, interval: 3.2, kb: 3, r: 80, h: 70, bounty: 4500, area: true, s: 2.0, boss: true, art: 'queen', surge: { ch: .5, lv: 3, min: 80, max: 300 }, weaken: { ch: .4, t: 3, to: .5 } }),
+  });
+  Object.assign(FOE_TRAITS, {
+    carapace: { traits: [], resist: ['bread'] }, bulwark: { traits: ['red'] }, dasher: { traits: ['red'], strong: ['bread'] }, frostfly: { traits: ['floating', 'alien'] },
+    venomwasp: { traits: ['red', 'floating'], strong: ['sweet'] }, wraith: { traits: ['alien'] }, ghoul: { traits: ['zombie'] }, longshot: { traits: ['black'], strong: ['bread'] },
+    berserker: { traits: ['red'] }, veteran: { traits: ['black'] }, sentinel: { traits: ['relic'] }, regent: { traits: ['aku', 'floating'], strong: ['sweet'] },
+    seraph: { traits: ['angel', 'floating'] }, mantis: { traits: ['red', 'boss'], strong: ['pastry'] }, tortoise: { traits: ['boss'] }, lich: { traits: ['zombie', 'boss'] }, empress: { traits: ['angel', 'boss'] },
+  });
   for (const id of Object.keys(FOE_TRAITS)) Object.assign(FOES[id], FOE_TRAITS[id]);
   for (const id of Object.keys(FOE_SWING)) Object.assign(FOES[id], FOE_SWING[id]);
   const hasAny = (list, traits) => { if (!list || !list.length) return false; const tr = traits && traits.length ? traits : ['traitless']; return list.some(t => tr.includes(t)); };   // a foe with no traits counts as 'traitless' (Battle Cats' white enemies)
@@ -581,6 +608,55 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       { u: 'fly', t: 2, e: 1.8 }, { u: 'mosquito', t: 3, e: 2.4 }, { u: 'wasp', t: 5, e: 5.5 }, { u: 'moth', t: 7, e: 8 }, { u: 'spider', t: 9, e: 11 }, { u: 'roach', t: 11, e: 9 }, { u: 'mouse', t: 15, e: 17 }, { u: 'crow', hp: .9, t: 0 }, { u: 'crow', hp: .5, t: 0 }, { u: 'crow', hp: .2, t: 0 }, { u: 'firefly', t: 8, e: 12 }, { u: 'hornet', t: 14, e: 16 }] },
     { name: 'The Pest Emperor', theme: 'cellar', len: 2800, hp: 60000, mag: 4.86, waves: [
       { u: 'ant', t: 2, e: 1.6 }, { u: 'termite', t: 3, e: 3.5 }, { u: 'roach', t: 5, e: 7 }, { u: 'wasp', t: 6, e: 5.5 }, { u: 'beetle', t: 9, e: 10 }, { u: 'snail', t: 12, e: 16 }, { u: 'scorpion', t: 13, e: 12 }, { u: 'spider', t: 15, e: 13 }, { u: 'moth', t: 17, e: 12 }, { u: 'mouse', t: 20, e: 16 }, { u: 'ratking', hp: .95, t: 0 }, { u: 'queen', hp: .7, t: 0 }, { u: 'crazed', hp: .45, t: 0 }, { u: 'mouse', hp: .2, t: 0, e: 2.5, n: 5, roar: true }, { u: 'grub', t: 10, e: 14 }, { u: 'hornet', t: 16, e: 16 }, { u: 'metalbug', t: 20, e: 22 }] });
+  // ---- stages 26-48: the late stages. Each is built around pests with one niche (a barrier, a wave blocker, freeze, toxic, dodge, revive, a long shot...) or around a powerful boss ----
+  STAGES.push(
+    { name: 'Shell Game', theme: 'kitchen', len: 2800, hp: 64000, mag: 4.6, waves: [
+      { u: 'ant', t: 2, e: 1.8 }, { u: 'carapace', t: 5, e: 8 }, { u: 'carapace', hp: .6, t: 0, e: 5, n: 3 }, { u: 'termite', t: 8, e: 5 }, { u: 'mouse', t: 20, e: 20 }, { u: 'ratking', hp: .5, t: 0 }] },
+    { name: 'Iron Bulwark', theme: 'pantry', len: 2800, hp: 68000, mag: 4.8, waves: [
+      { u: 'ant', t: 2, e: 1.8 }, { u: 'bulwark', t: 6, e: 14 }, { u: 'snail', t: 10, e: 14 }, { u: 'scorpion', t: 12, e: 12 }, { u: 'beetle', t: 14, e: 10 }, { u: 'bulwark', hp: .5, t: 0, e: 8, n: 3 }, { u: 'ratking', hp: .7, t: 0 }] },
+    { name: 'Dash Alley', theme: 'night', len: 2800, hp: 70000, mag: 4.2, waves: [
+      { u: 'dasher', t: 2, e: 2.2 }, { u: 'spider', t: 6, e: 10 }, { u: 'wasp', t: 10, e: 8 }, { u: 'mouse', t: 16, e: 20 }, { u: 'dasher', hp: .6, t: 0, e: .7, n: 8 }, { u: 'crow', hp: .4, t: 0 }] },
+    { name: 'Frostbite Pantry', theme: 'pantry', len: 2900, hp: 72000, mag: 4.6, waves: [
+      { u: 'fly', t: 2, e: 2 }, { u: 'frostfly', t: 3, e: 6 }, { u: 'moth', t: 8, e: 9 }, { u: 'beetle', t: 12, e: 12 }, { u: 'mouse', t: 20, e: 22 }, { u: 'frostfly', hp: .5, t: 0, e: 2, n: 4 }, { u: 'crow', hp: .6, t: 0 }] },
+    { name: 'Venom Garden', theme: 'garden', len: 2900, hp: 74000, mag: 4.9, waves: [
+      { u: 'termite', t: 2, e: 2.6 }, { u: 'venomwasp', t: 4, e: 8 }, { u: 'wasp', t: 8, e: 8 }, { u: 'beetle', t: 12, e: 10 }, { u: 'scorpion', t: 14, e: 12 }, { u: 'venomwasp', hp: .5, t: 0, e: 1.5, n: 5 }, { u: 'ratking', hp: .45, t: 0 }] },
+    { name: 'Ghost Cellar', theme: 'cellar', len: 2900, hp: 76000, mag: 5, waves: [
+      { u: 'ant', t: 2, e: 2 }, { u: 'termite', t: 4, e: 4 }, { u: 'wraith', t: 5, e: 10 }, { u: 'tick', t: 10, e: 18 }, { u: 'mouse', t: 16, e: 18 }, { u: 'wraith', hp: .5, t: 0, e: 3, n: 3 }, { u: 'queen', hp: .5, t: 0 }] },
+    { name: 'Graveyard Shift', theme: 'night', len: 3000, hp: 78000, mag: 4.7, waves: [
+      { u: 'grub', t: 2, e: 6 }, { u: 'ghoul', t: 6, e: 14 }, { u: 'beetle', t: 10, e: 11 }, { u: 'mouse', t: 18, e: 18 }, { u: 'ghoul', hp: .6, t: 0, e: 6, n: 2 }, { u: 'crow', hp: .5, t: 0 }] },
+    { name: 'Sniper Row', theme: 'roof', len: 3000, hp: 80000, mag: 5, waves: [
+      { u: 'ant', t: 2, e: 2 }, { u: 'longshot', t: 3, e: 5 }, { u: 'dasher', t: 6, e: 6 }, { u: 'beetle', t: 9, e: 10 }, { u: 'mouse', t: 14, e: 16 }, { u: 'longshot', hp: .6, t: 0, e: 2.5, n: 4 }, { u: 'ratking', hp: .5, t: 0 }] },
+    { name: 'Berserk Ward', theme: 'cellar', len: 3000, hp: 82000, mag: 5.2, waves: [
+      { u: 'termite', t: 2, e: 2.4 }, { u: 'mouse', t: 4, e: 12 }, { u: 'berserker', t: 6, e: 12 }, { u: 'wasp', t: 8, e: 8 }, { u: 'scorpion', t: 10, e: 12 }, { u: 'berserker', hp: .5, t: 0, e: 5, n: 3 }, { u: 'ratking', hp: .8, t: 0 }, { u: 'ratking', hp: .3, t: 0 }] },
+    { name: 'Veteran Camp', theme: 'garden', len: 3000, hp: 84000, mag: 5.4, waves: [
+      { u: 'veteran', t: 3, e: 6 }, { u: 'scorpion', t: 5, e: 9 }, { u: 'beetle', t: 8, e: 9 }, { u: 'mouse', t: 12, e: 14 }, { u: 'veteran', hp: .6, t: 0, e: 2.5, n: 5 }, { u: 'crow', hp: .7, t: 0 }] },
+    { name: 'Relic Vault', theme: 'cellar', len: 3100, hp: 88000, mag: 5.6, waves: [
+      { u: 'tick', t: 4, e: 10 }, { u: 'sentinel', t: 6, e: 14 }, { u: 'snail', t: 8, e: 14 }, { u: 'beetle', t: 10, e: 10 }, { u: 'mouse', t: 14, e: 16 }, { u: 'sentinel', hp: .5, t: 0, e: 8, n: 2 }, { u: 'queen', hp: .6, t: 0 }] },
+    { name: 'Shadow Court', theme: 'night', len: 3100, hp: 92000, mag: 5.4, waves: [
+      { u: 'hornet', t: 3, e: 9 }, { u: 'regent', t: 6, e: 11 }, { u: 'moth', t: 5, e: 8 }, { u: 'firefly', t: 8, e: 10 }, { u: 'mouse', t: 16, e: 16 }, { u: 'regent', hp: .5, t: 0, e: 5, n: 3 }, { u: 'crow', hp: .7, t: 0 }, { u: 'crow', hp: .3, t: 0 }] },
+    { name: 'Halo Heights', theme: 'roof', len: 3100, hp: 96000, mag: 5.6, waves: [
+      { u: 'fly', t: 2, e: 2 }, { u: 'firefly', t: 3, e: 7 }, { u: 'seraph', t: 4, e: 8 }, { u: 'moth', t: 5, e: 7 }, { u: 'hornet', t: 14, e: 14 }, { u: 'seraph', hp: .5, t: 0, e: 2.5, n: 5 }, { u: 'crow', hp: .9, t: 0 }, { u: 'crow', hp: .5, t: 0 }] },
+    { name: 'Mantis Dojo', theme: 'garden', len: 3200, hp: 100000, mag: 5.8, waves: [
+      { u: 'dasher', t: 2, e: 2.5 }, { u: 'ant', t: 2, e: 2 }, { u: 'scorpion', t: 8, e: 10 }, { u: 'mouse', t: 12, e: 14 }, { u: 'mantis', hp: .9, t: 0 }, { u: 'mantis', hp: .4, t: 0 }, { u: 'dasher', hp: .3, t: 0, e: .7, n: 10 }] },
+    { name: 'Tortoise Gate', theme: 'sink', len: 3200, hp: 104000, mag: 6, waves: [
+      { u: 'ant', t: 2, e: 2 }, { u: 'termite', t: 3, e: 3 }, { u: 'roach', t: 6, e: 8 }, { u: 'spider', t: 10, e: 10 }, { u: 'mouse', t: 14, e: 14 }, { u: 'tortoise', hp: .95, t: 0 }, { u: 'tortoise', hp: .4, t: 0 }] },
+    { name: "Lich's Lair", theme: 'cellar', len: 3200, hp: 108000, mag: 5.8, waves: [
+      { u: 'grub', t: 2, e: 5 }, { u: 'ghoul', t: 5, e: 12 }, { u: 'tick', t: 8, e: 12 }, { u: 'mouse', t: 12, e: 14 }, { u: 'lich', hp: .9, t: 0 }, { u: 'lich', hp: .4, t: 0 }] },
+    { name: 'Hive Empress', theme: 'garden', len: 3200, hp: 112000, mag: 6, waves: [
+      { u: 'wasp', t: 2, e: 5 }, { u: 'venomwasp', t: 3, e: 7 }, { u: 'seraph', t: 6, e: 9 }, { u: 'frostfly', t: 8, e: 9 }, { u: 'mouse', t: 14, e: 14 }, { u: 'empress', hp: .85, t: 0 }, { u: 'empress', hp: .35, t: 0 }] },
+    { name: 'Metal Maze', theme: 'sink', len: 3300, hp: 116000, mag: 6.2, waves: [
+      { u: 'snail', t: 2, e: 6 }, { u: 'metalbug', t: 3, e: 8 }, { u: 'dasher', t: 4, e: 4 }, { u: 'carapace', t: 6, e: 9 }, { u: 'bulwark', t: 8, e: 14 }, { u: 'spider', t: 8, e: 10 }, { u: 'ratking', hp: .6, t: 0 }, { u: 'snail', hp: .5, t: 0, e: 2, n: 6 }, { u: 'metalbug', hp: .4, t: 0, e: 3, n: 5 }] },
+    { name: 'Zombie Tide', theme: 'night', len: 3300, hp: 120000, mag: 6.4, waves: [
+      { u: 'grub', t: 2, e: 3 }, { u: 'ghoul', t: 4, e: 8 }, { u: 'beetle', t: 10, e: 10 }, { u: 'mouse', t: 14, e: 14 }, { u: 'grub', hp: .7, t: 0, e: 1.2, n: 8 }, { u: 'ghoul', hp: .5, t: 0, e: 4, n: 3 }, { u: 'lich', hp: .6, t: 0 }] },
+    { name: 'Boss Rush', theme: 'roof', len: 3300, hp: 126000, mag: 6.6, waves: [
+      { u: 'ant', t: 2, e: 2 }, { u: 'dasher', t: 6, e: 6 }, { u: 'mouse', t: 12, e: 12 }, { u: 'mantis', hp: .95, t: 0 }, { u: 'tortoise', hp: .7, t: 0 }, { u: 'lich', hp: .5, t: 0 }, { u: 'ratking', hp: .3, t: 0 }] },
+    { name: 'Gauntlet of Niches', theme: 'cellar', len: 3400, hp: 132000, mag: 6.8, waves: [
+      { u: 'dasher', t: 2, e: 3 }, { u: 'carapace', t: 3, e: 10 }, { u: 'frostfly', t: 5, e: 9 }, { u: 'venomwasp', t: 6, e: 9 }, { u: 'wraith', t: 8, e: 12 }, { u: 'longshot', t: 9, e: 8 }, { u: 'veteran', t: 11, e: 11 }, { u: 'sentinel', t: 14, e: 16 }, { u: 'regent', hp: .7, t: 0, e: 6, n: 2 }, { u: 'seraph', hp: .5, t: 0, e: 4, n: 3 }, { u: 'mantis', hp: .35, t: 0 }] },
+    { name: 'The Pest Regent', theme: 'night', len: 3400, hp: 140000, mag: 7.2, waves: [
+      { u: 'ant', t: 2, e: 1.6 }, { u: 'regent', t: 4, e: 9 }, { u: 'veteran', t: 6, e: 8 }, { u: 'sentinel', t: 8, e: 14 }, { u: 'ghoul', t: 10, e: 12 }, { u: 'empress', hp: .8, t: 0 }, { u: 'mantis', hp: .5, t: 0 }, { u: 'crow', hp: .3, t: 0 }, { u: 'crazed', hp: .2, t: 0 }] },
+    { name: 'The Great Infestation', theme: 'cellar', len: 3500, hp: 160000, mag: 7.8, waves: [
+      { u: 'ant', t: 2, e: 1.4 }, { u: 'termite', t: 3, e: 3 }, { u: 'dasher', t: 4, e: 3 }, { u: 'carapace', t: 5, e: 10 }, { u: 'frostfly', t: 6, e: 8 }, { u: 'venomwasp', t: 7, e: 8 }, { u: 'longshot', t: 8, e: 6 }, { u: 'berserker', t: 9, e: 12 }, { u: 'wraith', t: 10, e: 10 }, { u: 'ghoul', t: 11, e: 12 }, { u: 'sentinel', t: 12, e: 14 }, { u: 'regent', t: 13, e: 10 }, { u: 'seraph', t: 14, e: 8 }, { u: 'mouse', t: 16, e: 14 }, { u: 'ratking', hp: .95, t: 0 }, { u: 'tortoise', hp: .8, t: 0 }, { u: 'mantis', hp: .65, t: 0 }, { u: 'lich', hp: .5, t: 0 }, { u: 'empress', hp: .35, t: 0 }, { u: 'queen', hp: .2, t: 0 }, { u: 'crazed', hp: .1, t: 0 }] },
+  );
   // Late maps push harder: pests hit harder (push) and their waves come ~15% faster, so a weak team loses its oven instead of stalling.
   const PUSH = { 10: 1.6, 20: 1.8 };                                       // from stage index onward
   STAGES.forEach((st, i) => { const p = i >= 20 ? PUSH[20] : i >= 10 ? PUSH[10] : 0; if (!p) return; st.push = p; for (const w of st.waves) if (w.e) w.e = Math.round(w.e * .85 * 100) / 100; });
@@ -676,9 +752,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Sections (Battle Cats chapters): the same 25 stages, replayed harder. A stage in section k has index k * SEC_STRIDE + i.
   // Section 2 opens when Section 1 is fully cleared, Section 3 after Section 2. Each section has its own treasures (they stack).
   const SECTIONS = [
-    { name: 'Conquering Crumb World', short: 'Crumb World',  color: '#9be37a', mapMul: [1, 1, 1, 1, 1],          hpMul: 1,   hpAdd: 0,     push: 0,   reward: 1 },
-    { name: 'The Crumb Rebellion',    short: 'Rebellion',    color: '#ff8a5c', mapMul: [17.5, 8.69, 2.03, 3.05, 1.38], hpMul: 1.5, hpAdd: 20000, push: 1.8, reward: 4 },
-    { name: "Crumb World's End",       short: "World's End",  color: '#c0457a', mapMul: [19, 13.18, 2.65, 4.24, 1.79], hpMul: 2,   hpAdd: 40000, push: 2.0, reward: 8 },
+    { name: 'Conquering Crumb World', short: 'Crumb World',  color: '#9be37a', mapMul: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],          hpMul: 1,   hpAdd: 0,     push: 0,   reward: 1 },
+    { name: 'The Crumb Rebellion',    short: 'Rebellion',    color: '#ff8a5c', mapMul: [17.5, 8.69, 2.03, 3.05, 1.38, 1.45, 1.5, 1.55, 1.6, 1.65], hpMul: 1.5, hpAdd: 20000, push: 1.8, reward: 4 },
+    { name: "Crumb World's End",       short: "World's End",  color: '#c0457a', mapMul: [19, 13.18, 2.65, 4.24, 1.79, 1.9, 1.95, 2.0, 2.05, 2.1], hpMul: 2,   hpAdd: 40000, push: 2.0, reward: 8 },
   ];
   // Like Battle Cats: 3 sagas (Empire of Cats / Into the Future / Cats of the Cosmos) x 3 chapters = 9 sections. Every section replays the 25 stages, harder each time.
   [['Neon Kitchen', '#4fd6e0'], ['Chrome Bakery', '#6aa8ff'], ['Quantum Oven', '#8a7bff'], ['Starlit Pantry', '#ff9ad5'], ['Nebula Bakery', '#c07bff'], ['Galactic Oven', '#ffd24a']].forEach((x, j) => {
@@ -715,11 +791,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     { name: 'Pest Empire',        diff: 'Legend',   color: '#8a5cff', tint: 'rgba(110,70,200,.16)', first: 20, last: 24 },
   ];
   // 3 chapters per section (like Empire of Cats / Into the Future / Cats of the Cosmos: 3 sections x 3 chapters = 9). The BANDS above only set how hard each stage is.
-  const TPAGES = [
-    { name: 'Kitchen & House',   diff: 'Easy',   color: '#9be37a', tint: 'rgba(110,180,90,.13)', first: 0, last: 7 },
-    { name: 'Garden & Dumpsters', diff: 'Hard',   color: '#ff8a5c', tint: 'rgba(214,90,60,.14)', first: 8, last: 15 },
-    { name: 'Pest Empire',       diff: 'Legend', color: '#8a5cff', tint: 'rgba(110,70,200,.16)', first: 16, last: 24 },
-  ];
+  const TPAGES = [0, 10, 20, 30, 40].map(f => ({ name: 'Stages', diff: '', color: ['#9be37a', '#f6c343', '#ff8a5c', '#c0457a', '#8a5cff'][f / 10], tint: '', first: f, last: Math.min(47, f + 9) }));
+  [[25, 29, 'Beyond I', '#b06cff'], [30, 34, 'Beyond II', '#9a5cff'], [35, 39, 'Beyond III', '#8a4cf0'], [40, 44, 'Beyond IV', '#7a3ce0'], [45, 47, 'Beyond V', '#6a2cd0']].forEach(x => BANDS.push({ name: x[2], diff: 'Legend', color: x[3], tint: 'rgba(110,70,200,.16)', first: x[0], last: x[1] }));
   const MAPS = BANDS;   // (hidden: pest-strength bands, band ends pay tickets and cherries)
   const mapOf = i => MAPS.findIndex(m => i >= m.first && i <= m.last);
   const tpageOf = i => TPAGES.findIndex(m => i >= m.first && i <= m.last);
@@ -759,7 +832,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // Battle Cats level cap: Lv10 at first; Lv20 unlocks once the second chapter (Map 2) is cleared.
   const LV_CAP_EARLY = 10, LV_CAP_UNLOCK = 10;
   // Lv10 -> Lv20 (Map 2 cleared) -> Lv30 (Map 4 cleared, so Map 5 can be fought at Lv30) -> Lv40 (Section 2 cleared). The True Form needs Lv30, and going past Lv30 needs it.
-  const lvCap = save => (!save ? LV_CAP_EARLY : secCleared(save, 1) >= STAGES.length ? 40 : save.cleared >= 20 ? 30 : save.cleared >= LV_CAP_UNLOCK ? 20 : LV_CAP_EARLY);
+  const lvCap = save => (!save ? LV_CAP_EARLY : secCleared(save, 1) >= 25 ? 40 : save.cleared >= 20 ? 30 : save.cleared >= LV_CAP_UNLOCK ? 20 : LV_CAP_EARLY);
   // True Form: unlocked at Lv30 (TF_LV) with crumbs + Golden Grain. Stronger, renamed, drawn with a golden aura; needed to level past 30.
   const EVO_MUL = { hp: 1.5, dmg: 1.4 };
   const EVO_NAMES = { bun: 'Brioche Buddy', loaf: 'Fortress Loaf', pretzel: 'Knot Master', baguette: 'Grand Lancette', muffin: 'Berry Blaster', croissant: 'Cyclone Roll', donut: 'Glaze Archmage', cake: 'Wedding Colossus',
@@ -853,14 +926,14 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     vs_metal: { label: 'vs Metal', fmt: v => '+' + pct0(v) + '% damage vs Metal' }, vs_zombie: { label: 'vs Zombie', fmt: v => '+' + pct0(v) + '% damage vs Zombie' },
     vs_alien: { label: 'vs Alien', fmt: v => '+' + pct0(v) + '% damage vs Alien' },
   };
-  // [name, stat, max, number of stages] (the real sets span 48 stages a chapter; ours span 25)
+  // [name, stat, max, number of stages] (the real Battle Cats set sizes: 48 stages a chapter)
   const TREASURE_SETS = [
-    [['Energy Drink', 'income', 1, 4], ['Giant Safe', 'wallet', 1000, 2], ['Relativity Clock', 'cdsub', 1, 2], ["Philosopher's Stone", 'crumbs', .5, 4], ['Smart Material Wall', 'ovenhp', 3500, 1], ['Super Register', 'bounty', .5, 1],
-     ['Legendary Cat Shield', 'hp', .5, 1], ['Legendary Cat Sword', 'atk', .5, 4], ['Energy Core', 'pin', 250, 3], ['Turbo Machine', 'pinsec', 5, 1], ['Management Bible', 'start', 200, 2]],
-    [['Aqua Crystal', 'mag', .08, 4], ['Plasma Crystal', 'mag', .08, 4], ['Ancient Tablet', 'ovenhp', 3500, 1], ['Mysterious Force', 'pinsec', 5, 1], ['Cosmic Energy', 'pin', 250, 3], ['Void Fruit', 'vs_black', .3, 2],
-     ['Blood Fruit', 'vs_red', .3, 2], ['Sky Fruit', 'vs_floating', .3, 2], ["Heaven's Fruit", 'vs_angel', .3, 2], ['Time Machine', 'start', 300, 3], ['Future Tech', 'wallet', 500, 1]],
-    [['Stellar Garnet', 'mag', .04, 3], ['Titanium Fruit', 'vs_metal', .3, 2], ['Phoebe Beryl', 'mag', .04, 3], ['Antimatter Fruit', 'vs_zombie', .3, 2], ['Lunar Citrine', 'mag', .04, 2], ['Enigma Fruit', 'vs_alien', .3, 2],
-     ['Ganymede Topaz', 'mag', .04, 3], ['Callisto Amethyst', 'mag', .04, 3], ['Dark Matter', 'start', 300, 2], ['Neutrino', 'crumbs', .25, 2], ['Mystery Mask', 'binhp', .12, 1]],
+    [['Energy Drink', 'income', 1, 7], ['Giant Safe', 'wallet', 1000, 4], ['Relativity Clock', 'cdsub', 1, 5], ["Philosopher's Stone", 'crumbs', .5, 7], ['Smart Material Wall', 'ovenhp', 3500, 3], ['Super Register', 'bounty', .5, 3],
+     ['Legendary Cat Shield', 'hp', .5, 3], ['Legendary Cat Sword', 'atk', .5, 7], ['Energy Core', 'pin', 250, 6], ['Turbo Machine', 'pinsec', 5, 1], ['Management Bible', 'start', 200, 2]],
+    [['Aqua Crystal', 'mag', .08, 8], ['Plasma Crystal', 'mag', .08, 8], ['Ancient Tablet', 'ovenhp', 3500, 3], ['Mysterious Force', 'pinsec', 5, 1], ['Cosmic Energy', 'pin', 250, 5], ['Void Fruit', 'vs_black', .3, 4],
+     ['Blood Fruit', 'vs_red', .3, 4], ['Sky Fruit', 'vs_floating', .3, 4], ["Heaven's Fruit", 'vs_angel', .3, 4], ['Time Machine', 'start', 300, 5], ['Future Tech', 'wallet', 500, 2]],
+    [['Stellar Garnet', 'mag', .04, 5], ['Titanium Fruit', 'vs_metal', .3, 4], ['Phoebe Beryl', 'mag', .04, 5], ['Antimatter Fruit', 'vs_zombie', .3, 4], ['Lunar Citrine', 'mag', .04, 5], ['Enigma Fruit', 'vs_alien', .3, 4],
+     ['Ganymede Topaz', 'mag', .04, 5], ['Callisto Amethyst', 'mag', .04, 5], ['Dark Matter', 'start', 300, 4], ['Neutrino', 'crumbs', .25, 4], ['Mystery Mask', 'binhp', .12, 3]],
   ].map(sets => { let at = 0; return sets.map(x => { const o = { name: x[0], stat: x[1], max: x[2], n: x[3], first: at, last: at + x[3] - 1 }; at += x[3]; return o; }); });
   const SAGA_NAMES = ['Empire of Cats sets', 'Into the Future sets', 'Cats of the Cosmos sets'];
   const setOfStage = (sec, i) => TREASURE_SETS[sagaOf(sec)].find(x => i >= x.first && i <= x.last);
@@ -900,7 +973,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     return { hp: Math.round(base.hp * m * (e ? EVO_MUL.hp : 1) * th * tH), dmg: Math.round(base.dmg * m * (e ? EVO_MUL.dmg : 1) * ta * tA) };
   };
   const upCost = (base, lv) => Math.round(base * lv * (1 + lv * .25) / 5) * 5;
-  const baseReward = i => (i < 10 ? Math.round((300 + 150 * i) * Math.pow(1.13, i) / 10) * 10 : Math.round(4960 * Math.pow(1.08, i - 9) / 10) * 10);   // maps 1-2: 300 ... 4960; maps 3-4 keep climbing ~8% per stage (x2 on first clear)
+  const baseReward = i => (i < 10 ? Math.round((300 + 150 * i) * Math.pow(1.13, i) / 10) * 10 : i < 25 ? Math.round(4960 * Math.pow(1.08, i - 9) / 10) * 10 : Math.round(15730 * Math.pow(1.05, i - 24) / 10) * 10);   // maps 1-2: 300 ... 4960; maps 3-4 keep climbing ~8% per stage (x2 on first clear)
   const stageReward = i => (isSpecial(i) ? stageOf(i).reward : secOf(i) ? Math.round(baseReward(baseOf(i)) * SECTIONS[secOf(i)].reward / 10) * 10 : baseReward(i));
 
   // =====================================================================
@@ -2468,6 +2541,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     },
   };
   for (const p of PACK) ART[p.id] = bakerArt(p.art);
+  for (const id of Object.keys(FOES)) if (FOES[id].art && !ART[id]) ART[id] = ART[FOES[id].art];   // (late pests wear an older pest's picture)
   const defOf = id => UNITS[id] || FOES[id] || ART_DEFS[id];
   const artFor = id => (tfOn(S, id) && TF_DEF[id] ? TRUE_FORMS[id].art : id);
   function evoAura(c, d) {
@@ -5258,9 +5332,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       { id: 'm1', text: 'Clear stage 1-1', goal: 1, val: s => s.cleared, rw: { tickets: 1 } },
       { id: 'm2', text: 'Clear the first 5 stages', goal: 5, val: s => s.cleared, rw: { tickets: 2 } },
       { id: 'm3', text: 'Clear the first 10 stages', goal: 10, val: s => s.cleared, rw: { sugar: 30 } },
-      { id: 'm4', text: 'Clear all of Section 1', goal: 25, val: s => s.cleared, rw: { tickets: 3, sugar: 50 } },
-      { id: 'm5', text: 'Clear all of Section 2', goal: 25, val: s => secCleared(s, 1), rw: { tickets: 5 } },
-      { id: 'm6', text: 'Clear all of Section 3', goal: 25, val: s => secCleared(s, 2), rw: { tickets: 10, sugar: 150 } },
+      { id: 'm4', text: 'Clear all of Section 1', goal: STAGES.length, val: s => s.cleared, rw: { tickets: 3, sugar: 50 } },
+      { id: 'm5', text: 'Clear all of Section 2', goal: STAGES.length, val: s => secCleared(s, 1), rw: { tickets: 5 } },
+      { id: 'm6', text: 'Clear all of Section 3', goal: STAGES.length, val: s => secCleared(s, 2), rw: { tickets: 10, sugar: 150 } },
       { id: 'm7', text: 'Win 10 battles', goal: 10, val: s => missStats(s).wins, rw: { crumbs: 2000 } },
       { id: 'm8', text: 'Win 50 battles', goal: 50, val: s => missStats(s).wins, rw: { tickets: 2 } },
       { id: 'm9', text: 'Win 200 battles', goal: 200, val: s => missStats(s).wins, rw: { tickets: 5 } },
@@ -6290,8 +6364,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     // chapter tabs (three chapters a saga)
     if (G.tmap == null || G.tmap >= TPAGES.length) G.tmap = Math.max(0, tpageOf(Math.min(S.cleared, STAGES.length - 1)));
     TPAGES.forEach((m, k) => {
-      const x = 28 + k * 328, on = k === G.tmap, got = TREASURES.filter((t, i) => i >= m.first && i <= m.last && S.treasure && S.treasure[encIdx(G.tsec, i)]).length;
-      btn(c, x, 238, 320, 40, 'Stages ' + (m.first + 1) + '-' + (m.last + 1) + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
+      const x = 28 + k * 248, on = k === G.tmap, got = TREASURES.filter((t, i) => i >= m.first && i <= m.last && S.treasure && S.treasure[encIdx(G.tsec, i)]).length;
+      btn(c, x, 238, 240, 40, 'Stages ' + (m.first + 1) + '-' + (m.last + 1) + '  ' + got + '/' + (m.last - m.first + 1), () => { G.tmap = k; sfx('click'); }, { size: 12, r: 10, color: on ? m.color : '#f3d49a' });
     });
     const TM = TPAGES[G.tmap];
     // one card per stage of the selected chapter: the set its treasure belongs to
@@ -6560,7 +6634,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-1213';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-1250';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
