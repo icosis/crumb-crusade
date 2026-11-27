@@ -6340,6 +6340,41 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.strokeStyle = OUT; c.lineWidth = 1.5; c.strokeRect(-4, -12, 8, 18);
     c.restore();
   }
+  // one picture per treasure set (drawn in a 100x100 box centred on cx,cy, scaled by k)
+  const GEMS = { 'Stellar Garnet': '#d02040', 'Phoebe Beryl': '#40d0a0', 'Lunar Citrine': '#ffd040', 'Ganymede Topaz': '#ff9a30', 'Callisto Amethyst': '#a050e0', 'Aqua Crystal': '#40a8ff', 'Plasma Crystal': '#ff60c0', "Philosopher's Stone": '#e03030' };
+  const FRUITS = { 'Void Fruit': '#2a2a3a', 'Blood Fruit': '#d02020', 'Sky Fruit': '#6ac0ff', "Heaven's Fruit": '#fff0a0', 'Titanium Fruit': '#c0c8d0', 'Antimatter Fruit': '#60e060', 'Enigma Fruit': '#a060e0' };
+  function setIcon(c, name, cx, cy, k) {
+    c.save(); c.translate(cx, cy); c.scale(k / 50, k / 50); c.lineJoin = 'round'; c.lineWidth = 3; c.strokeStyle = '#111';
+    const poly = (pts, f) => { c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.fillStyle = f; c.fill(); c.stroke(); };
+    const circ = (x, y, r, f) => { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = f; c.fill(); c.stroke(); };
+    const box = (x, y, w, h, f) => { c.fillStyle = f; c.fillRect(x, y, w, h); c.strokeRect(x, y, w, h); };
+    const glow = col => { c.fillStyle = col; c.beginPath(); c.arc(0, 0, 42, 0, TAU); c.fill(); };
+    const gem = col => { glow('rgba(255,255,255,.12)'); poly([[-26, -8], [-14, -32], [14, -32], [26, -8], [0, 36]], col); c.fillStyle = 'rgba(255,255,255,.45)'; c.beginPath(); c.moveTo(-14, -32); c.lineTo(-4, -8); c.lineTo(-26, -8); c.closePath(); c.fill(); c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.moveTo(14, -32); c.lineTo(4, -8); c.lineTo(26, -8); c.closePath(); c.fill(); c.beginPath(); c.moveTo(-26, -8); c.lineTo(26, -8); c.stroke(); };
+    if (GEMS[name]) gem(GEMS[name]);
+    else if (FRUITS[name]) { const col = FRUITS[name]; glow(name === "Heaven's Fruit" ? 'rgba(255,255,180,.4)' : 'rgba(255,255,255,.1)'); circ(-10, 8, 22, col); circ(10, 8, 22, col); c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(-16, 0, 6, 10, .5, 0, TAU); c.fill(); c.beginPath(); c.moveTo(0, -12); c.quadraticCurveTo(2, -30, 10, -34); c.stroke(); poly([[6, -26], [24, -34], [20, -18]], '#4caf50'); }
+    else switch (name) {
+      case 'Energy Drink': glow('rgba(150,255,60,.35)'); for (const dx of [-21, 21]) { box(dx - 15, -34, 30, 70, '#22282a'); box(dx - 15, -34, 30, 10, '#9aa'); box(dx - 15, 6, 30, 14, '#9be83a'); } break;
+      case 'Giant Safe': box(-34, -34, 68, 68, '#7d8892'); box(-26, -26, 52, 52, '#a5b0ba'); circ(0, 0, 16, '#ddd'); circ(0, 0, 5, '#555'); c.beginPath(); c.moveTo(0, 0); c.lineTo(10, -10); c.stroke(); box(-30, 34, 12, 6, '#444'); box(18, 34, 12, 6, '#444'); break;
+      case 'Relativity Clock': circ(0, 2, 34, '#f4ead0'); circ(0, 2, 28, '#fffaf0'); circ(0, -38, 8, '#c98a1a'); for (let q = 0; q < 12; q++) { const a = q * Math.PI / 6; c.beginPath(); c.moveTo(Math.sin(a) * 22, 2 - Math.cos(a) * 22); c.lineTo(Math.sin(a) * 26, 2 - Math.cos(a) * 26); c.stroke(); } c.beginPath(); c.moveTo(0, 2); c.lineTo(0, -18); c.moveTo(0, 2); c.lineTo(14, 8); c.stroke(); break;
+      case 'Smart Material Wall': for (let r = 0; r < 4; r++) for (let q = 0; q < 3; q++) box(-36 + q * 24 + (r % 2 ? 12 : 0), -34 + r * 18, 24, 18, r % 2 ? '#8aa0b8' : '#6f88a4'); break;
+      case 'Super Register': box(-34, 0, 68, 30, '#c0392b'); poly([[-30, 0], [-22, -22], [22, -22], [30, 0]], '#d9534f'); box(-18, -34, 36, 12, '#fff3d6'); box(-26, 6, 52, 8, '#ffd24a'); circ(0, 20, 4, '#ffd24a'); break;
+      case 'Legendary Cat Shield': poly([[-30, -32], [30, -32], [30, 0], [0, 38], [-30, 0]], '#4a7fd0'); poly([[-22, -24], [22, -24], [22, -2], [0, 28], [-22, -2]], '#ffd24a'); c.beginPath(); c.moveTo(0, -24); c.lineTo(0, 28); c.moveTo(-22, -8); c.lineTo(22, -8); c.stroke(); break;
+      case 'Legendary Cat Sword': c.save(); c.rotate(.6); poly([[-6, -40], [6, -40], [8, 14], [-8, 14]], '#dfe8f0'); box(-20, 14, 40, 8, '#ffd24a'); box(-5, 22, 10, 18, '#8a4a1a'); c.restore(); break;
+      case 'Energy Core': glow('rgba(80,200,255,.35)'); circ(0, 0, 24, '#5ad0ff'); circ(0, 0, 12, '#e8fbff'); c.beginPath(); c.ellipse(0, 0, 38, 12, .5, 0, TAU); c.stroke(); break;
+      case 'Turbo Machine': c.beginPath(); for (let q = 0; q < 16; q++) { const a = q * Math.PI / 8, r = q % 2 ? 26 : 38; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.fillStyle = '#9aa4ae'; c.fill(); c.stroke(); circ(0, 0, 14, '#ff8a30'); circ(0, 0, 5, '#333'); break;
+      case 'Management Bible': box(-26, -34, 52, 68, '#7a3a8a'); box(-26, -34, 8, 68, '#552a66'); c.fillStyle = '#ffd24a'; c.fillRect(-4, -22, 20, 4); c.fillRect(4, -30, 4, 20); c.fillRect(-4, 4, 22, 4); break;
+      case 'Ancient Tablet': poly([[-26, 36], [-26, -16], [-14, -34], [14, -34], [26, -16], [26, 36]], '#9a9078'); c.fillStyle = '#5a5240'; for (let r = 0; r < 4; r++) c.fillRect(-16, -14 + r * 12, 32 - (r % 2) * 10, 4); break;
+      case 'Mysterious Force': glow('rgba(170,90,255,.35)'); c.lineWidth = 6; c.strokeStyle = '#a050ff'; c.beginPath(); for (let q = 0; q < 40; q++) { const a = q * .3, r = 4 + q * .85; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.stroke(); break;
+      case 'Cosmic Energy': c.beginPath(); for (let q = 0; q < 16; q++) { const a = q * Math.PI / 8 - 1.57, r = q % 2 ? 14 : 40; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.fillStyle = '#ffe56a'; c.fill(); c.stroke(); circ(0, 0, 11, '#fff'); break;
+      case 'Time Machine': circ(0, 0, 34, '#5a6a8a'); circ(0, 0, 26, '#cfe8ff'); c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -18); c.moveTo(0, 0); c.lineTo(-12, 8); c.stroke(); poly([[22, -34], [38, -22], [20, -20]], '#ffd24a'); break;
+      case 'Future Tech': box(-24, -24, 48, 48, '#2a8a5a'); box(-12, -12, 24, 24, '#1a1a1a'); c.fillStyle = '#ccc'; for (const q of [-1, 1]) for (const r of [-18, -6, 6, 18]) { c.fillRect(q * 30 - 6, r - 2, 12, 4); c.fillRect(r - 2, q * 30 - 6, 4, 12); } break;
+      case 'Dark Matter': glow('rgba(140,60,255,.45)'); circ(0, 0, 26, '#0a0612'); c.strokeStyle = '#a060ff'; c.beginPath(); c.arc(0, 0, 18, 3.6, 5.2); c.stroke(); break;
+      case 'Neutrino': c.beginPath(); c.ellipse(0, 0, 36, 14, .5, 0, TAU); c.stroke(); c.beginPath(); c.ellipse(0, 0, 36, 14, -.5, 0, TAU); c.stroke(); circ(0, 0, 12, '#9ff'); circ(-26, 14, 5, '#fff'); circ(26, -14, 5, '#fff'); break;
+      case 'Mystery Mask': poly([[-28, -26], [28, -26], [24, 10], [0, 36], [-24, 10]], '#f4ead0'); c.fillStyle = '#111'; c.beginPath(); c.ellipse(-12, -6, 7, 5, .3, 0, TAU); c.ellipse(12, -6, 7, 5, -.3, 0, TAU); c.fill(); c.beginPath(); c.moveTo(-10, 14); c.quadraticCurveTo(0, 22, 10, 14); c.stroke(); break;
+      default: gem('#ffd24a');
+    }
+    c.restore();
+  }
   function drawTreasure(c) {
     if (Object.keys(S.treasure).some(k => (S.treasure[k] || 0) > ((S.tSeen && S.tSeen[k]) || 0))) { S.tSeen = Object.assign({}, S.treasure); persist(); } // viewing clears the hub badge
     gingham(c, '#f8eecb', 'rgba(214,170,60,.13)');
@@ -6359,8 +6394,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     sets.forEach((x, k) => {
       const st = TREASURE_STATS[x.stat], v = setValue(S, G.tsec, x), bx = 24 + (k % 6) * 207, by = 114 + Math.floor(k / 6) * 56, on = k === G.tset;
       rr(c, bx, by, 199, 50, 9, on ? '#fff' : '#fff3d6', on ? '#7a2fd0' : OUT, on ? 4 : 2);
-      fitText(c, x.name + '  ' + gotOf(x) + '/' + x.n, bx + 8, by + 14, 183, 13, '#7c5432', 'left');
-      fitText(c, v > 0 ? st.fmt(v) : 'none yet', bx + 8, by + 34, 183, 14, v > 0 ? '#2c7a72' : '#a89c8e', 'left');
+      c.globalAlpha = gotOf(x) ? 1 : .45; setIcon(c, x.name, bx + 26, by + 25, 19); c.globalAlpha = 1;
+      fitText(c, x.name + '  ' + gotOf(x) + '/' + x.n, bx + 52, by + 14, 140, 13, '#7c5432', 'left');
+      fitText(c, v > 0 ? st.fmt(v) : 'none yet', bx + 52, by + 34, 140, 14, v > 0 ? '#2c7a72' : '#a89c8e', 'left');
       hit(bx, by, 199, 50, () => { G.tset = k; G.tmed = null; sfx('click'); });
     });
     // the chosen set: a title with its power, a banner, and one medal per stage
@@ -6373,7 +6409,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     text(c, X.name, PX + PW / 2 - 70, PY + 30, 26, '#fff', 'center', '#000', HEAD); text(c, 'Power: ' + pw + '%', PX + PW / 2 + 130, PY + 30, 26, '#ffd24a', 'center', '#000', HEAD);
     const gl = c.createRadialGradient(PX + PW / 2, PY + 130, 10, PX + PW / 2, PY + 130, 120); gl.addColorStop(0, XV > 0 ? 'rgba(160,255,60,.55)' : 'rgba(255,255,255,.12)'); gl.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = gl; c.fillRect(PX + PW / 2 - 130, PY + 40, 260, 180);
-    c.globalAlpha = XV > 0 ? 1 : .4; chestIcon(c, PX + PW / 2, PY + 130, 3); c.globalAlpha = 1;
+    c.globalAlpha = XV > 0 ? 1 : .4; setIcon(c, X.name, PX + PW / 2, PY + 124, 62); c.globalAlpha = 1;
     rr(c, PX + 4, PY + 176, PW - 8, 78, 0, 'rgba(0,0,0,.72)', null);
     text(c, XV > 0 ? 'Activated!' : 'Not activated yet', PX + PW / 2, PY + 202, 26, '#fff', 'center', '#000', HEAD);
     fitText(c, XV > 0 ? XS.fmt(XV) : 'Find treasures from stages ' + (X.first + 1) + '-' + (X.last + 1), PX + PW / 2, PY + 234, PW - 40, 20, '#fff', 'center');
@@ -6648,7 +6684,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-1509';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-1526';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
