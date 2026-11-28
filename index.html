@@ -61,11 +61,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   const UNITS = {
     bun:       { name: 'Bun Buddy',    desc: 'Cheap and quick to recharge. Spam it to stall pests.', role: 'swarm',      cost: 50,   hp: 110,  dmg: 22,  range: 44,  speed: 58,  windup: 0.27, interval: 1.23,  recharge: 2,   kb: 3, r: 20, h: 50,  up: 60,  unlock: 0, back: 0.33 },
     loaf:      { name: 'Stout Loaf',   desc: 'Tough defense. A cheap wall that soaks up hits.', role: 'tank',         cost: 100,  hp: 520,  dmg: 13,   range: 44,  speed: 44,  windup: 0.27,  interval: 2.23,  recharge: 4.5, kb: 1, r: 26, h: 76,  up: 80,  unlock: 0, area: true, back: 0.27 },
-    pretzel:   { name: 'Twist',        desc: 'Close-range hitter. Big damage for its price.', role: 'attacker',                 cost: 190,  hp: 270,  dmg: 56,  range: 44,  speed: 64,  windup: 0.27, interval: 0.9,  recharge: 4,   kb: 3, r: 20, h: 66,  up: 110, unlock: 1, back: 0.27 },
-    baguette:  { name: 'Lancette',     desc: 'Long reach but a slow swing. Pokes crowds from behind your wall.', role: 'ranged',     cost: 340,  hp: 340,  dmg: 157,  range: 150, speed: 48,  windup: 0.27, interval: 4.23,  recharge: 10,   kb: 3, r: 18, h: 104, up: 140, unlock: 2, area: true, back: 0.27 },
-    muffin:    { name: 'Berry Bomber', desc: 'Very long range but fragile. Keep it behind a wall.', role: 'sniper',         cost: 420,  hp: 210,  dmg: 207, range: 200, speed: 40,  windup: 0.33,  interval: 4.3,  recharge: 11,   kb: 4, r: 22, h: 66,  up: 160, unlock: 3, proj: 'berry', back: 0.13 },
-    croissant: { name: 'Dash Roll',    desc: 'Very fast. Rushes in and shreds crowds; low health.', role: 'rusher',             cost: 380,  hp: 400,  dmg: 25,  range: 48,  speed: 120, windup: 0.2, interval: 0.33,  recharge: 8,   kb: 4, r: 24, h: 50,  up: 160, unlock: 4, area: true, back: 0.13 },
-    donut:     { name: 'Glaze Mage',   desc: 'Long-range sprinkle blasts that hit groups. Fragile.', role: 'ranged', cost: 700,  hp: 440,  dmg: 60, range: 190, speed: 38,  windup: 0.33,  interval: 1.63,  recharge: 20,  kb: 2, r: 26, h: 78,  up: 220, unlock: 6, area: true, hover: 10, back: 0.13 },
+    pretzel:   { name: 'Twist',        desc: 'Close-range hitter. Big damage for its price.', role: 'attacker',                 cost: 200,  hp: 270,  dmg: 56,  range: 44,  speed: 64,  windup: 0.27, interval: 0.9,  recharge: 4,   kb: 3, r: 20, h: 66,  up: 110, unlock: 1, back: 0.27 },
+    baguette:  { name: 'Lancette',     desc: 'Long reach but a slow swing. Pokes crowds from behind your wall.', role: 'ranged',     cost: 400,  hp: 340,  dmg: 157,  range: 150, speed: 48,  windup: 0.27, interval: 4.23,  recharge: 10,   kb: 3, r: 18, h: 104, up: 140, unlock: 2, area: true, back: 0.27 },
+    muffin:    { name: 'Berry Bomber', desc: 'Very long range but fragile. Keep it behind a wall.', role: 'sniper',         cost: 1000,  hp: 210,  dmg: 207, range: 200, speed: 40,  windup: 0.33,  interval: 4.3,  recharge: 11,   kb: 4, r: 22, h: 66,  up: 160, unlock: 3, proj: 'berry', back: 0.13 },
+    croissant: { name: 'Dash Roll',    desc: 'Very fast. Rushes in and shreds crowds; low health.', role: 'rusher',             cost: 500,  hp: 400,  dmg: 25,  range: 48,  speed: 120, windup: 0.2, interval: 0.33,  recharge: 8,   kb: 4, r: 24, h: 50,  up: 160, unlock: 4, area: true, back: 0.13 },
+    donut:     { name: 'Glaze Mage',   desc: 'Long-range sprinkle blasts that hit groups. Fragile.', role: 'ranged', cost: 650,  hp: 440,  dmg: 60, range: 190, speed: 38,  windup: 0.33,  interval: 1.63,  recharge: 20,  kb: 2, r: 26, h: 78,  up: 220, unlock: 6, area: true, hover: 10, back: 0.13 },
     cake:      { name: 'Grand Gateau', desc: 'Huge health and damage. Pricey, slow to recharge.', role: 'heavy',     cost: 1300, hp: 2900, dmg: 266, range: 90,  speed: 26,  windup: 0.6,  interval: 2.23,  recharge: 38,  kb: 1, r: 50, h: 170, up: 320, unlock: 8, area: true, back: 0.27 },
     // ---- gacha units (unlock: 99 = never unlocked by stage; owned only via the gacha) ----
     cookie:    { name: 'Chip Cookie',   desc: 'Very cheap and fast. Nibbles down Black pests.', role: 'swarm',       cost: 70,   hp: 160,  dmg: 24,  range: 44,  speed: 90,  windup: .2,  interval: .8,   recharge: 3,   kb: 3, r: 18, h: 44,  up: 70,  unlock: 99, gacha: true, rarity: 'R' },
@@ -664,9 +664,14 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // gentle bad-luck protection on top of the Battle Cats rates: this many draws in a row without a Super Rare (or better) / Uber Rare (or better) guarantees one
   const PITY_SR = 12, PITY_UR = 60;
   const SUGAR_FIRST = [30, 50, 80], SUGAR_SPECIAL = 50, SUGAR_PULL = 150;            // per first clear (by section) / legend stage / per gacha draw
+  const BATTLE_ITEMS = ['radar', 'rich', 'speed', 'cpu', 'sniper', 'jobs'];   // Battle Cats' six battle items: tick the ones to use on the stage screen; each is used up when the battle starts
   const SHOP_ITEMS = {
-    radar: { name: 'Treasure Radar', price: 300, desc: 'Your next win on a stage finds its treasure at Superior.' },
-    rich:  { name: 'Rich Bun',       price: 100, desc: 'Your next battle starts with +1500 dough.' },
+    radar: { name: 'Treasure Radar', price: 300, desc: 'Next win: Superior treasure.' },
+    rich:  { name: 'Rich Bun',       price: 100, desc: 'Start with Oven Heat at max.' },
+    speed: { name: 'Speed Up',       price: 60,  desc: 'Double speed, one battle.' },
+    cpu:   { name: 'Cat CPU',        price: 80,  desc: 'Fights for you, one battle.' },
+    sniper: { name: 'Sniper the Cat', price: 150, desc: 'Shoots the nearest pest.' },
+    jobs:  { name: 'Cat Jobs',       price: 120, desc: '+50% crumbs from your next win.' },
     grain: { name: 'Golden Grain',   price: 250, desc: 'One Golden Grain for a True Form of that rarity.', instant: true },
     cherry: { name: 'Golden Cherry', price: 120, desc: 'One level past Lv30 for a baker of that rarity.', instant: true },
     orb:   { name: 'Orb Capsule',    price: 200, desc: 'One random Talent Orb (Attack or Defense, any pest colour).', instant: true },
@@ -1816,6 +1821,12 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (RNG() < .5) burst(B, p.x - 20, GROUND_Y + 8, 1, '#e8d8b8', 90);
       if (p.x >= Math.min(B.eEdge - 10, B.pEdge + (B.pinReach || 1e9))) { burst(B, p.x, GROUND_Y - 30, 16, '#d9a05a', 300); B.pin = null; }
     }
+    if (B.sniper && !B.over) {   // Sniper the Cat: every few seconds he shoots the pest nearest the oven
+      const sn = B.sniper; sn.t -= dt;
+      if (sn.t <= 0) { let tg = null; for (const e of B.units) if (e.side < 0 && e.hp > 0 && e.state !== 'corpse' && targetable(e) && e.x - B.pEdge < 1000 && (!tg || e.x < tg.x)) tg = e;
+        if (!tg) sn.t = .4; else { sn.t = 6; sn.shot = .25; sn.tx = tg.x; hitFoe(B, PIN_SRC, tg, sn.dmg, 'snipe'); if (tg.hp > 0 && !immune(tg, 'kb')) startKb(tg, tg.def.boss ? 60 : 150); B.rings.push({ x: tg.x, y: GROUND_Y - 40, r0: 8, r1: 70, t: 0, dur: .3, color: 'rgba(255,230,120,' }); burst(B, tg.x, GROUND_Y - 40, 10, '#ffe27a', 220); sfx('pin'); } }
+      if (sn.shot > 0) sn.shot -= dt;
+    }
     B.units = B.units.filter(u => !u.dead);
   }
   // =====================================================================
@@ -2804,8 +2815,11 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (isSpecial(i) && i < TOWER_BASE && stageOf(i).kind === 'daily') applyDaily();
     const lim = stageOf(i).limit;
     if (lim && !picked) { G.pick = { idx: i, n: lim, sel: lineupOf(S).filter(Boolean).slice(0, lim) }; sfx('click'); return; }   // trials: choose which bakers fight first
-    G.auto = !!S.cpu; G.battle = newBattle(i, S, picked ? lineupOf(S).map(id => (id && picked.includes(id) ? id : null)) : null); G.cam = 0;
-    if (S.items && S.items.rich > 0) { S.items.rich--; G.battle.money = Math.min(G.battle.money + 1500, 99999); persist(); toast('Rich Bun used: +1500 dough!'); } G.zoom = 1; if (G.screen !== 'battle') { const j = HIST.lastIndexOf(G.screen); if (j >= 0) HIST.length = j; pushHist(G.screen); } G.screen = 'battle'; G.paused = false; G.result = null; G.acc = 0; sfx('up');
+    G.auto = false; G.battle = newBattle(i, S, picked ? lineupOf(S).map(id => (id && picked.includes(id) ? id : null)) : null); G.cam = 0;
+    { const B2 = G.battle, used = []; B2.items = {}; for (const k of BATTLE_ITEMS) if (G.itemSel && G.itemSel[k] && S.items && S.items[k] > 0) { S.items[k]--; B2.items[k] = 1; used.push(SHOP_ITEMS[k].name); }
+      if (B2.items.rich) B2.wallet = 8; if (B2.items.cpu) G.auto = true; if (B2.items.sniper) B2.sniper = { t: 3, dmg: Math.max(1, Math.round(B2.pinDmg * .6)) };
+      if (used.length) { persist(); toast('Used: ' + used.join(', ')); } }
+    G.speed = 1; G.zoom = 1; if (G.screen !== 'battle') { const j = HIST.lastIndexOf(G.screen); if (j >= 0) HIST.length = j; pushHist(G.screen); } G.screen = 'battle'; G.paused = false; G.result = null; G.acc = 0; sfx('up');
   }
   // Rare Tickets from a win. They are rare on purpose (steady sources: Missions, the daily mission, User Rank and Expeditions):
   //   first clear of a map's last stage: 1 ticket (+1 per section);  any other first clear: 15% for 1;  a repeat win: 5% for 1;
@@ -2844,8 +2858,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       if (!isSpecial(i)) { S.clears = S.clears || {}; crumbs = Math.round(crumbs * clearMul(S, i) / 10) * 10; S.clears[i] = (S.clears[i] || 0) + 1; }   // replays pay less, like Battle Cats
     } else crumbs = 20 + Math.round(stageReward(i) * .2 * (1 - B.ebase.hp / B.ebase.maxHp));
     crumbs = Math.round(crumbs * (1 + treasureBonus(S, 'crumbs') + .05 * (baseLv(S, 'study') - 1)));
+    if (win && B.items && B.items.jobs) crumbs = Math.round(crumbs * 1.5 / 10) * 10;   // Cat Jobs: +50% XP
     let treasure = null;
-    if (win && S.items && S.items.radar > 0 && !isSpecial(i) && (S.treasure[i] || 0) < 3) { const old = S.treasure[i] || 0; S.items.radar--; S.treasure[i] = 3; treasure = { i, grade: 3, old, upgraded: true, radar: true }; }
+    if (win && B.items && B.items.radar && !isSpecial(i) && (S.treasure[i] || 0) < 3) { const old = S.treasure[i] || 0; S.treasure[i] = 3; treasure = { i, grade: 3, old, upgraded: true, radar: true }; }
     else if (win) treasure = rollTreasure(S, i, first);
     // Talent Orb drop (not on legend stages; Section 1 only from Map 3 on)
     let orb = null;
@@ -3093,10 +3108,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.fillStyle = 'rgba(30,20,12,.82)'; c.fillRect(0, 0, VW, TOP);
     if (B.live) btn(c, 10, 8, 108, 34, 'Quit', lvQuit, { r: 9, size: 18, color: '#ffb3a8' });
     if (!B.live) btn(c, 10, 8, 44, 34, G.paused ? '▶' : 'II', () => { G.paused = !G.paused; sfx('click'); }, { r: 9, size: 18, color: '#f3d49a' });
-    if (!B.live) btn(c, 62, 8, 56, 34, 'x' + G.speed, () => { G.speed = G.speed === 1 ? 2 : 1; sfx('click'); }, { r: 9, size: 18, color: G.speed > 1 ? '#ff9d5c' : '#f3d49a' });
+    if (!B.live) btn(c, 62, 8, 56, 34, 'x' + G.speed, () => { if (!(B.items && B.items.speed)) { sfx('deny'); toast('Double speed needs the Speed Up item (Shop).'); return; } G.speed = G.speed === 1 ? 2 : 1; sfx('click'); }, { r: 9, size: 18, color: G.speed > 1 ? '#ff9d5c' : B.items && B.items.speed ? '#f3d49a' : '#a99a85' });
     btn(c, 126, 8, 44, 34, S.muted ? '✕' : '♪', () => { S.muted = !S.muted; persist(); }, { r: 9, size: 18, color: '#f3d49a' });
     // Cat CPU (Battle Cats' auto-battle item): plays the battle for you while switched on. You can still deploy by hand.
-    if (!B.live) btn(c, 178, 8, 72, 34, G.auto ? 'CPU ON' : 'CPU', () => { G.auto = !G.auto; S.cpu = G.auto; persist(); sfx('click'); toast(G.auto ? 'Cat CPU on: it will fight for you.' : 'Cat CPU off.'); }, { r: 9, size: 14, color: G.auto ? '#9be37a' : '#f3d49a' });
+    if (!B.live) btn(c, 178, 8, 72, 34, G.auto ? 'CPU ON' : 'CPU', () => { if (!(B.items && B.items.cpu)) { sfx('deny'); toast('Cat CPU is an item: buy it in the Shop and tick it on the stage screen.'); return; } G.auto = !G.auto; sfx('click'); toast(G.auto ? 'Cat CPU on: it will fight for you.' : 'Cat CPU off.'); }, { r: 9, size: 14, color: G.auto ? '#9be37a' : B.items && B.items.cpu ? '#f3d49a' : '#a99a85' });
     // minimap
     const mx = 470, mw = 420, my = 17, mh = 18, k = mw / B.len;
     rr(c, mx, my, mw, mh, 6, 'rgba(255,255,255,.12)', null);
@@ -3280,16 +3295,21 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       btn(c, 1226, 106, 44, 34, '−', () => setZoom(G.zoom / 1.2), { r: 9, size: 24, color: 'rgba(243,212,154,.92)' });
     }
     if (G.result) {
-      const r = G.result, p = overlayPanel(c, 560, (r.unlocked.length ? 460 : 370) + (r.treasure ? 46 : 0) + (r.orb ? 46 : 0));
-      text(c, r.draw ? 'DRAW' : r.win ? 'VICTORY!' : 'BURNT OUT...', 640, p.y + 62, 54, r.win ? '#e2483a' : '#6d5f50', 'center', OUT, HEAD);
-      // headline under VICTORY: an unlock (new section / new map) gets its own red line, with the usual note underneath
-      const sub = r.pvp ? (r.pvp.desync ? 'The two devices disagreed, so this match does not count.' : r.pvp.casual ? 'Casual match: no rating change.' : r.pvp.conflict ? 'The two reports disagreed: no rating change.' : r.pvp.waiting ? 'Waiting for the other player to report…' : r.draw ? 'Draw: no rating change.' : r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear bonus  ×2' : 'Stage cleared again') : 'The pests reached your oven.';
+      // Like Battle Cats: the battlefield stays visible, a dark band runs across it, big white title, the winnings in gold, and a wide Ok
+      const r = G.result, p = { x: 360, y: 0 };
+      c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(0, 0, VW, VH);
+      text(c, r.draw ? 'Draw' : r.win ? (isSpecial(B.idx) ? 'Trial Complete!' : 'Stage Complete!') : 'Burnt Out...', 640, 150, 78, '#fff', 'center', '#000', HEAD);
+      { const bg2 = c.createLinearGradient(0, 196, 0, 262); bg2.addColorStop(0, 'rgba(8,12,48,.82)'); bg2.addColorStop(1, 'rgba(24,10,60,.82)'); c.fillStyle = bg2; c.fillRect(0, 196, VW, 66);
+        c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(0, 196, VW, 2); c.fillRect(0, 260, VW, 2); }
+      if (r.win && r.first) text(c, 'FIRST CLEAR', 690, 207, 13, '#6ab8ff', 'left', '#000', HEAD);
+      text(c, r.pvp ? 'Rating' : 'Crumbs', 520, 232, 30, '#fff', 'center', '#000', HEAD);
+      crumbIcon(c, 650, 232, 18); text(c, r.pvp && r.pvp.rating != null ? String(r.pvp.rating) : String(r.crumbs), 690, 233, 44, '#ffd23a', 'left', '#5a3a00', HEAD);
+      const sub = r.pvp ? (r.pvp.desync ? 'The two devices disagreed, so this match does not count.' : r.pvp.casual ? 'Casual match: no rating change.' : r.pvp.conflict ? 'The two reports disagreed: no rating change.' : r.pvp.waiting ? 'Waiting for the other player to report…' : r.draw ? 'Draw: no rating change.' : r.pvp.err ? 'Could not post the result.' : r.pvp.rating != null ? 'Rating ' + r.pvp.rating + (r.pvp.cooldown ? '  (same fight within 30 min: no change)' : '  (' + (r.pvp.delta >= 0 ? '+' : '') + r.pvp.delta + ')') : 'Posting the result…') : r.win ? (r.dailyScore ? 'Daily score ' + r.dailyScore + (LB.me && apiBase() ? '  ·  posted to the leaderboard' : '  ·  join the Leaderboards (Menu) to post it') : r.first ? 'First clear!' : 'Stage cleared again') : 'The pests reached your oven.';
       const unlock = r.newSec >= 0 ? 'SECTION ' + (r.newSec + 1) + ' UNLOCKED: ' + SECTIONS[r.newSec].name + '  ·  Lv cap ' + lvCap(S) : r.newMap >= 0 ? 'NEW MAP UNLOCKED: ' + MAPS[r.newMap].name + ' (' + MAPS[r.newMap].diff + ')' : '';
-      if (unlock) { fitText(c, unlock, 640, p.y + 106, 500, 20, '#c8102e', 'center'); text(c, sub, 640, p.y + 132, 15, '#7c5432', 'center'); }
-      else text(c, sub, 640, p.y + 118, 20, '#7c5432', 'center');
-      crumbIcon(c, 578, p.y + 168, 17); text(c, '+' + r.crumbs + ' crumbs', 604, p.y + 170, 32, OUT);
-      if (r.tickets || tierSum(r.grain) || r.sugar || r.nt || r.np || tierSum(r.cherry)) fitText(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.np ? '+' + r.np + ' NP' : '', tierSum(r.grain) ? '+' + tierWords(r.grain, 'Golden Grain', 'Golden Grain') : '', tierSum(r.cherry) ? '+' + tierWords(r.cherry, 'Golden Cherry', 'Golden Cherries') : ''].filter(Boolean).join('   ·   '), 640, p.y + 212, 520, 22, '#7a3fa0', 'center');
-      let yy = p.y + 245;
+      text(c, sub, 640, 288, 20, '#fff', 'center', '#000');
+      if (unlock) fitText(c, unlock, 640, 318, 700, 22, '#ff8a7a', 'center');
+      if (r.tickets || tierSum(r.grain) || r.sugar || r.nt || r.np || tierSum(r.cherry)) fitText(c, [r.tickets ? '+' + r.tickets + ' Rare Ticket' + (r.tickets > 1 ? 's' : '') : '', r.nt ? '+' + r.nt + ' Normal Ticket' + (r.nt > 1 ? 's' : '') : '', r.sugar ? '+' + r.sugar + ' Sugar Cubes' : '', r.np ? '+' + r.np + ' NP' : '', tierSum(r.grain) ? '+' + tierWords(r.grain, 'Golden Grain', 'Golden Grain') : '', tierSum(r.cherry) ? '+' + tierWords(r.cherry, 'Golden Cherry', 'Golden Cherries') : ''].filter(Boolean).join('   ·   '), 640, unlock ? 348 : 322, 700, 22, '#d8b8ff', 'center');
+      let yy = (unlock ? 372 : 348) - 0;
       if (r.treasure) {
         const t = setOfStage(secOf(r.treasure.i), baseOf(r.treasure.i)), g = TREASURE_GRADES[r.treasure.grade];
         rr(c, p.x + 60, yy - 6, 440, 38, 12, r.treasure.upgraded ? '#2b1a0e' : 'rgba(58,36,22,.12)', g.color, 3);
@@ -3311,19 +3331,19 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         portrait(c, id, p.x + 120, yy + 80, 70, { walk: G.time * 7, pose: 0, hurt: false, t: G.time });
         text(c, 'NEW BAKER!', p.x + 180, yy + 30, 16, '#2c7a72'); text(c, UNITS[id].name, p.x + 180, yy + 58, 28, OUT); yy += 104;
       }
-      // Next: the following stage, or (after a section's last stage) the next section's first stage once it is open
+
       const lastOfSec = !isSpecial(B.idx) && baseOf(B.idx) === STAGES.length - 1, nextSec = secOf(B.idx) + 1;
       const towerNext = r.win && isSpecial(B.idx) && B.idx >= TOWER_BASE && B.idx - TOWER_BASE < TOWER_MAX ? B.idx + 1 : -1;   // the Heavenly Tower: straight on to the next floor
       const nextIdx = towerNext >= 0 ? towerNext : !r.win || isSpecial(B.idx) ? -1 : !lastOfSec ? B.idx + 1 : nextSec < SECTIONS.length && secOpen(S, nextSec) ? encIdx(nextSec, 0) : -1;
       const hasNext = nextIdx >= 0;
       const backSp = isSpecial(B.idx);                                    // legend stages return to the Legend Stages list
+
       if (inTutorial(B.idx)) {   // first stage not won yet: no way out except trying again
-        btn(c, p.x + 150, yy + 16, 260, 60, 'Retry', () => startBattle(B.idx));
+        btn(c, 460, 600, 360, 76, 'Retry', () => startBattle(B.idx), { color: '#ffd24a', size: 40 });
       } else {
-        // like Battle Cats: a big Ok that goes back to the map (or the Legend Stages list)
-        btn(c, p.x + 30, yy + 16, 280, 64, 'Ok', () => { if (r.pvp && r.pvp.live) G.pvpTab = 'live'; go(r.pvp ? 'pvp' : backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 34 });
-        text(c, r.pvp ? 'back to the Arena' : backSp ? 'back to Legend Stages' : 'back to the map', p.x + 170, yy + 94, 13, '#7c5432', 'center');
-        if (!(r.pvp && r.pvp.live)) btn(c, p.x + 326, yy + 16, 200, 64, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); });
+        // a big Ok that goes back to the map (or the Legend Stages list), like Battle Cats
+        btn(c, 440, 596, 400, 80, 'Ok', () => { if (r.pvp && r.pvp.live) G.pvpTab = 'live'; go(r.pvp ? 'pvp' : backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 48 });
+        if (!(r.pvp && r.pvp.live)) btn(c, 880, 610, 220, 56, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); }, { size: 26 });
       }
     } else if (G.paused) {
       const p = overlayPanel(c, 420, 300);
@@ -3538,7 +3558,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // ---------------- Shop (sugar cubes) ----------------
   function drawStore(c) {
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
-    const ids = Object.keys(SHOP_ITEMS);
+    G.shopTab = G.shopTab || 0;
+    const ids = Object.keys(SHOP_ITEMS).filter(k => (SHOP_ITEMS[k].instant ? 1 : 0) === G.shopTab);
+    [['Battle Items', 0], ['Golden Things & Orbs', 1]].forEach((t, q) => btn(c, 340 + q * 310, 588, 290, 44, t[0], () => { G.shopTab = t[1]; sfx('click'); }, { size: 20, r: 12, color: G.shopTab === t[1] ? '#ffd24a' : '#f3d49a' }));
     ids.forEach((k, q) => {
       const SW = 1200 / ids.length, it = SHOP_ITEMS[k], x = 40 + q * SW + 8, y = 110, w = SW - 16, h = 460, have = (S.items && S.items[k]) || 0, tk = k === 'cherry' || k === 'grain', tt = (G.shopTier && G.shopTier[k]) || 'R', price = tk ? TIER_PRICE[k][tt] : it.price, can = (S.sugar || 0) >= price;
       rr(c, x, y + 6, w, h, 20, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, h, 20, '#fff3d6', '#4a2f12', 4);
@@ -3546,6 +3568,10 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       c.save(); c.beginPath(); c.rect(x + 19, y + 19, w - 38, 184); c.clip(); c.translate(x + w / 2, y + 112);   // nothing may spill out of the picture box
       if (k === 'radar') { for (let r = 70; r > 0; r -= 20) { c.globalAlpha = .25 + (70 - r) / 140; ell(c, 0, 0, r, r, null, '#9be37a', 3); } c.globalAlpha = 1; c.rotate(G.time * 2); line(c, [0, 0, 66, 0], '#9be37a', 4); c.rotate(-G.time * 2); chestIcon(c, 0, 10, 1.1); }
       else if (k === 'rich') { portrait(c, 'bun', 0, 60, 110, { walk: G.time * 3, pose: 0, hurt: false, t: G.time }); for (let q2 = 0; q2 < 5; q2++) doughIcon(c, -70 + q2 * 35, -60 + Math.sin(G.time * 3 + q2) * 6, 12); }
+      else if (k === 'speed') { for (let q2 = 0; q2 < 3; q2++) text(c, '»', -52 + q2 * 52, 20 + Math.sin(G.time * 5 + q2) * 4, 96, q2 === 1 ? '#ffd24a' : '#ff9d5c', 'center', '#4a2f12', HEAD); }
+      else if (k === 'cpu') { rr(c, -52, -50, 104, 90, 14, '#9be37a', '#2b1a0e', 4); rr(c, -36, -34, 72, 44, 8, '#1c2b2a', null); dot(c, -18, -12, 9, G.time % 1 < .5 ? '#fff' : '#9be37a'); dot(c, 18, -12, 9, G.time % 1 < .5 ? '#fff' : '#9be37a'); text(c, 'CPU', 0, 24, 24, '#2b1a0e', 'center', null, HEAD); line(c, [0, -50, 0, -70], '#2b1a0e', 4); dot(c, 0, -74, 7, '#ff7a7a'); }
+      else if (k === 'sniper') { ell(c, 0, 0, 62, 62, null, '#ff7a7a', 5); ell(c, 0, 0, 30, 30, null, '#ff7a7a', 3); line(c, [-80, 0, 80, 0], '#ff7a7a', 3); line(c, [0, -80, 0, 80], '#ff7a7a', 3); dot(c, 0, 0, 6, '#ff7a7a'); }
+      else if (k === 'jobs') { rr(c, -56, -34, 112, 78, 12, '#8a5a2e', '#2b1a0e', 4); rr(c, -22, -52, 44, 22, 8, null, '#2b1a0e', 5); rr(c, -56, -4, 112, 10, 0, '#ffd24a', '#2b1a0e', 2); text(c, '+50%', 0, 22, 26, '#fff', 'center', '#2b1a0e', HEAD); }
       else if (k === 'orb') { ORB_TRAITS.forEach((t, q2) => { const row = q2 < 5 ? 0 : 1, col = row ? q2 - 5 : q2, n2 = row ? ORB_TRAITS.length - 5 : 5;   // two tidy rows, centred, inside the box
         const pitch = Math.min(46, (w - 70) / 5); orbIcon(c, (col - (n2 - 1) / 2) * pitch, Math.sin(G.time * 2 + q2) * 4 + (row ? 34 : -30), Math.min(19, pitch * .42), t + '.' + (q2 % 2 ? 'def' : 'atk')); }); }
       else if (k === 'cherry') { for (const [cx2, cy2] of [[-34, 26], [34, 30]]) { line(c, [cx2, cy2 - 20, 0, -70], '#2c7a3a', 5); dot(c, cx2, cy2, 30, '#8a0a1a'); dot(c, cx2, cy2, 27, '#e2203a'); dot(c, cx2 - 9, cy2 - 10, 7, 'rgba(255,255,255,.55)'); } ell(c, 8, -64, 22, 10, '#4fb04a', '#2c7a3a', 3); }
@@ -3668,12 +3694,15 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       rr(c, x, y + 6, w, h, 16, 'rgba(0,0,0,.35)', null); rr(c, x, y, w, h, 16, g4, can ? '#ffe135' : '#666', 5); rr(c, x + 5, y + 5, w - 10, h - 10, 12, null, '#111', 3);
       text(c, st.attack || 'Attack!', x + w / 2, y + h / 2 + 2, 50, '#fff', 'center', '#111', HEAD);
       hit(x, y, w, h, () => { if (!st.open) { sfx('deny'); toast('Clear the previous stage first.'); return; } st.go(); }); }
-    [['rich', 'Rich Bun', '#ffd24a'], ['radar', 'Treasure Radar', '#9bd0ff']].forEach((it, i) => {
-      const x = 1000 + i * 130, y = 576, nItem = (S.items && S.items[it[0]]) || 0;
-      dot(c, x + 40, y + 24, 26, nItem ? it[2] : '#bdb6a8'); dot(c, x + 40, y + 24, 20, 'rgba(255,255,255,.35)');
-      if (it[0] === 'rich') crumbIcon(c, x + 40, y + 24, 12); else chestIcon(c, x + 40, y + 28, .45);
-      rr(c, x, y + 50, 80, 20, 10, 'rgba(60,60,60,.55)', null); text(c, '×' + nItem, x + 40, y + 60, 14, '#fff', 'center', null, HEAD);
-      hit(x, y, 80, 70, () => toast(SHOP_ITEMS[it[0]].name + ': ' + SHOP_ITEMS[it[0]].desc + (nItem ? ' (used automatically)' : ' Buy it in the Shop.')));
+    // Battle Cats' battle items: tick the ones to use (each is used up when the battle starts)
+    G.itemSel = G.itemSel || {};
+    BATTLE_ITEMS.forEach((k, i) => {
+      const x = 872 + i * 64, y = 568, nItem = (S.items && S.items[k]) || 0, on = nItem > 0 && G.itemSel[k], col = { radar: '#9bd0ff', rich: '#ffd24a', speed: '#ff9d5c', cpu: '#9be37a', sniper: '#ff7a7a', jobs: '#d8a8ff' }[k];
+      dot(c, x + 28, y + 26, 27, on ? '#fff' : '#3a2a1a'); dot(c, x + 28, y + 26, 24, nItem ? col : '#bdb6a8'); dot(c, x + 28, y + 22, 18, 'rgba(255,255,255,.3)');
+      if (k === 'rich') crumbIcon(c, x + 28, y + 26, 11); else if (k === 'radar') chestIcon(c, x + 28, y + 30, .42);
+      else text(c, { speed: '»', cpu: 'AI', sniper: '◎', jobs: '+50' }[k], x + 28, y + 27, k === 'jobs' ? 16 : k === 'cpu' ? 18 : 26, '#2b1a0e', 'center', null, HEAD);
+      rr(c, x + 2, y + 54, 52, 18, 9, on ? '#2c7a3a' : 'rgba(60,60,60,.6)', null); text(c, (on ? '✓ ' : '×') + nItem, x + 28, y + 63, 13, '#fff', 'center', null, HEAD);
+      hit(x, y, 56, 74, () => { if (nItem > 0) { G.itemSel[k] = !G.itemSel[k]; sfx('click'); toast(SHOP_ITEMS[k].name + (G.itemSel[k] ? ' ON: ' : ' off: ') + SHOP_ITEMS[k].desc); } else { sfx('deny'); toast(SHOP_ITEMS[k].name + ': ' + SHOP_ITEMS[k].desc + ' Buy it in the Shop.'); } });
     });
     // top bar
     woodBar(c, 0, 58, true); text(c, 'Stage Select', 26, 29, 34, '#ffd98a', 'left', OUT, HEAD);
@@ -6677,8 +6706,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     if (/^[0-9]$/.test(k)) { const id = lvViewOf(G.battle).roster[(+k + 9) % 10]; if (id) tryDeploy(id); else sfx('deny'); }
     else if (k === 'q' || k === 'w') tryWallet();
     else if (k === ' ') tryPin();
-    else if (k === 'f') G.speed = G.speed === 1 ? 2 : 1;
-    else if (k === 'c' && G.screen === 'battle') { G.auto = !G.auto; S.cpu = G.auto; persist(); }
+    else if (k === 'f') { if (G.battle && G.battle.items && G.battle.items.speed) G.speed = G.speed === 1 ? 2 : 1; }
+    else if (k === 'c' && G.screen === 'battle') { if (G.battle && G.battle.items && G.battle.items.cpu) G.auto = !G.auto; }
     else if (k === '=' || k === '+') setZoom(G.zoom * 1.15);
     else if (k === '-' || k === '_') setZoom(G.zoom / 1.15);
   });
@@ -6732,9 +6761,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-1955';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-2112';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { acctDelete, acctPush, acctPull, explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { spawnFoe, acctDelete, acctPush, acctPull, explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
