@@ -664,7 +664,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   // gentle bad-luck protection on top of the Battle Cats rates: this many draws in a row without a Super Rare (or better) / Uber Rare (or better) guarantees one
   const PITY_SR = 12, PITY_UR = 60;
   const SUGAR_FIRST = [30, 50, 80], SUGAR_SPECIAL = 50, SUGAR_PULL = 150;            // per first clear (by section) / legend stage / per gacha draw
-  const BATTLE_ITEMS = ['radar', 'rich', 'speed', 'cpu', 'sniper', 'jobs'];   // Battle Cats' six battle items: tick the ones to use on the stage screen; each is used up when the battle starts
+  const BATTLE_ITEMS = ['radar', 'rich', 'cpu', 'sniper', 'jobs'];   // (Speed Up is unlimited and always on offer in battle, so it is not a stock item)
+  //   // Battle Cats' six battle items: tick the ones to use on the stage screen; each is used up when the battle starts
   const SHOP_ITEMS = {
     radar: { name: 'Treasure Radar', price: 300, desc: 'Next win: Superior treasure.' },
     rich:  { name: 'Rich Bun',       price: 100, desc: 'Start with Oven Heat at max.' },
@@ -2816,7 +2817,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     const lim = stageOf(i).limit;
     if (lim && !picked) { G.pick = { idx: i, n: lim, sel: lineupOf(S).filter(Boolean).slice(0, lim) }; sfx('click'); return; }   // trials: choose which bakers fight first
     G.auto = false; G.battle = newBattle(i, S, picked ? lineupOf(S).map(id => (id && picked.includes(id) ? id : null)) : null); G.cam = 0;
-    { const B2 = G.battle, used = []; B2.items = {}; for (const k of BATTLE_ITEMS) if (G.itemSel && G.itemSel[k] && S.items && S.items[k] > 0) { S.items[k]--; B2.items[k] = 1; used.push(SHOP_ITEMS[k].name); }
+    { const B2 = G.battle, used = []; B2.items = { speed: 1 }; for (const k of BATTLE_ITEMS) if (G.itemSel && G.itemSel[k] && S.items && S.items[k] > 0) { S.items[k]--; B2.items[k] = 1; used.push(SHOP_ITEMS[k].name); }
       if (B2.items.rich) B2.wallet = 8; if (B2.items.cpu) G.auto = true; if (B2.items.sniper) B2.sniper = { t: 3, dmg: Math.max(1, Math.round(B2.pinDmg * .6)) };
       if (used.length) { persist(); toast('Used: ' + used.join(', ')); } }
     G.speed = 1; G.zoom = 1; if (G.screen !== 'battle') { const j = HIST.lastIndexOf(G.screen); if (j >= 0) HIST.length = j; pushHist(G.screen); } G.screen = 'battle'; G.paused = false; G.result = null; G.acc = 0; sfx('up');
@@ -3108,7 +3109,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     c.fillStyle = 'rgba(30,20,12,.82)'; c.fillRect(0, 0, VW, TOP);
     if (B.live) btn(c, 10, 8, 108, 34, 'Quit', lvQuit, { r: 9, size: 18, color: '#ffb3a8' });
     if (!B.live) btn(c, 10, 8, 44, 34, G.paused ? '▶' : 'II', () => { G.paused = !G.paused; sfx('click'); }, { r: 9, size: 18, color: '#f3d49a' });
-    if (!B.live) btn(c, 62, 8, 56, 34, 'x' + G.speed, () => { if (!(B.items && B.items.speed)) { sfx('deny'); toast('Double speed needs the Speed Up item (Shop).'); return; } G.speed = G.speed === 1 ? 2 : 1; sfx('click'); }, { r: 9, size: 18, color: G.speed > 1 ? '#ff9d5c' : B.items && B.items.speed ? '#f3d49a' : '#a99a85' });
+    if (!B.live) btn(c, 62, 8, 56, 34, 'x' + G.speed, () => { if (!(B.items && B.items.speed)) { sfx('deny'); return; } G.speed = G.speed === 1 ? 2 : 1; sfx('click'); }, { r: 9, size: 18, color: G.speed > 1 ? '#ff9d5c' : B.items && B.items.speed ? '#f3d49a' : '#a99a85' });
     btn(c, 126, 8, 44, 34, S.muted ? '✕' : '♪', () => { S.muted = !S.muted; persist(); }, { r: 9, size: 18, color: '#f3d49a' });
     // Cat CPU (Battle Cats' auto-battle item): plays the battle for you while switched on. You can still deploy by hand.
     if (!B.live) btn(c, 178, 8, 72, 34, G.auto ? 'CPU ON' : 'CPU', () => { if (!(B.items && B.items.cpu)) { sfx('deny'); toast('Cat CPU is an item: buy it in the Shop and tick it on the stage screen.'); return; } G.auto = !G.auto; sfx('click'); toast(G.auto ? 'Cat CPU on: it will fight for you.' : 'Cat CPU off.'); }, { r: 9, size: 14, color: G.auto ? '#9be37a' : B.items && B.items.cpu ? '#f3d49a' : '#a99a85' });
@@ -3342,7 +3343,8 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
         btn(c, 460, 600, 360, 76, 'Retry', () => startBattle(B.idx), { color: '#ffd24a', size: 40 });
       } else {
         // a big Ok that goes back to the map (or the Legend Stages list), like Battle Cats
-        btn(c, 440, 596, 400, 80, 'Ok', () => { if (r.pvp && r.pvp.live) G.pvpTab = 'live'; go(r.pvp ? 'pvp' : backSp ? 'legendmap' : 'map'); }, { color: '#ffd24a', size: 48 });
+        btn(c, 440, 596, 400, 80, 'Ok', () => { if (r.pvp && r.pvp.live) G.pvpTab = 'live'; HIST.length = 0; go(r.pvp ? 'pvp' : 'title'); }, { color: '#ffd24a', size: 48 });
+        if (!r.pvp) btn(c, 1130, 14, 130, 52, 'Map', () => go(backSp ? 'legendmap' : 'map'), { size: 26 });   // like Battle Cats: Ok goes home, the map button (top right) goes back to the stage map
         if (!(r.pvp && r.pvp.live)) btn(c, 880, 610, 220, 56, hasNext ? 'Next ▶' : 'Retry', () => { if (hasNext && secOf(nextIdx) !== secOf(B.idx)) { G.sec = secOf(nextIdx); G.map = null; } startBattle(hasNext ? nextIdx : B.idx); }, { size: 26 });
       }
     } else if (G.paused) {
@@ -3559,7 +3561,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   function drawStore(c) {
     const bg = prepBg(); if (bg) c.drawImage(bg, 0, 0, VW, VH); else { c.fillStyle = '#4c918a'; c.fillRect(0, 0, VW, VH); }
     G.shopTab = G.shopTab || 0;
-    const ids = Object.keys(SHOP_ITEMS).filter(k => (SHOP_ITEMS[k].instant ? 1 : 0) === G.shopTab);
+    const ids = Object.keys(SHOP_ITEMS).filter(k => k !== 'speed' && (SHOP_ITEMS[k].instant ? 1 : 0) === G.shopTab);
     [['Battle Items', 0], ['Golden Things & Orbs', 1]].forEach((t, q) => btn(c, 340 + q * 310, 588, 290, 44, t[0], () => { G.shopTab = t[1]; sfx('click'); }, { size: 20, r: 12, color: G.shopTab === t[1] ? '#ffd24a' : '#f3d49a' }));
     ids.forEach((k, q) => {
       const SW = 1200 / ids.length, it = SHOP_ITEMS[k], x = 40 + q * SW + 8, y = 110, w = SW - 16, h = 460, have = (S.items && S.items[k]) || 0, tk = k === 'cherry' || k === 'grain', tt = (G.shopTier && G.shopTier[k]) || 'R', price = tk ? TIER_PRICE[k][tt] : it.price, can = (S.sugar || 0) >= price;
@@ -6761,7 +6763,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-2112';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1128-1113';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
   if (EXPOSE_HOOK) window.__crumb = { spawnFoe, acctDelete, acctPush, acctPull, explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
