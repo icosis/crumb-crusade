@@ -4751,7 +4751,7 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
     });
     if (L.st === 'ok' && L.me && L.me.rank > 10) text(c, 'You: #' + L.me.rank + ' of ' + L.total + '  ·  ' + fmt(L.me.value), x + w / 2, y + 576, 20, '#fff3d6', 'center', null, HEAD);
     else if (L.st === 'ok') text(c, L.total + ' player' + (L.total === 1 ? '' : 's') + ' on this board', x + w / 2, y + 576, 16, '#b9d4cf', 'center');
-    if (LB.me) baseBtn(c, x + 20, y + h - 76, 220, 56, 'Log out', () => { close(); acctLogout(); }, { size: 26 }); else baseBtn(c, x + 20, y + h - 76, 330, 56, 'Create account / Log in', () => { close(); acctDialog('register'); }, { size: 22 });
+    if (LB.me) { baseBtn(c, x + 20, y + h - 76, 220, 56, 'Log out', () => { close(); acctLogout(); }, { size: 26 }); if (LB.me.acct) baseBtn(c, x + 260, y + h - 76, 260, 56, 'Delete account', () => { close(); acctDialog('delete'); }, { size: 22 }); } else baseBtn(c, x + 20, y + h - 76, 330, 56, 'Create account / Log in', () => { close(); acctDialog('register'); }, { size: 22 });
     baseBtn(c, x + w - 200, y + h - 76, 180, 56, 'Close', close, { size: 26 });
   }
   // =====================================================================
@@ -5105,6 +5105,13 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   async function acctRegister(user, pass) { const key = await acctKey(user, pass), j = await lbCall('POST', '/api/account/register', { username: user, key }); lsSet('cc_acct_synced', null); acctSetMe(j); await acctPush().catch(() => {}); return j; }   // a brand-new account starts with what this device has (a blank game after logging out)
   async function acctLogin(user, pass) { const key = await acctKey(user, pass), j = await lbCall('POST', '/api/account/login', { username: user, key }); lsSet('cc_acct_dirty', null); lsSet('cc_acct_synced', null); acctSetMe(j, true); try { await acctPull(true); } catch (e) { LB.me = null; S.lbMe = null; lbSaveMe(); persist(); throw new Error('Logged in, but the saved game could not be loaded. Check your connection and try again.'); } lbSubmit(true); return j; }   // logging in loads the account's own progress
   async function acctClaim(user, pass) { const key = await acctKey(user, pass), j = await lbCall('POST', '/api/account/claim', { id: LB.me.id, token: LB.me.token, username: user, key }); acctSetMe(j); await acctPush().catch(() => {}); return j; }
+  async function acctDelete(pass) {   // asks the server to remove the account (password required), then this device starts blank
+    const key = await acctKey(LB.me.name, pass); await lbCall('POST', '/api/account/delete', { id: LB.me.id, token: LB.me.token, key });
+    if (ASAVE.timer) { clearTimeout(ASAVE.timer); ASAVE.timer = 0; }
+    if (typeof CLOUD !== 'undefined' && CLOUD.user) { try { CLOUD.fb.auth.signOut(CLOUD.fb.A); } catch (e) { /* ignore */ } setSyncMeta({}); }
+    lvReset(); LB.me = null; lbSaveMe(); lsSet('cc_acct_dirty', null); lsSet('cc_acct_synced', null);
+    S = defaultSave(); persist(); G.sel = 0; G.sec = 0; INB.requests = []; INB.invites = []; INB.friends = null; G.pvpd = null; toast('Account deleted. This device starts from scratch.');
+  }
   async function acctLogout() {
     if (LB.me && LB.me.acct && apiBase()) { try { await Promise.race([acctPush(), new Promise((_, no) => setTimeout(no, 4000))]); } catch (e) { /* offline: the account keeps its last upload */ } }
     if (typeof CLOUD !== 'undefined' && CLOUD.user) { try { CLOUD.fb.auth.signOut(CLOUD.fb.A); } catch (e) { /* ignore */ } setSyncMeta({}); }   // (so Google cloud sync cannot hand the old progress back)
@@ -5131,17 +5138,21 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
       + '<button id="ak" type="button" style="' + bt + 'background:transparent;border-color:transparent;font-size:15px;text-decoration:underline;"></button></form>';
     const $ = id => root.querySelector('#' + id), form = root.querySelector('form'), u = $('au'), p = $('ap'), p2 = $('ap2'), err = $('ae'), go = $('ag');
     const render = () => {
-      $('at').textContent = mode === 'login' ? 'Log in' : mode === 'claim' ? 'Make your account' : 'Create your account';
-      $('as').textContent = mode === 'login' ? 'Welcome back! The progress saved in your account (bakers, levels, crumbs, everything) replaces what is on this device.' : mode === 'claim' ? 'Pick a username and password for the player you already have. Your scores stay.' : 'Pick a username and a password. Everything you earn is saved in this account, and you can log in on any device. Friends find you by your username. There is no way to recover a forgotten password, so remember it.';
-      p2.style.display = mode === 'login' ? 'none' : ''; p.setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
-      go.textContent = mode === 'login' ? 'Log in' : mode === 'claim' ? 'Make my account' : 'Create account';
-      $('aw').textContent = mode === 'login' ? 'New here? Create an account' : 'I already have an account: log in'; $('aw').style.display = mode === 'claim' && LB.me ? 'none' : '';
-      $('ak').textContent = 'Not now'; err.textContent = '';
+      const del = mode === 'delete'; if (del) { u.value = LB.me ? LB.me.name : ''; u.readOnly = true; u.style.opacity = '.6'; p.setAttribute('autocomplete', 'current-password'); }
+      $('at').textContent = del ? 'Delete your account' : mode === 'login' ? 'Log in' : mode === 'claim' ? 'Make your account' : 'Create your account';
+      $('as').textContent = del ? 'This permanently deletes the account "' + (LB.me ? LB.me.name : '') + '": its saved game, scores, friends and rating. This device starts from scratch. It cannot be undone. Type the password to confirm.' : mode === 'login' ? 'Welcome back! The progress saved in your account (bakers, levels, crumbs, everything) replaces what is on this device.' : mode === 'claim' ? 'Pick a username and password for the player you already have. Your scores stay.' : 'Pick a username and a password. Everything you earn is saved in this account, and you can log in on any device. Friends find you by your username. There is no way to recover a forgotten password, so remember it.';
+      p2.style.display = mode === 'login' || del ? 'none' : ''; if (!del) p.setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+      go.textContent = del ? 'Delete my account forever' : mode === 'login' ? 'Log in' : mode === 'claim' ? 'Make my account' : 'Create account';
+      $('aw').textContent = mode === 'login' ? 'New here? Create an account' : 'I already have an account: log in'; $('aw').style.display = (mode === 'claim' && LB.me) || del ? 'none' : '';
+      if (del) go.style.background = 'linear-gradient(#ff8a7a,#d03a2a)';
+      $('ak').textContent = del ? 'Cancel' : 'Not now'; err.textContent = '';
     };
     render();
     const fail = m => { err.textContent = m; };
     form.addEventListener('submit', async ev => {
       ev.preventDefault(); if (ACC.busy) return; const un = u.value.trim(), pw = p.value;
+      if (mode === 'delete') { if (pw.length < 6) return fail('Type your password'); ACC.busy = true; go.disabled = true; go.textContent = 'Please wait…'; err.textContent = '';
+        acctDelete(pw).then(() => { acctClose(); sfx('click'); }).catch(e => { ACC.busy = false; go.disabled = false; render(); fail(String((e && e.message) || e)); }); return; }
       if (!/^[A-Za-z0-9_]{3,16}$/.test(un)) return fail('Username: 3 to 16 letters, numbers or _'); if (pw.length < 6) return fail('Password: at least 6 characters');
       if (mode !== 'login' && pw !== p2.value) return fail('The two passwords do not match');
       ACC.busy = true; go.disabled = true; go.textContent = 'Please wait…'; err.textContent = '';
@@ -6721,9 +6732,9 @@ document.addEventListener('pointerdown', function () { try { screen.orientation.
   G.sel = Math.min(S.cleared, STAGES.length - 1);
   // debug / test handle (used by the automated screen tests)
   // Test handle used by my browser tests. build.ps1 switches it off in the published game, so nobody can edit their save from the console.
-  const BUILD_ID = '1127-1911';   // build.ps1 stamps the build date/time here
+  const BUILD_ID = '1127-1922';   // build.ps1 stamps the build date/time here
   const EXPOSE_HOOK = false;
-  if (EXPOSE_HOOK) window.__crumb = { acctPush, acctPull, explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
+  if (EXPOSE_HOOK) window.__crumb = { acctDelete, acctPush, acctPull, explode, lvConfirm, lvUnconfirm, lvLeave, ACC, INB, acctRegister, acctLogin, acctClaim, acctLogout, acctDialog, acctMaybe, inboxTick, inboxPopup, inboxAnswerInvite, inboxAnswerRequest, friendAdd, friendChallenge, friendRemove, lvCasualCreate, lvCasualJoin, lvRecv, lvMatched, LV, lvFind, lvCancel, lvPump, lvTick, lvDeploy, lvWallet, lvViewOf, lvQuit, lbSyncId, lbTeamSync, pvpKey, pvpLoad, pvpFight, pvpSaveTeam, PVP_IDX, pvpSetOpp, pvpInit, pvpPower, pvpTeamNow, dailyPoints, lbSubmitDaily, dayKey, lbOpen, lbAskName, lbSubmit, lbLoad, LB, artBox, ART_BOX, BANNERS, BANNER_BY, PACK, rollGacha, gachaPull, reorderPlan, fltToggle, fltMatch, fltOn, ABIL_FILTERS, switchTeam, isEvolved, tfAble, totalLv, insertPlan, snapMag, useAllCapsule, FORM_DESC, descOf, carSlider, sliderTo, BUN_LINES, pullMax, normalPull, levelFlash, G, get S() { return S; }, set S(v) { S = v; }, groupUnits, UNIT_ORDER, draw, go, startBattle, finishBattle, openInfo, newBattle, step, autoPlay, STAGES, SPECIALS, FOES, UNITS, encIdx, SP_BASE, defaultSave, doPull, tickBattle, setNoPersist: v => { NO_PERSIST = v; }, setUpsel: id => { UPSEL = id; }, CAR, HIST, goBack, UI, openSaveBox, makeCode, readCode, CLOUD, legendOpen, spOpen, openResetBox, markDirty, loadSave, persist, tutorialTip, deploy, rollTickets, COMBOS, comboTotals, goalsList, towerStage, applyDaily, TOWER_BASE, stageOf, STAGE_TIPS, stageTip, PITY_SR, PITY_UR, gachaPull };
   resize(); draw(); requestAnimationFrame(frame);
   if (HAS_DOM) { const q = Object.keys(UNITS).concat(Object.keys(FOES)).filter(id => ART[id]), idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
     const warm = dl => { while (q.length && dl.timeRemaining() > 6) { const id = q.shift(); try { if (!ART_BOX[id]) artBox(id); } catch (e) {} } if (q.length) idle(warm); }; idle(warm); }
